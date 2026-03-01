@@ -130,7 +130,6 @@ function groupScoreNotes(notes: string[] = []): NoteGroup[] {
       groups.push(current);
     } else {
       if (!current) {
-        // Se vier detalhe sem título, cria um grupo “genérico”
         current = { title: "Detalhes", details: [] };
         groups.push(current);
       }
@@ -147,7 +146,6 @@ function ScoreNoteItem({ g }: { g: NoteGroup }) {
   const showNoDetailsHint = !hasDetails && /total|resumo|overall|sumário/i.test(g.title);
 
   if (!hasDetails) {
-    // ✅ Item simples (sem seta, sem clique)
     return (
       <div className={styles.noteItemStatic}>
         <span className={styles.noteTitle}>{g.title}</span>
@@ -156,7 +154,6 @@ function ScoreNoteItem({ g }: { g: NoteGroup }) {
     );
   }
 
-  // ✅ Item com detalhes (expansível, com seta)
   return (
     <details className={styles.noteItem}>
       <summary className={styles.noteSummary}>
@@ -233,7 +230,7 @@ export default function App() {
   async function handleRescan(item: HistoryItem) {
     setUrl(item.url);
     setActive(item.active);
-    await handleScan(); // usa o scan atual com url/active do state
+    await handleScan();
   }
 
   function sanitizeUrlForFile(url: string) {
