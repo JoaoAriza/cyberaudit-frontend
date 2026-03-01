@@ -63,6 +63,118 @@ function sevClass(sev?: string) {
   return styles.sevINFO;
 }
 
+function PortRow({ p }: { p: any }) {
+  return (
+    <tr>
+      <td colSpan={3}>
+        <details className={styles.portDetails}>
+          <summary className={styles.portSummary}>
+            <span className={styles.portColPort}>{p.port}</span>
+            <span className={styles.portColService}>{p.service}</span>
+
+            <span className={`${styles.sev} ${sevClass(p.severity)}`}>
+              {p.severity}
+            </span>
+          </summary>
+
+          <div className={styles.portBody}>
+            <div>
+              <b>Impacto:</b> {p.impact ?? "—"}
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <b>Recomendação:</b> {p.recommendation ?? "—"}
+            </div>
+
+            {p.evidence && (
+              <div style={{ marginTop: 6 }}>
+                <b>Evidência:</b> {p.evidence}
+              </div>
+            )}
+
+            {(p.latencyMs ?? p.latency) != null && (
+              <div style={{ marginTop: 6 }}>
+                <b>Latência:</b> {p.latencyMs ?? p.latency}ms
+              </div>
+            )}
+          </div>
+        </details>
+      </td>
+    </tr>
+  );
+}
+
+type NoteGroup = { title: string; details: string[] };
+
+function isNoteDetail(line: string) {
+  const t = (line ?? "").trim();
+  return t.startsWith("↳") || t.startsWith("->") || t.startsWith("→");
+}
+
+function cleanNoteDetail(line: string) {
+  return (line ?? "")
+    .trim()
+    .replace(/^↳\s?/, "")
+    .replace(/^(->|→)\s?/, "");
+}
+
+function groupScoreNotes(notes: string[] = []): NoteGroup[] {
+  const groups: NoteGroup[] = [];
+  let current: NoteGroup | null = null;
+
+  for (const raw of notes) {
+    const line = String(raw ?? "").trim();
+    if (!line) continue;
+
+    if (!isNoteDetail(line)) {
+      current = { title: line, details: [] };
+      groups.push(current);
+    } else {
+      if (!current) {
+        // Se vier detalhe sem título, cria um grupo “genérico”
+        current = { title: "Detalhes", details: [] };
+        groups.push(current);
+      }
+      current.details.push(cleanNoteDetail(line));
+    }
+  }
+
+  return groups;
+}
+
+function ScoreNoteItem({ g }: { g: NoteGroup }) {
+  const hasDetails = g.details.length > 0;
+
+  const showNoDetailsHint = !hasDetails && /total|resumo|overall|sumário/i.test(g.title);
+
+  if (!hasDetails) {
+    // ✅ Item simples (sem seta, sem clique)
+    return (
+      <div className={styles.noteItemStatic}>
+        <span className={styles.noteTitle}>{g.title}</span>
+        {showNoDetailsHint && <span className={styles.noteHint}>sem detalhes</span>}
+      </div>
+    );
+  }
+
+  // ✅ Item com detalhes (expansível, com seta)
+  return (
+    <details className={styles.noteItem}>
+      <summary className={styles.noteSummary}>
+        <span className={styles.noteChevron} aria-hidden="true" />
+        <span className={styles.noteTitle}>{g.title}</span>
+      </summary>
+
+      <div className={styles.noteBody}>
+        {g.details.map((d, idx) => (
+          <div key={idx} className={styles.noteDetail}>
+            {d}
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 export default function App() {
   const scanAbortRef = useRef<AbortController | null>(null);
 
@@ -77,7 +189,7 @@ export default function App() {
 
   const HISTORY_UI_KEY = "cyberaudit.history.open.v1";
   const [historyOpen, setHistoryOpen] = useState<boolean>(() => {
-    try{
+    try {
       const v = localStorage.getItem(HISTORY_UI_KEY);
       return v ? JSON.parse(v) : false;
     } catch {
@@ -91,7 +203,7 @@ export default function App() {
       localStorage.setItem(HISTORY_UI_KEY, JSON.stringify(next));
       return next;
     });
-  }
+  };
 
   const riskLevel = result?.score?.riskLevel as string | undefined;
 
@@ -126,10 +238,10 @@ export default function App() {
 
   function sanitizeUrlForFile(url: string) {
     return url
-      .replace(/^https?:\/\//, "")   // remove http/https
-      .replace(/[^\w.-]+/g, "-")     // troca caracteres estranhos
-      .replace(/-+/g, "-")           // evita múltiplos -
-      .replace(/^-|-$/g, "");        // remove - do início/fim
+      .replace(/^https?:\/\//, "")
+      .replace(/[^\w.-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
   }
 
   async function handlePdfFor(item: { url: string; active: boolean }) {
@@ -160,10 +272,7 @@ export default function App() {
 
       const filename = `cyberaudit-${sanitized}-${timestamp}.pdf`;
 
-      downloadBlob(
-        new Blob([res.data], { type: "application/pdf" }),
-        filename
-      );
+      downloadBlob(new Blob([res.data], { type: "application/pdf" }), filename);
     } catch (err: any) {
       console.error(err);
       const msg =
@@ -193,6 +302,7 @@ export default function App() {
       });
 
       setResult(res.data);
+
       const item: HistoryItem = {
         id: makeId(),
         createdAt: new Date().toISOString(),
@@ -213,7 +323,6 @@ export default function App() {
     } catch (err: any) {
       console.error(err);
 
-      // Axios abort
       const aborted =
         err?.name === "CanceledError" ||
         err?.code === "ERR_CANCELED" ||
@@ -270,7 +379,12 @@ export default function App() {
             </div>
 
             <label className={styles.checkboxWrap} title="Ativa probes e port scan (pode demorar mais)">
-              <input type="checkbox" checked={active} disabled={loading} onChange={(e) => setActive(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={active}
+                disabled={loading}
+                onChange={(e) => setActive(e.target.checked)}
+              />
               <span>active</span>
             </label>
 
@@ -286,7 +400,11 @@ export default function App() {
                 Cancel
               </button>
             ) : (
-              <button className={styles.btn} onClick={() => handlePdfFor({ url, active })} disabled={pdfLoading || loading}>
+              <button
+                className={styles.btn}
+                onClick={() => handlePdfFor({ url, active })}
+                disabled={pdfLoading || loading}
+              >
                 {pdfLoading ? "Gerando..." : "PDF"}
               </button>
             )}
@@ -305,85 +423,85 @@ export default function App() {
           {error && <div className={styles.errorBox}>{error}</div>}
         </div>
 
-{history.length > 0 && (
-  <div className={styles.card} style={{ marginTop: 16 }}>
-    <div
-      className={styles.accordionHeader}
-      onClick={toggleHistory}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") toggleHistory();
-      }}
-    >
-      <div className={styles.accordionLeft}>
-        <span className={`${styles.chev} ${historyOpen ? styles.chevOpen : ""}`} />
-        <span>Histórico</span>
-        <span className={styles.badge}>{history.length} itens</span>
-      </div>
+        {history.length > 0 && (
+          <div className={styles.card} style={{ marginTop: 16 }}>
+            <div
+              className={styles.accordionHeader}
+              onClick={toggleHistory}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") toggleHistory();
+              }}
+            >
+              <div className={styles.accordionLeft}>
+                <span className={`${styles.chev} ${historyOpen ? styles.chevOpen : ""}`} />
+                <span>Histórico</span>
+                <span className={styles.badge}>{history.length} itens</span>
+              </div>
 
-      <div className={styles.actionsRight} onClick={(e) => e.stopPropagation()}>
-        <button
-          className={styles.btn}
-          onClick={handleClearHistory}
-          disabled={loading || pdfLoading}
-          title="Limpar histórico"
-        >
-          Limpar
-        </button>
-      </div>
-    </div>
+              <div className={styles.actionsRight} onClick={(e) => e.stopPropagation()}>
+                <button
+                  className={styles.btn}
+                  onClick={handleClearHistory}
+                  disabled={loading || pdfLoading}
+                  title="Limpar histórico"
+                >
+                  Limpar
+                </button>
+              </div>
+            </div>
 
-    {historyOpen && (
-      <div className={styles.accordionBody}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Quando</th>
-              <th>URL</th>
-              <th>Active</th>
-              <th>Score</th>
-              <th>Risk</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {history.map((h) => (
-              <tr key={h.id}>
-                <td>{new Date(h.createdAt).toLocaleString()}</td>
-                <td style={{ maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {h.url}
-                </td>
-                <td>{String(h.active)}</td>
-                <td>{h.score ?? "-"}</td>
-                <td>{h.riskLevel ?? "-"}</td>
-                <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button className={styles.btn} onClick={() => handleOpenHistory(h)} disabled={loading}>
-                    Reabrir
-                  </button>
-                  <button className={styles.btn} onClick={() => handleRescan(h)} disabled={loading}>
-                    Re-scan
-                  </button>
-                  <button
-                    className={styles.btn}
-                    onClick={() => handlePdfFor({ url: h.url, active: h.active })}
-                    disabled={pdfLoading}
-                  >
-                    PDF
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            {historyOpen && (
+              <div className={styles.accordionBody}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Quando</th>
+                      <th>URL</th>
+                      <th>Active</th>
+                      <th>Score</th>
+                      <th>Risk</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((h) => (
+                      <tr key={h.id}>
+                        <td>{new Date(h.createdAt).toLocaleString()}</td>
+                        <td style={{ maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {h.url}
+                        </td>
+                        <td>{String(h.active)}</td>
+                        <td>{h.score ?? "-"}</td>
+                        <td>{h.riskLevel ?? "-"}</td>
+                        <td style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button className={styles.btn} onClick={() => handleOpenHistory(h)} disabled={loading}>
+                            Reabrir
+                          </button>
+                          <button className={styles.btn} onClick={() => handleRescan(h)} disabled={loading}>
+                            Re-scan
+                          </button>
+                          <button
+                            className={styles.btn}
+                            onClick={() => handlePdfFor({ url: h.url, active: h.active })}
+                            disabled={pdfLoading}
+                          >
+                            PDF
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
 
-        <div className={styles.smallNote}>
-          O histórico fica salvo no seu navegador (localStorage). Máx: {HISTORY_LIMIT}.
-        </div>
-      </div>
-    )}
-  </div>
-)}
+                <div className={styles.smallNote}>
+                  O histórico fica salvo no seu navegador (localStorage). Máx: {HISTORY_LIMIT}.
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {!result && !loading && (
           <div className={styles.smallNote} style={{ marginTop: 14 }}>
@@ -394,12 +512,12 @@ export default function App() {
         {loading && (
           <div className={styles.grid}>
             <div className={styles.skeletonCard}>
-              <div className={'${styles.skLine} ${styles.skLineSm}'} />
+              <div className={`${styles.skLine} ${styles.skLineSm}`} />
               <div className={styles.skBig} />
-              <div className={'${styles.skLine} ${styles.skLineMd}'} />
-              <div className={'${styles.skLine} ${styles.skLineLg}'} />
-              <div className={'${styles.skLine} ${styles.skLineMd}'} />
-              <div className={'${styles.skLine} ${styles.skLineLg}'} />
+              <div className={`${styles.skLine} ${styles.skLineMd}`} />
+              <div className={`${styles.skLine} ${styles.skLineLg}`} />
+              <div className={`${styles.skLine} ${styles.skLineMd}`} />
+              <div className={`${styles.skLine} ${styles.skLineLg}`} />
             </div>
 
             <div className={styles.skeletonCard}>
@@ -487,11 +605,7 @@ export default function App() {
                   </thead>
                   <tbody>
                     {result.openPorts.map((p: any) => (
-                      <tr key={p.port}>
-                        <td>{p.port}</td>
-                        <td>{p.service}</td>
-                        <td><span className={`${styles.sev} ${sevClass(p.severity)}`}>{p.severity}</span></td>
-                      </tr>
+                      <PortRow key={p.port} p={p} />
                     ))}
                   </tbody>
                 </table>
@@ -502,21 +616,13 @@ export default function App() {
               )}
 
               <div className={styles.sectionTitle} style={{ marginTop: 18 }}>Notas do score</div>
+
               {result.score?.notes?.length ? (
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Notas</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.score.notes.map((n: string, idx: number) => (
-                      <tr key={idx}>
-                        <td>{n}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className={styles.notesList}>
+                  {groupScoreNotes(result.score.notes).map((g, idx) => (
+                    <ScoreNoteItem key={idx} g={g} />
+                  ))}
+                </div>
               ) : (
                 <div className={styles.smallNote} style={{ marginTop: 10 }}>
                   Sem notas.

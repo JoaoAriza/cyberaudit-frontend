@@ -438,3 +438,107 @@
   align-items: center;
   gap: 10px;
 }
+
+.portDetails {
+  padding: 6px 0;
+}
+
+.portSummary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.portSummary::-webkit-details-marker {
+  display: none;
+}
+
+.portColPort {
+  width: 60px;
+}
+
+.portColService {
+  flex: 1;
+}
+
+.portBody {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.notesList {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.noteItem {
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.noteSummary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+}
+
+.noteSummary::-webkit-details-marker {
+  display: none;
+}
+
+.noteChevron::before {
+  content: "▶";
+  opacity: 0.85;
+}
+
+.noteItem[open] .noteChevron::before {
+  content: "▼";
+}
+
+.noteTitle {
+  flex: 1;
+}
+
+.noteHint {
+  opacity: 0.6;
+  font-size: 12px;
+}
+
+.noteBody {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.noteDetail {
+  padding: 6px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.noteDetail:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.noteItemStatic {
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
