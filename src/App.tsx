@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./App.module.css";
 import { api } from "./api/client";
 import { useAuth } from "./context/AuthContext";
-import type { UserDto } from "./context/AuthContext";
 
 // ── Backend Types ─────────────────────────────────────────────────────────────
 
@@ -17,12 +16,20 @@ interface SensitiveFileFinding { path: string; statusCode: number; exposure: str
 interface HttpMethodFinding { method: string; statusCode: number; enabled: boolean; severity: string; risk: string; }
 interface OpenRedirectFinding { parameter: string; testedUrl: string; redirectedTo: string; vulnerable: boolean; severity: string; }
 interface DirectoryListingFinding { path: string; statusCode: number; listingEnabled: boolean; evidence: string; severity: string; }
-interface ScanResult { url: string; finalUrl: string; httpStatus: number; redirectsToHttps: boolean; sslInfo: SSLInfo; tlsDetails: TlsDetails; headers: Record<string, string>; serverVersionExposed: boolean; activeMode: boolean; inputSurfaceDetected: boolean; dbErrorLeakageSuspected: boolean; xssProbePerformed: boolean; reflectedXssSuspected: boolean; openPorts: PortFinding[]; corsResult: CorsResult; cookieIssues: CookieFinding[]; sensitiveRobotsPaths: string[]; sensitiveFiles: SensitiveFileFinding[]; dangerousHttpMethods: HttpMethodFinding[]; securityTxtPresent: boolean; securityTxtContact: string | null; openRedirectFindings: OpenRedirectFinding[]; directoryListingFindings: DirectoryListingFinding[]; score: ScoreResult; }
+interface ScanResult { url: string; finalUrl: string; httpStatus: number; redirectsToHttps: boolean; sslInfo: SSLInfo; tlsDetails: TlsDetails; headers: Record<string, string>; serverVersionExposed: boolean; activeMode: boolean; inputSurfaceDetected: boolean; dbErrorLeakageSuspected: boolean; xssProbePerformed: boolean; reflectedXssSuspected: boolean; openPorts: PortFinding[]; corsResult: CorsResult; cookieIssues: CookieFinding[]; sensitiveRobotsPaths: string[]; sensitiveFiles: SensitiveFileFinding[]; dangerousHttpMethods: HttpMethodFinding[]; securityTxtPresent: boolean; securityTxtContact: string | null; openRedirectFindings: OpenRedirectFinding[]; directoryListingFindings: DirectoryListingFinding[]; score: ScoreResult; dnsSecurityResult: DnsSecurityResult | null;}
 interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; }
 interface OwnershipState { message: string; host: string; token: string | null; passiveResult: ScanResult | null; }
 interface GuestStatus { used: number; remaining: number; dailyLimit: number; resetsAt: string; }
 interface UserManagementDto { id: string; name: string; email: string; role: string; jobTitle: string | null; active: boolean; createdAt: string; invitedByName: string; }
 interface InviteDto { id: string; name: string; email: string; role: string; jobTitle: string | null; invitedByName: string; accepted: boolean; expired: boolean; expiresAt: string; acceptLink: string | null; }
+interface DnsSecurityResult {
+  spfPresent: boolean; spfRecord: string | null; spfPolicy: string;
+  dmarcPresent: boolean; dmarcRecord: string | null; dmarcPolicy: string;
+  dkimHintFound: boolean; dkimSelector: string | null;
+  caaPresent: boolean; caaRecord: string | null;
+  mxPresent: boolean; mxRecords: string[];
+  emailSpoofingRisk: string; summary: string;
+}
 
 type View = "scan" | "login" | "admin";
 
@@ -702,7 +709,7 @@ function AdminPanel() {
 // ── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const { user, loading, logout, isOwner, isAdmin, isAuthenticated } = useAuth();
+  const { user, loading, logout, isAdmin, isAuthenticated } = useAuth();
   const [view, setView] = useState<View>("scan");
   const [url, setUrl] = useState("github.com");
   const [active, setActive] = useState(false);
@@ -1031,13 +1038,102 @@ export default function App() {
                       <KV label="Presente" value={boolIcon(r.securityTxtPresent)} />
                       {r.securityTxtContact && <KV label="Contact" value={<code>{r.securityTxtContact}</code>} />}
                     </Section>
+                    <Section title="DNS Security" defaultOpen={true}>
+                      {r.dnsSecurityResult ? (
+                        <>
+                          <div style={{ marginBottom: 10 }}>
+                            <Tag
+                              label={`Email Spoofing Risk: ${r.dnsSecurityResult.emailSpoofingRisk}`}
+                              cls={
+                                r.dnsSecurityResult.emailSpoofingRisk === "LOW" ? styles.secure :
+                                  r.dnsSecurityResult.emailSpoofingRisk === "MEDIUM" ? styles.warning :
+                                    r.dnsSecurityResult.emailSpoofingRisk === "HIGH" ? styles.high :
+                                      styles.critical
+                              }
+                            />
+                          </div>
+
+                          <KV label="SPF" value={
+                            <span className={r.dnsSecurityResult.spfPresent ? styles.ok : styles.bad}>
+                              {r.dnsSecurityResult.spfPresent
+                                ? `✓ ${r.dnsSecurityResult.spfPolicy}`
+                                : "✗ Ausente"}
+                            </span>
+                          } />
+                          {r.dnsSecurityResult.spfRecord && (
+                            <div className={styles.note} style={{ marginBottom: 6 }}>
+                              <code className={styles.code}>{r.dnsSecurityResult.spfRecord}</code>
+                            </div>
+                          )}
+
+                          <KV label="DMARC" value={
+                            <span className={r.dnsSecurityResult.dmarcPresent ? styles.ok : styles.bad}>
+                              {r.dnsSecurityResult.dmarcPresent
+                                ? `✓ p=${r.dnsSecurityResult.dmarcPolicy?.toLowerCase()}`
+                                : "✗ Ausente"}
+                            </span>
+                          } />
+                          {r.dnsSecurityResult.dmarcRecord && (
+                            <div className={styles.note} style={{ marginBottom: 6 }}>
+                              <code className={styles.code}>{r.dnsSecurityResult.dmarcRecord}</code>
+                            </div>
+                          )}
+
+                          <KV label="DKIM" value={
+                            r.dnsSecurityResult.dkimHintFound
+                              ? <span className={styles.ok}>✓ Seletor: {r.dnsSecurityResult.dkimSelector}</span>
+                              : <span className={styles.warn}>⚠ Nenhum seletor comum encontrado</span>
+                          } />
+
+                          <KV label="CAA" value={
+                            r.dnsSecurityResult.caaPresent
+                              ? <span className={styles.ok}>✓ Configurado</span>
+                              : <span className={styles.warn}>⚠ Ausente — qualquer CA pode emitir certificado</span>
+                          } />
+                          {r.dnsSecurityResult.caaRecord && (
+                            <div className={styles.note} style={{ marginBottom: 6 }}>
+                              <code className={styles.code}>{r.dnsSecurityResult.caaRecord}</code>
+                            </div>
+                          )}
+
+                          <KV label="MX" value={
+                            r.dnsSecurityResult.mxPresent
+                              ? <span className={styles.ok}>✓ {r.dnsSecurityResult.mxRecords?.length} servidor(es)</span>
+                              : <span className={styles.muted}>Sem servidores de email</span>
+                          } />
+                          {r.dnsSecurityResult.mxPresent && r.dnsSecurityResult.mxRecords?.length > 0 && (
+                            <div className={styles.note}>
+                              {r.dnsSecurityResult.mxRecords.map((mx: string, i: number) => (
+                                <div key={i}><code className={styles.code}>{mx}</code></div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className={styles.note} style={{ marginTop: 8 }}>
+                            {r.dnsSecurityResult.summary}
+                          </div>
+                        </>
+                      ) : (
+                        <div className={styles.empty}>DNS não analisado</div>
+                      )}
+                    </Section>
                   </Card>
                   <Card title="ACTIVE CHECKS">
                     <Section title="Application Probes">
-                      <KV label="Input surface" value={boolIcon(r.inputSurfaceDetected, "Detected", "—")} />
-                      <KV label="XSS probe" value={boolIcon(r.xssProbePerformed, "Executed", "—")} />
-                      <KV label="Reflected XSS" value={r.xssProbePerformed ? boolIcon(!r.reflectedXssSuspected, "✓ Clean", "⚠ Suspected") : <span className={styles.muted}>—</span>} />
-                      <KV label="DB error leak" value={boolIcon(!r.dbErrorLeakageSuspected, "✓ Clean", "⚠ Suspected")} />
+                      {!r.activeMode ? (
+                        <div className={styles.note} style={{ marginTop: 0 }}>
+                          Probes não executados — habilite o modo <strong>ACTIVE</strong> para ativar XSS probe, detecção de DB error e port scan.
+                        </div>
+                      ) : (
+                        <>
+                          <KV label="Input surface" value={boolIcon(r.inputSurfaceDetected, "Detectada", "Não detectada")} />
+                          <KV label="XSS probe" value={boolIcon(r.xssProbePerformed, "Executado", "—")} />
+                          <KV label="Reflected XSS" value={r.xssProbePerformed
+                            ? boolIcon(!r.reflectedXssSuspected, "✓ Clean", "⚠ Suspeito")
+                            : <span className={styles.muted}>Sem superfície de input</span>} />
+                          <KV label="DB error leak" value={boolIcon(!r.dbErrorLeakageSuspected, "✓ Clean", "⚠ Suspeito")} />
+                        </>
+                      )}
                     </Section>
                     <Section title={`Port Scan [${r.openPorts?.length ?? 0}]`} defaultOpen={false}>
                       {r.openPorts?.length ? (
