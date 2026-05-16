@@ -28,6 +28,12 @@ type View = "scan" | "login" | "admin";
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
+function getInviteTokenFromUrl(): string | null {
+  const path = window.location.pathname;
+  const match = path.match(/\/auth\/accept-invite\/([a-f0-9-]+)/);
+  return match ? match[1] : null;
+}
+
 function riskColor(level?: string) {
   if (level === "SECURE") return styles.secure;
   if (level === "WARNING") return styles.warning;
@@ -57,6 +63,84 @@ function downloadBlob(blob: Blob, filename: string) {
   a.href = url; a.download = filename;
   document.body.appendChild(a); a.click();
   a.remove(); window.URL.revokeObjectURL(url);
+}
+
+// ── AcceptInvitePage ──────────────────────────────────────────────────────────
+
+function AcceptInvitePage({ token }: { token: string }) {
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (password !== confirm) { setError("As senhas não coincidem."); return; }
+    if (password.length < 6) { setError("Senha deve ter no mínimo 6 caracteres."); return; }
+
+    setLoading(true); setError(null);
+    try {
+      await api.post(`/auth/accept-invite/${token}`, { name, password });
+      setSuccess(true);
+      // Redireciona para a raiz após 2 segundos
+      setTimeout(() => { window.location.href = "/"; }, 2000);
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? "Convite inválido ou expirado.");
+    } finally { setLoading(false); }
+  }
+
+  if (success) return (
+    <div className={styles.loginPage}>
+      <div className={styles.loginCard}>
+        <div className={styles.loginLogo}>
+          <span className={styles.logoIcon}>◈</span>
+          <span className={styles.logoText}>CyberAudit</span>
+        </div>
+        <div className={styles.loginTitle} style={{ color: "var(--secure)" }}>✓ Conta criada!</div>
+        <div className={styles.loginSub}>Redirecionando para o login...</div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={styles.loginPage}>
+      <div className={styles.loginCard}>
+        <div className={styles.loginLogo}>
+          <span className={styles.logoIcon}>◈</span>
+          <span className={styles.logoText}>CyberAudit</span>
+        </div>
+        <div className={styles.loginTitle}>Criar sua conta</div>
+        <div className={styles.loginSub}>Você foi convidado para o CyberAudit. Defina sua senha para continuar.</div>
+
+        <form className={styles.loginForm} onSubmit={handleSubmit}>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel}>NOME COMPLETO</label>
+            <input className={styles.formInput} value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Seu nome" />
+          </div>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel}>SENHA *</label>
+            <input className={styles.formInput} type="password" value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Mínimo 6 caracteres" required />
+          </div>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel}>CONFIRMAR SENHA *</label>
+            <input className={styles.formInput} type="password" value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              placeholder="Repita a senha" required />
+          </div>
+          {error && <div className={styles.errorBox}>{error}</div>}
+          <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading}>
+            {loading ? "Criando conta..." : "Criar conta e entrar"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 // ── Small Components ──────────────────────────────────────────────────────────
@@ -403,7 +487,10 @@ function InviteItemRow({ inv, onRevoke, roleBadge }: {
 // ── Admin Panel ───────────────────────────────────────────────────────────────
 
 function AdminPanel() {
-  const [tab, setTab] = useState<"users" | "invites">("users");
+  const { user } = useAuth();
+  const [tab, setTab] = useState<"users" | "invites">(
+    user?.role === "OWNER" ? "users" : "invites"
+  );
   const [users, setUsers] = useState<UserManagementDto[]>([]);
   const [invites, setInvites] = useState<InviteDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -416,7 +503,11 @@ function AdminPanel() {
   const [invError, setInvError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+
   useEffect(() => { loadUsers(); loadInvites(); }, []);
+  useEffect(() => {
+    if (user?.role === "ADMIN") setInvRole("FREE_EMPLOYEE");
+  }, [user]);
 
   async function loadUsers() {
     setLoading(true);
@@ -476,8 +567,10 @@ function AdminPanel() {
       <div className={styles.adminHeader}>
         <div className={styles.adminTitle}>◈ PAINEL ADMIN</div>
         <div className={styles.adminTabs}>
-          <button className={`${styles.adminTab} ${tab === "users" ? styles.adminTabActive : ""}`}
-            onClick={() => setTab("users")}>Usuários ({users.length})</button>
+          {user?.role === "OWNER" && (
+            <button className={`${styles.adminTab} ${tab === "users" ? styles.adminTabActive : ""}`}
+              onClick={() => setTab("users")}>Usuários ({users.length})</button>
+          )}
           <button className={`${styles.adminTab} ${tab === "invites" ? styles.adminTabActive : ""}`}
             onClick={() => setTab("invites")}>Convites ({invites.length})</button>
         </div>
@@ -545,13 +638,25 @@ function AdminPanel() {
                 <div className={styles.formGroup}>
                   <label className={styles.formLabel}>NÍVEL DE ACESSO *</label>
                   <div className={styles.roleOptions}>
+                    {user?.role === "OWNER" && (
+                      <label className={styles.roleOption}>
+                        <input type="radio" name="role" value="ADMIN"
+                          checked={invRole === "ADMIN"}
+                          onChange={() => setInvRole("ADMIN")} />
+                        <div>
+                          <strong>Admin</strong>
+                          <div className={styles.roleDesc}>Scan ativo + convida funcionários</div>
+                        </div>
+                      </label>
+                    )}
                     <label className={styles.roleOption}>
-                      <input type="radio" name="role" value="ADMIN" checked={invRole === "ADMIN"} onChange={() => setInvRole("ADMIN")} />
-                      <div><strong>Admin</strong><div className={styles.roleDesc}>Scan ativo + convida funcionários</div></div>
-                    </label>
-                    <label className={styles.roleOption}>
-                      <input type="radio" name="role" value="FREE_EMPLOYEE" checked={invRole === "FREE_EMPLOYEE"} onChange={() => setInvRole("FREE_EMPLOYEE")} />
-                      <div><strong>Funcionário</strong><div className={styles.roleDesc}>Scan ativo, sem gestão</div></div>
+                      <input type="radio" name="role" value="FREE_EMPLOYEE"
+                        checked={invRole === "FREE_EMPLOYEE" || user?.role === "ADMIN"}
+                        onChange={() => setInvRole("FREE_EMPLOYEE")} />
+                      <div>
+                        <strong>Funcionário</strong>
+                        <div className={styles.roleDesc}>Scan ativo, sem gestão</div>
+                      </div>
                     </label>
                   </div>
                 </div>
@@ -597,7 +702,7 @@ function AdminPanel() {
 // ── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const { user, loading, logout, isOwner, isAuthenticated } = useAuth();
+  const { user, loading, logout, isOwner, isAdmin, isAuthenticated } = useAuth();
   const [view, setView] = useState<View>("scan");
   const [url, setUrl] = useState("github.com");
   const [active, setActive] = useState(false);
@@ -681,6 +786,15 @@ export default function App() {
     finally { setPdfLoading(false); }
   }
 
+  const inviteToken = getInviteTokenFromUrl();
+  if (inviteToken) {
+    return (
+      <div className={styles.app}>
+        <AcceptInvitePage token={inviteToken} />
+      </div>
+    );
+  }
+
   if (loading) return (
     <div className={styles.app}>
       <div className={styles.loadingScreen}><span className={styles.logoIcon}>◈</span> Carregando...</div>
@@ -705,9 +819,11 @@ export default function App() {
           <span className={styles.logoText}>CyberAudit</span>
         </div>
         <nav className={styles.headerNav}>
-          <button className={`${styles.navBtn} ${view === "scan" ? styles.navBtnActive : ""}`} onClick={() => setView("scan")}>Scanner</button>
-          {isOwner() && (
-            <button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`} onClick={() => setView("admin")}>Admin</button>
+          <button className={`${styles.navBtn} ${view === "scan" ? styles.navBtnActive : ""}`}
+            onClick={() => setView("scan")}>Scanner</button>
+          {isAdmin() && (
+            <button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`}
+              onClick={() => setView("admin")}>Admin</button>
           )}
         </nav>
         <div className={styles.headerRight}>
@@ -730,7 +846,7 @@ export default function App() {
         )}
 
         {/* ── Admin panel ── */}
-        {view === "admin" && isOwner() && <AdminPanel />}
+        {view === "admin" && isAdmin() && <AdminPanel />}
 
         {/* ── Scan view ── */}
         {view === "scan" && (
