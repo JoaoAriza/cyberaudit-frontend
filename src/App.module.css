@@ -335,6 +335,7 @@
   font-family: var(--mono); font-size: 11px;
   color: var(--text-dim); text-align: left; letter-spacing: .5px;
   border-bottom: 1px solid var(--border); margin-bottom: 8px;
+  outline: none;
 }
 .sectionHeader:hover { color: var(--text); }
 .sectionTitle { flex: 1; }

@@ -16,20 +16,25 @@ interface SensitiveFileFinding { path: string; statusCode: number; exposure: str
 interface HttpMethodFinding { method: string; statusCode: number; enabled: boolean; severity: string; risk: string; }
 interface OpenRedirectFinding { parameter: string; testedUrl: string; redirectedTo: string; vulnerable: boolean; severity: string; }
 interface DirectoryListingFinding { path: string; statusCode: number; listingEnabled: boolean; evidence: string; severity: string; }
-interface ScanResult { url: string; finalUrl: string; httpStatus: number; redirectsToHttps: boolean; sslInfo: SSLInfo; tlsDetails: TlsDetails; headers: Record<string, string>; serverVersionExposed: boolean; activeMode: boolean; inputSurfaceDetected: boolean; dbErrorLeakageSuspected: boolean; xssProbePerformed: boolean; reflectedXssSuspected: boolean; openPorts: PortFinding[]; corsResult: CorsResult; cookieIssues: CookieFinding[]; sensitiveRobotsPaths: string[]; sensitiveFiles: SensitiveFileFinding[]; dangerousHttpMethods: HttpMethodFinding[]; securityTxtPresent: boolean; securityTxtContact: string | null; openRedirectFindings: OpenRedirectFinding[]; directoryListingFindings: DirectoryListingFinding[]; score: ScoreResult; dnsSecurityResult: DnsSecurityResult | null;}
+interface DnsSecurityResult { spfPresent: boolean; spfRecord: string | null; spfPolicy: string; dmarcPresent: boolean; dmarcRecord: string | null; dmarcPolicy: string; dkimHintFound: boolean; dkimSelector: string | null; caaPresent: boolean; caaRecord: string | null; mxPresent: boolean; mxRecords: string[]; emailSpoofingRisk: string; summary: string; }
+interface WafDetectionResult { detected: boolean; provider: string | null; confidence: string | null; evidence: string | null; probeResponse: string | null; summary: string; }
+interface ScanResult {
+  url: string; finalUrl: string; httpStatus: number; redirectsToHttps: boolean;
+  sslInfo: SSLInfo; tlsDetails: TlsDetails; headers: Record<string, string>;
+  serverVersionExposed: boolean; activeMode: boolean; inputSurfaceDetected: boolean;
+  dbErrorLeakageSuspected: boolean; xssProbePerformed: boolean; reflectedXssSuspected: boolean;
+  openPorts: PortFinding[]; corsResult: CorsResult; cookieIssues: CookieFinding[];
+  sensitiveRobotsPaths: string[]; sensitiveFiles: SensitiveFileFinding[];
+  dangerousHttpMethods: HttpMethodFinding[]; securityTxtPresent: boolean;
+  securityTxtContact: string | null; openRedirectFindings: OpenRedirectFinding[];
+  directoryListingFindings: DirectoryListingFinding[]; score: ScoreResult;
+  dnsSecurityResult: DnsSecurityResult | null; wafDetectionResult: WafDetectionResult | null;
+}
 interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; }
 interface OwnershipState { message: string; host: string; token: string | null; passiveResult: ScanResult | null; }
 interface GuestStatus { used: number; remaining: number; dailyLimit: number; resetsAt: string; }
 interface UserManagementDto { id: string; name: string; email: string; role: string; jobTitle: string | null; active: boolean; createdAt: string; invitedByName: string; }
 interface InviteDto { id: string; name: string; email: string; role: string; jobTitle: string | null; invitedByName: string; accepted: boolean; expired: boolean; expiresAt: string; acceptLink: string | null; }
-interface DnsSecurityResult {
-  spfPresent: boolean; spfRecord: string | null; spfPolicy: string;
-  dmarcPresent: boolean; dmarcRecord: string | null; dmarcPolicy: string;
-  dkimHintFound: boolean; dkimSelector: string | null;
-  caaPresent: boolean; caaRecord: string | null;
-  mxPresent: boolean; mxRecords: string[];
-  emailSpoofingRisk: string; summary: string;
-}
 
 type View = "scan" | "login" | "admin";
 
@@ -40,7 +45,6 @@ function getInviteTokenFromUrl(): string | null {
   const match = path.match(/\/auth\/accept-invite\/([a-f0-9-]+)/);
   return match ? match[1] : null;
 }
-
 function riskColor(level?: string) {
   if (level === "SECURE") return styles.secure;
   if (level === "WARNING") return styles.warning;
@@ -72,84 +76,6 @@ function downloadBlob(blob: Blob, filename: string) {
   a.remove(); window.URL.revokeObjectURL(url);
 }
 
-// ── AcceptInvitePage ──────────────────────────────────────────────────────────
-
-function AcceptInvitePage({ token }: { token: string }) {
-  const [name, setName] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (password !== confirm) { setError("As senhas não coincidem."); return; }
-    if (password.length < 6) { setError("Senha deve ter no mínimo 6 caracteres."); return; }
-
-    setLoading(true); setError(null);
-    try {
-      await api.post(`/auth/accept-invite/${token}`, { name, password });
-      setSuccess(true);
-      // Redireciona para a raiz após 2 segundos
-      setTimeout(() => { window.location.href = "/"; }, 2000);
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Convite inválido ou expirado.");
-    } finally { setLoading(false); }
-  }
-
-  if (success) return (
-    <div className={styles.loginPage}>
-      <div className={styles.loginCard}>
-        <div className={styles.loginLogo}>
-          <span className={styles.logoIcon}>◈</span>
-          <span className={styles.logoText}>CyberAudit</span>
-        </div>
-        <div className={styles.loginTitle} style={{ color: "var(--secure)" }}>✓ Conta criada!</div>
-        <div className={styles.loginSub}>Redirecionando para o login...</div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className={styles.loginPage}>
-      <div className={styles.loginCard}>
-        <div className={styles.loginLogo}>
-          <span className={styles.logoIcon}>◈</span>
-          <span className={styles.logoText}>CyberAudit</span>
-        </div>
-        <div className={styles.loginTitle}>Criar sua conta</div>
-        <div className={styles.loginSub}>Você foi convidado para o CyberAudit. Defina sua senha para continuar.</div>
-
-        <form className={styles.loginForm} onSubmit={handleSubmit}>
-          <div className={styles.formGroup}>
-            <label className={styles.formLabel}>NOME COMPLETO</label>
-            <input className={styles.formInput} value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Seu nome" />
-          </div>
-          <div className={styles.formGroup}>
-            <label className={styles.formLabel}>SENHA *</label>
-            <input className={styles.formInput} type="password" value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres" required />
-          </div>
-          <div className={styles.formGroup}>
-            <label className={styles.formLabel}>CONFIRMAR SENHA *</label>
-            <input className={styles.formInput} type="password" value={confirm}
-              onChange={e => setConfirm(e.target.value)}
-              placeholder="Repita a senha" required />
-          </div>
-          {error && <div className={styles.errorBox}>{error}</div>}
-          <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading}>
-            {loading ? "Criando conta..." : "Criar conta e entrar"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 // ── Small Components ──────────────────────────────────────────────────────────
 
 function Tag({ label, cls }: { label: string; cls?: string }) {
@@ -163,8 +89,15 @@ function KV({ label, value }: { label: string; value: React.ReactNode }) {
     </div>
   );
 }
-function Section({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+function Section({ title, children, defaultOpen = true }: {
+  title: string; children: React.ReactNode; defaultOpen?: boolean;
+}) {
   const [open, setOpen] = useState(defaultOpen);
+
+  useEffect(() => {
+    setOpen(defaultOpen);
+  }, [defaultOpen]);
+
   return (
     <div className={styles.section}>
       <button className={styles.sectionHeader} onClick={() => setOpen(o => !o)}>
@@ -235,6 +168,7 @@ const SCAN_LINES = [
   "→ checking robots.txt...", "→ scanning sensitive files...",
   "→ testing HTTP methods...", "→ verifying security.txt...",
   "→ detecting open redirects...", "→ checking directory listings...",
+  "→ querying DNS security...", "→ detecting WAF...",
   "→ calculating risk score...",
 ];
 function TerminalLoader({ asyncState }: { asyncState?: string }) {
@@ -244,7 +178,7 @@ function TerminalLoader({ asyncState }: { asyncState?: string }) {
     const t = setInterval(() => {
       if (idx.current < SCAN_LINES.length)
         setLines(prev => [...prev, SCAN_LINES[idx.current++]]);
-    }, 800);
+    }, 700);
     return () => clearInterval(t);
   }, []);
   return (
@@ -256,7 +190,9 @@ function TerminalLoader({ asyncState }: { asyncState?: string }) {
         <span className={styles.termTitle}>cyberaudit scan {asyncState ? `[${asyncState}]` : ""}</span>
       </div>
       <div className={styles.terminalBody}>
-        {lines.map((l, i) => <div key={i} className={styles.termLine} style={{ animationDelay: `${i * 0.05}s` }}>{l}</div>)}
+        {lines.map((l, i) => (
+          <div key={i} className={styles.termLine} style={{ animationDelay: `${i * 0.05}s` }}>{l}</div>
+        ))}
         <div className={styles.termCursor}>█</div>
       </div>
     </div>
@@ -267,18 +203,12 @@ function TerminalLoader({ asyncState }: { asyncState?: string }) {
 
 function GuestBanner({ onLogin }: { onLogin: () => void }) {
   const [status, setStatus] = useState<GuestStatus | null>(null);
-
   useEffect(() => {
-    api.get<GuestStatus>("/auth/guest-status")
-      .then(r => setStatus(r.data))
-      .catch(() => { });
+    api.get<GuestStatus>("/auth/guest-status").then(r => setStatus(r.data)).catch(() => { });
   }, []);
-
   if (!status) return null;
-
   const pct = Math.round((status.used / status.dailyLimit) * 100);
   const critical = status.remaining <= 2;
-
   return (
     <div className={`${styles.guestBanner} ${critical ? styles.guestBannerCritical : ""}`}>
       <div className={styles.guestBannerLeft}>
@@ -289,11 +219,10 @@ function GuestBanner({ onLogin }: { onLogin: () => void }) {
               ? "Limite diário atingido"
               : `${status.remaining} scan${status.remaining !== 1 ? "s" : ""} restante${status.remaining !== 1 ? "s" : ""} hoje`}
           </div>
-          <div className={styles.guestBannerSub}>
-            {status.used}/{status.dailyLimit} utilizados · reseta meia-noite
-          </div>
+          <div className={styles.guestBannerSub}>{status.used}/{status.dailyLimit} utilizados · reseta meia-noite</div>
           <div className={styles.guestProgress}>
-            <div className={styles.guestProgressFill} style={{ width: `${pct}%`, background: critical ? "var(--critical)" : "var(--accent)" }} />
+            <div className={styles.guestProgressFill}
+              style={{ width: `${pct}%`, background: critical ? "var(--critical)" : "var(--accent)" }} />
           </div>
         </div>
       </div>
@@ -310,13 +239,10 @@ function OwnershipCard({ state, onDismiss }: { state: OwnershipState; onDismiss:
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState(false);
   const [verified, setVerified] = useState(false);
-
   async function check() {
     setChecking(true);
-    try {
-      const r = await api.get("/scan/verify-check", { params: { host: state.host } });
-      setVerified(r.data.verified);
-    } catch { setVerified(false); }
+    try { const r = await api.get("/scan/verify-check", { params: { host: state.host } }); setVerified(r.data.verified); }
+    catch { setVerified(false); }
     setChecking(false);
   }
   function copy() {
@@ -325,24 +251,30 @@ function OwnershipCard({ state, onDismiss }: { state: OwnershipState; onDismiss:
   return (
     <div className={styles.ownershipCard}>
       <div className={styles.ownershipHeader}><span>⚠</span><span>VERIFICAÇÃO DE PROPRIEDADE</span></div>
-      <p className={styles.ownershipText}>Scan ativo detectou riscos em <strong>{state.host}</strong>. Prove que você é o dono.</p>
+      <p className={styles.ownershipText}>Scan ativo detectou riscos em <strong>{state.host}</strong>. Prove que você é o dono do domínio.</p>
       <div className={styles.ownershipSteps}>
         <div className={styles.ownershipStep}>
           <span className={styles.stepNum}>1</span>
-          <div><div className={styles.stepTitle}>Crie o arquivo</div><code className={styles.stepCode}>https://{state.host}/.well-known/cyberaudit.txt</code></div>
+          <div><div className={styles.stepTitle}>Crie o arquivo</div>
+            <code className={styles.stepCode}>https://{state.host}/.well-known/cyberaudit.txt</code></div>
         </div>
         <div className={styles.ownershipStep}>
           <span className={styles.stepNum}>2</span>
-          <div><div className={styles.stepTitle}>Conteúdo</div>
-            <div className={styles.tokenRow}><code className={styles.stepCode}>{state.token ?? "—"}</code><button className={styles.copyBtn} onClick={copy}>{copied ? "✓" : "Copiar"}</button></div>
+          <div><div className={styles.stepTitle}>Conteúdo do arquivo</div>
+            <div className={styles.tokenRow}>
+              <code className={styles.stepCode}>{state.token ?? "—"}</code>
+              <button className={styles.copyBtn} onClick={copy}>{copied ? "✓ Copiado" : "Copiar"}</button>
+            </div>
           </div>
         </div>
         <div className={styles.ownershipStep}>
           <span className={styles.stepNum}>3</span>
-          <div><div className={styles.stepTitle}>Verifique</div>
+          <div><div className={styles.stepTitle}>Confirme a verificação</div>
             <div className={styles.tokenRow}>
-              <button className={styles.verifyBtn} onClick={check} disabled={checking}>{checking ? "..." : "Checar"}</button>
-              {verified ? <span className={styles.ok}>✓ Verificado!</span> : <span className={styles.bad}>Não encontrado.</span>}
+              <button className={styles.verifyBtn} onClick={check} disabled={checking}>{checking ? "Verificando..." : "Checar agora"}</button>
+              {verified
+                ? <span className={styles.ok}>✓ Verificado! Refaça o scan ativo.</span>
+                : <span className={styles.bad}>Arquivo não encontrado ainda.</span>}
             </div>
           </div>
         </div>
@@ -364,15 +296,11 @@ function LoginPage({ onBack }: { onBack: () => void }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true); setError(null);
-    try {
-      await login(email, password);
-      onBack();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message ?? err?.response?.data?.error ?? "Credenciais inválidas.";
-      setError(msg);
+    try { await login(email, password); onBack(); }
+    catch (err: any) {
+      setError(err?.response?.data?.message ?? err?.response?.data?.error ?? "Credenciais inválidas.");
     } finally { setLoading(false); }
   }
-
   return (
     <div className={styles.loginPage}>
       <div className={styles.loginCard}>
@@ -382,7 +310,6 @@ function LoginPage({ onBack }: { onBack: () => void }) {
         </div>
         <div className={styles.loginTitle}>Acesso restrito</div>
         <div className={styles.loginSub}>Entre com suas credenciais para acesso completo</div>
-
         <form className={styles.loginForm} onSubmit={handleSubmit}>
           <div className={styles.formGroup}>
             <label className={styles.formLabel}>EMAIL</label>
@@ -399,38 +326,90 @@ function LoginPage({ onBack }: { onBack: () => void }) {
             {loading ? "Entrando..." : "Entrar"}
           </button>
         </form>
-
-        <button className={styles.backLink} onClick={onBack}>
-          ← Voltar sem autenticação
-        </button>
+        <button className={styles.backLink} onClick={onBack}>← Voltar sem autenticação</button>
       </div>
     </div>
   );
 }
 
+// ── Accept Invite Page ────────────────────────────────────────────────────────
+
+function AcceptInvitePage({ token }: { token: string }) {
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (password !== confirm) { setError("As senhas não coincidem."); return; }
+    if (password.length < 6) { setError("Senha deve ter no mínimo 6 caracteres."); return; }
+    setLoading(true); setError(null);
+    try {
+      await api.post(`/auth/accept-invite/${token}`, { name, password });
+      setSuccess(true);
+      setTimeout(() => { window.location.href = "/"; }, 2000);
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? "Convite inválido ou expirado.");
+    } finally { setLoading(false); }
+  }
+
+  if (success) return (
+    <div className={styles.loginPage}>
+      <div className={styles.loginCard}>
+        <div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
+        <div className={styles.loginTitle} style={{ color: "var(--secure)" }}>✓ Conta criada!</div>
+        <div className={styles.loginSub}>Redirecionando para o login...</div>
+      </div>
+    </div>
+  );
+  return (
+    <div className={styles.loginPage}>
+      <div className={styles.loginCard}>
+        <div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
+        <div className={styles.loginTitle}>Criar sua conta</div>
+        <div className={styles.loginSub}>Você foi convidado. Defina sua senha para continuar.</div>
+        <form className={styles.loginForm} onSubmit={handleSubmit}>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel}>NOME COMPLETO</label>
+            <input className={styles.formInput} value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" />
+          </div>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel}>SENHA *</label>
+            <input className={styles.formInput} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" required />
+          </div>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel}>CONFIRMAR SENHA *</label>
+            <input className={styles.formInput} type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repita a senha" required />
+          </div>
+          {error && <div className={styles.errorBox}>{error}</div>}
+          <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading}>
+            {loading ? "Criando conta..." : "Criar conta e entrar"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Invite Item Row ───────────────────────────────────────────────────────────
+
 function InviteItemRow({ inv, onRevoke, roleBadge }: {
-  inv: InviteDto;
-  onRevoke: () => void;
-  roleBadge: (role: string) => React.ReactNode;
+  inv: InviteDto; onRevoke: () => void; roleBadge: (r: string) => React.ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
-
-  const link = inv.acceptLink
-    ? `${window.location.origin}${inv.acceptLink}`
-    : null;
+  const link = inv.acceptLink ? `${window.location.origin}${inv.acceptLink}` : null;
 
   function copyLink() {
     if (!link) return;
     navigator.clipboard.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
   }
-
   return (
     <div className={styles.inviteItem} style={{ flexDirection: "column", alignItems: "stretch", gap: 0 }}>
-
-      {/* Linha principal */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
         onClick={() => setExpanded(o => !o)}>
         <div className={styles.inviteItemLeft}>
@@ -442,62 +421,40 @@ function InviteItemRow({ inv, onRevoke, roleBadge }: {
           </div>
         </div>
         <div className={styles.actionBtns} onClick={e => e.stopPropagation()}>
-          <span
-            className={`${styles.chevron} ${expanded ? styles.chevronOpen : ""}`}
+          <span className={`${styles.chevron} ${expanded ? styles.chevronOpen : ""}`}
             style={{ fontSize: 20, color: "var(--text-dim)", cursor: "pointer", padding: "0 6px" }}
-            onClick={() => setExpanded(o => !o)}
-          >›</span>
+            onClick={() => setExpanded(o => !o)}>›</span>
           <button className={`${styles.btn} ${styles.btnDanger}`} onClick={onRevoke}>Revogar</button>
         </div>
       </div>
-
-      {/* Detalhes expandidos */}
       {expanded && (
-        <div style={{
-          marginTop: 10, padding: 12,
-          background: "var(--surface3)",
-          borderRadius: "var(--radius)",
-          display: "flex", flexDirection: "column", gap: 10,
-          borderTop: "1px solid var(--border)"
-        }}>
+        <div style={{ marginTop: 10, padding: 12, background: "var(--surface3)", borderRadius: "var(--radius)", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--border)" }}>
           <div>
-            <div style={{ fontSize: 10, letterSpacing: 1, color: "var(--text-muted)", marginBottom: 6 }}>
-              LINK DE ACEITE
-            </div>
+            <div style={{ fontSize: 10, letterSpacing: 1, color: "var(--text-muted)", marginBottom: 6 }}>LINK DE ACEITE</div>
             {link ? (
               <div className={styles.tokenRow}>
-                <code className={styles.stepCode} style={{ flex: 1, fontSize: 11, wordBreak: "break-all" }}>
-                  {link}
-                </code>
-                <button className={styles.copyBtn} onClick={copyLink}>
-                  {copied ? "✓ Copiado" : "Copiar"}
-                </button>
+                <code className={styles.stepCode} style={{ flex: 1, fontSize: 11, wordBreak: "break-all" }}>{link}</code>
+                <button className={styles.copyBtn} onClick={copyLink}>{copied ? "✓ Copiado" : "Copiar"}</button>
               </div>
             ) : (
-              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                Link não disponível — recrie o convite para gerar um novo.
-              </span>
+              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Link não disponível — recrie o convite.</span>
             )}
           </div>
-
           <div style={{ display: "flex", gap: 20, fontSize: 11, color: "var(--text-dim)", flexWrap: "wrap" }}>
             <span>Convidado por: <strong style={{ color: "var(--text)" }}>{inv.invitedByName}</strong></span>
-            {inv.jobTitle && (
-              <span>Cargo: <strong style={{ color: "var(--text)" }}>{inv.jobTitle}</strong></span>
-            )}
+            {inv.jobTitle && <span>Cargo: <strong style={{ color: "var(--text)" }}>{inv.jobTitle}</strong></span>}
           </div>
         </div>
       )}
     </div>
   );
 }
+
 // ── Admin Panel ───────────────────────────────────────────────────────────────
 
 function AdminPanel() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<"users" | "invites">(
-    user?.role === "OWNER" ? "users" : "invites"
-  );
+  const [tab, setTab] = useState<"users" | "invites">(user?.role === "OWNER" ? "users" : "invites");
   const [users, setUsers] = useState<UserManagementDto[]>([]);
   const [invites, setInvites] = useState<InviteDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -510,20 +467,17 @@ function AdminPanel() {
   const [invError, setInvError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-
   useEffect(() => { loadUsers(); loadInvites(); }, []);
-  useEffect(() => {
-    if (user?.role === "ADMIN") setInvRole("FREE_EMPLOYEE");
-  }, [user]);
+  useEffect(() => { if (user?.role === "ADMIN") setInvRole("FREE_EMPLOYEE"); }, [user]);
 
   async function loadUsers() {
     setLoading(true);
     try { setUsers((await api.get<UserManagementDto[]>("/admin/users")).data); }
-    catch { /* silently fail */ } finally { setLoading(false); }
+    catch { } finally { setLoading(false); }
   }
   async function loadInvites() {
     try { setInvites((await api.get<InviteDto[]>("/admin/invites")).data); }
-    catch { /* silently fail */ }
+    catch { }
   }
   async function deactivate(id: string) {
     if (!confirm("Desativar este usuário?")) return;
@@ -547,23 +501,17 @@ function AdminPanel() {
     e.preventDefault();
     setInviting(true); setInvError(null); setNewInvite(null);
     try {
-      const r = await api.post<InviteDto>("/admin/invite", {
-        name: invName, email: invEmail, role: invRole, jobTitle: invJob || null
-      });
-      setNewInvite(r.data);
-      setInvName(""); setInvEmail(""); setInvJob("");
+      const r = await api.post<InviteDto>("/admin/invite", { name: invName, email: invEmail, role: invRole, jobTitle: invJob || null });
+      setNewInvite(r.data); setInvName(""); setInvEmail(""); setInvJob("");
       loadInvites();
-    } catch (e: any) {
-      setInvError(e?.response?.data?.message ?? "Erro ao criar convite.");
-    } finally { setInviting(false); }
+    } catch (e: any) { setInvError(e?.response?.data?.message ?? "Erro ao criar convite."); }
+    finally { setInviting(false); }
   }
   function copyLink() {
     if (!newInvite?.acceptLink) return;
-    const base = import.meta.env.VITE_APP_URL ?? window.location.origin;
-    navigator.clipboard.writeText(base + newInvite.acceptLink);
+    navigator.clipboard.writeText(window.location.origin + newInvite.acceptLink);
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   }
-
   function roleBadge(role: string) {
     const cls = role === "OWNER" ? styles.secure : role === "ADMIN" ? styles.warning : styles.info;
     return <Tag label={role} cls={cls} />;
@@ -602,14 +550,10 @@ function AdminPanel() {
                       <td>
                         {u.role !== "OWNER" && (
                           <div className={styles.actionBtns}>
-                            {u.active ? (
-                              <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => deactivate(u.id)}>Desativar</button>
-                            ) : (
-                              <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => reactivate(u.id)}>Reativar</button>
-                            )}
-                            <select className={styles.roleSelect}
-                              value={u.role}
-                              onChange={e => changeRole(u.id, e.target.value)}>
+                            {u.active
+                              ? <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => deactivate(u.id)}>Desativar</button>
+                              : <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => reactivate(u.id)}>Reativar</button>}
+                            <select className={styles.roleSelect} value={u.role} onChange={e => changeRole(u.id, e.target.value)}>
                               <option value="ADMIN">ADMIN</option>
                               <option value="FREE_EMPLOYEE">EMPLOYEE</option>
                             </select>
@@ -647,23 +591,15 @@ function AdminPanel() {
                   <div className={styles.roleOptions}>
                     {user?.role === "OWNER" && (
                       <label className={styles.roleOption}>
-                        <input type="radio" name="role" value="ADMIN"
-                          checked={invRole === "ADMIN"}
-                          onChange={() => setInvRole("ADMIN")} />
-                        <div>
-                          <strong>Admin</strong>
-                          <div className={styles.roleDesc}>Scan ativo + convida funcionários</div>
-                        </div>
+                        <input type="radio" name="role" value="ADMIN" checked={invRole === "ADMIN"} onChange={() => setInvRole("ADMIN")} />
+                        <div><strong>Admin</strong><div className={styles.roleDesc}>Scan ativo + convida funcionários</div></div>
                       </label>
                     )}
                     <label className={styles.roleOption}>
                       <input type="radio" name="role" value="FREE_EMPLOYEE"
                         checked={invRole === "FREE_EMPLOYEE" || user?.role === "ADMIN"}
                         onChange={() => setInvRole("FREE_EMPLOYEE")} />
-                      <div>
-                        <strong>Funcionário</strong>
-                        <div className={styles.roleDesc}>Scan ativo, sem gestão</div>
-                      </div>
+                      <div><strong>Funcionário</strong><div className={styles.roleDesc}>Scan ativo, sem gestão</div></div>
                     </label>
                   </div>
                 </div>
@@ -684,20 +620,16 @@ function AdminPanel() {
             </Card>
 
             <Card title="CONVITES PENDENTES">
-              {invites.length === 0 ? (
-                <div className={styles.empty}>Nenhum convite pendente.</div>
-              ) : (
-                <div className={styles.pendingInvites}>
-                  {invites.map(inv => (
-                    <InviteItemRow
-                      key={inv.id}
-                      inv={inv}
-                      onRevoke={() => revokeInvite(inv.id)}
-                      roleBadge={roleBadge}
-                    />
-                  ))}
-                </div>
-              )}
+              {invites.length === 0
+                ? <div className={styles.empty}>Nenhum convite pendente.</div>
+                : (
+                  <div className={styles.pendingInvites}>
+                    {invites.map(inv => (
+                      <InviteItemRow key={inv.id} inv={inv}
+                        onRevoke={() => revokeInvite(inv.id)} roleBadge={roleBadge} />
+                    ))}
+                  </div>
+                )}
             </Card>
           </div>
         </div>
@@ -723,9 +655,7 @@ export default function App() {
   const abortRef = useRef<AbortController | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Se logar durante a sessão, volta para scan
   useEffect(() => { if (user && view === "login") setView("scan"); }, [user]);
-
   useEffect(() => () => { pollRef.current && clearInterval(pollRef.current); }, []);
 
   const stopPoll = useCallback(() => {
@@ -734,7 +664,11 @@ export default function App() {
 
   async function handleScan() {
     abortRef.current?.abort(); stopPoll();
-    setScanLoading(true); setError(null); setResult(null); setOwnership(null); setAsyncState(undefined);
+    setResult(null);
+    setError(null);
+    setOwnership(null);
+    setAsyncState(undefined);
+    setScanLoading(true);
     useAsync ? await runAsync() : await runSync();
   }
 
@@ -758,7 +692,7 @@ export default function App() {
           const status: AsyncStatus = (await api.get(`/scan/async/${scanId}`)).data;
           setAsyncState(status.state);
           if (status.state === "DONE") { stopPoll(); setResult(status.result); setScanLoading(false); }
-          else if (status.state === "ERROR") { stopPoll(); setError(status.errorMessage ?? "Erro."); setScanLoading(false); }
+          if (status.state === "ERROR") { stopPoll(); setError(status.errorMessage ?? "Erro."); setScanLoading(false); }
         } catch { stopPoll(); setError("Falha ao consultar status."); setScanLoading(false); }
       }, 2000);
     } catch (err: any) { handleError(err); setScanLoading(false); }
@@ -767,20 +701,21 @@ export default function App() {
   function handleError(err: any) {
     const aborted = err?.name === "CanceledError" || err?.code === "ERR_CANCELED";
     if (aborted) { setError("Scan cancelado."); return; }
+    if (err?.response?.status === 401) { setError("Scan ativo requer autenticação."); setView("login"); return; }
 
-    if (err?.response?.status === 401) {
-      setError("Scan ativo requer autenticação.");
-      setView("login");
-      return;
-    }
-    if (err?.response?.status === 403 && err?.response?.data?.error === "OWNERSHIP_REQUIRED") {
+    const data = err?.response?.data;
+    const isOwnership = err?.response?.status === 403 && (
+      data?.error === "OWNERSHIP_REQUIRED" ||
+      data?.message?.includes("proprietário verificado") ||
+      data?.message?.includes("OWNERSHIP")
+    );
+    if (isOwnership) {
       const host = url.replace(/^https?:\/\//, "").split("/")[0];
-      const tokenMatch = err.response.data.message?.match(/cyberaudit-verify=[a-f0-9-]+/);
-      setOwnership({ message: err.response.data.message, host, token: tokenMatch?.[0] ?? null, passiveResult: null });
+      const tokenMatch = data?.message?.match(/cyberaudit-verify=[^\s"]+/);
+      setOwnership({ message: data?.message ?? "", host, token: tokenMatch?.[0] ?? null, passiveResult: data?.passiveResult ?? null });
       return;
     }
-    const msg = err?.response ? `Erro ${err.response.status}: ${JSON.stringify(err.response.data)}` : `Falha: ${err.message}`;
-    setError(msg);
+    setError(err?.response ? `Erro ${err.response.status}: ${JSON.stringify(err.response.data)}` : `Falha: ${err.message}`);
   }
 
   async function handlePdf() {
@@ -793,14 +728,9 @@ export default function App() {
     finally { setPdfLoading(false); }
   }
 
+  // Detecta link de convite na URL
   const inviteToken = getInviteTokenFromUrl();
-  if (inviteToken) {
-    return (
-      <div className={styles.app}>
-        <AcceptInvitePage token={inviteToken} />
-      </div>
-    );
-  }
+  if (inviteToken) return <div className={styles.app}><AcceptInvitePage token={inviteToken} /></div>;
 
   if (loading) return (
     <div className={styles.app}>
@@ -808,18 +738,15 @@ export default function App() {
     </div>
   );
 
-  if (view === "login") return (
-    <div className={styles.app}>
-      <LoginPage onBack={() => setView("scan")} />
-    </div>
-  );
+  if (view === "login") return <div className={styles.app}><LoginPage onBack={() => setView("scan")} /></div>;
 
   const r = result;
   const risk = r?.score?.riskLevel;
 
   return (
     <div className={styles.app}>
-      {/* ── Header ── */}
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className={styles.header}>
         <div className={styles.logo}>
           <span className={styles.logoIcon}>◈</span>
@@ -847,15 +774,14 @@ export default function App() {
       </header>
 
       <main className={styles.main}>
-        {/* ── Guest banner ── */}
-        {!isAuthenticated() && view === "scan" && (
-          <GuestBanner onLogin={() => setView("login")} />
-        )}
 
-        {/* ── Admin panel ── */}
+        {/* ── Guest Banner ──────────────────────────────────────────────────── */}
+        {!isAuthenticated() && view === "scan" && <GuestBanner onLogin={() => setView("login")} />}
+
+        {/* ── Admin Panel ───────────────────────────────────────────────────── */}
         {view === "admin" && isAdmin() && <AdminPanel />}
 
-        {/* ── Scan view ── */}
+        {/* ── Scan View ─────────────────────────────────────────────────────── */}
         {view === "scan" && (
           <>
             {/* Scan form */}
@@ -864,10 +790,11 @@ export default function App() {
                 <div className={styles.inputWrap}>
                   <span className={styles.inputPrefix}>https://</span>
                   <input className={styles.urlInput} value={url} onChange={e => setUrl(e.target.value)}
-                    placeholder="example.com" onKeyDown={e => e.key === "Enter" && !scanLoading && handleScan()} />
+                    placeholder="example.com"
+                    onKeyDown={e => e.key === "Enter" && !scanLoading && handleScan()} />
                 </div>
                 <div className={styles.toggles}>
-                  <label className={styles.toggle} title="Ativa port scan e probes. Apenas em domínios autorizados.">
+                  <label className={styles.toggle} title="Apenas em domínios autorizados.">
                     <input type="checkbox" checked={active} disabled={scanLoading} onChange={e => setActive(e.target.checked)} />
                     <span className={styles.toggleLabel}>ACTIVE</span>
                   </label>
@@ -877,28 +804,31 @@ export default function App() {
                   </label>
                 </div>
                 <div className={styles.actions}>
-                  {scanLoading ? (
-                    <button className={`${styles.btn} ${styles.btnCancel}`} onClick={() => { abortRef.current?.abort(); stopPoll(); setScanLoading(false); }}>✕ Cancel</button>
-                  ) : (
-                    <button className={`${styles.btn} ${styles.btnScan}`} onClick={handleScan}>◈ Scan</button>
-                  )}
-                  <button className={`${styles.btn} ${styles.btnGhost}`} onClick={handlePdf} disabled={pdfLoading || scanLoading}>{pdfLoading ? "..." : "PDF"}</button>
+                  {scanLoading
+                    ? <button className={`${styles.btn} ${styles.btnCancel}`}
+                      onClick={() => { abortRef.current?.abort(); stopPoll(); setScanLoading(false); }}>✕ Cancel</button>
+                    : <button className={`${styles.btn} ${styles.btnScan}`} onClick={handleScan}>◈ Scan</button>}
+                  <button className={`${styles.btn} ${styles.btnGhost}`} onClick={handlePdf}
+                    disabled={pdfLoading || scanLoading}>{pdfLoading ? "..." : "PDF"}</button>
                 </div>
               </div>
-              {active && <div className={styles.activeWarning}>⚠ Modo ativo: port scan + probes. Use apenas em domínios autorizados.</div>}
+              {active && <div className={styles.activeWarning}>⚠ Modo ativo: Use apenas em domínios autorizados.</div>}
               {scanLoading && <div className={styles.progressBar}><div className={styles.progressFill} /></div>}
               {error && <div className={styles.errorBox}>{error}</div>}
             </div>
 
-            {/* Ownership */}
+            {/* Ownership verification */}
             {ownership && <OwnershipCard state={ownership} onDismiss={() => setOwnership(null)} />}
 
             {/* Terminal loader */}
             {scanLoading && <TerminalLoader asyncState={asyncState} />}
 
-            {/* Results */}
+            {/* ── Results Dashboard ─────────────────────────────────────────── */}
             {r && !scanLoading && (
-              <div className={styles.dashboard}>
+              <div
+                key={`${r.url}-${r.activeMode}-${r.score?.score}`}
+                className={styles.dashboard}>
+                {/* Row 1: Score + Issues */}
                 <div className={styles.row}>
                   <Card>
                     <div className={styles.overviewCard}>
@@ -911,18 +841,21 @@ export default function App() {
                         <KV label="ACTIVE MODE" value={boolIcon(r.activeMode)} />
                         <KV label="SERVER EXPOSED" value={boolIcon(!r.serverVersionExposed, "✓ Clean", "⚠ Exposed")} />
                         <div className={styles.badgePreview}>
-                          <img src={`${import.meta.env.VITE_API_URL ?? "http://localhost:8081"}/badge/${(r.finalUrl ?? r.url).replace(/^https?:\/\//, "").split("/")[0]}`} alt="badge" className={styles.badgeImg} />
+                          <img
+                            src={`${import.meta.env.VITE_API_URL ?? "http://localhost:8081"}/badge/${(r.finalUrl ?? r.url).replace(/^https?:\/\//, "").split("/")[0]}`}
+                            alt="security badge" className={styles.badgeImg} />
                         </div>
                       </div>
                     </div>
                   </Card>
                   <Card title={`ISSUES  [${r.score?.issues?.length ?? 0}]`}>
-                    {r.score?.issues?.length ? (
-                      <div className={styles.issuesList}>{r.score.issues.map(i => <IssueItem key={i.id} issue={i} />)}</div>
-                    ) : <div className={styles.empty}>◈ Nenhuma issue detectada</div>}
+                    {r.score?.issues?.length
+                      ? <div className={styles.issuesList}>{r.score.issues.map(i => <IssueItem key={i.id} issue={i} />)}</div>
+                      : <div className={styles.empty}>◈ Nenhuma issue detectada</div>}
                   </Card>
                 </div>
 
+                {/* Row 2: Transport + Headers */}
                 <div className={styles.row}>
                   <Card title="TRANSPORT SECURITY">
                     <Section title="SSL / TLS">
@@ -930,7 +863,11 @@ export default function App() {
                       <KV label="Cipher" value={<code className={styles.code}>{r.tlsDetails?.cipherSuite ?? "—"}</code>} />
                       <KV label="Valid" value={boolIcon(r.sslInfo?.valid)} />
                       <KV label="Expires" value={r.sslInfo?.expirationDate ?? "—"} />
-                      <KV label="Days left" value={<span className={(r.sslInfo?.daysRemaining ?? 0) < 30 ? styles.bad : (r.sslInfo?.daysRemaining ?? 0) < 90 ? styles.warn : styles.ok}>{r.sslInfo?.daysRemaining ?? "—"}d</span>} />
+                      <KV label="Days left" value={
+                        <span className={(r.sslInfo?.daysRemaining ?? 0) < 30 ? styles.bad : (r.sslInfo?.daysRemaining ?? 0) < 90 ? styles.warn : styles.ok}>
+                          {r.sslInfo?.daysRemaining ?? "—"}d
+                        </span>
+                      } />
                       {r.tlsDetails?.message && <div className={styles.note}>{r.tlsDetails.message}</div>}
                     </Section>
                   </Card>
@@ -941,6 +878,7 @@ export default function App() {
                   </Card>
                 </div>
 
+                {/* Row 3: CORS + Cookies */}
                 <div className={styles.row}>
                   <Card title="CORS ANALYSIS">
                     {r.corsResult?.tested ? (
@@ -973,13 +911,18 @@ export default function App() {
                   </Card>
                 </div>
 
+                {/* Row 4: Sensitive Files + HTTP Methods */}
                 <div className={styles.row}>
                   <Card title="SENSITIVE FILES">
                     {r.sensitiveFiles?.length ? (
-                      <Section title={`${r.sensitiveFiles.length} arquivo(s)`}>
+                      <Section title={`${r.sensitiveFiles.length} arquivo(s) encontrado(s)`}>
                         {r.sensitiveFiles.map((f, i) => (
                           <div key={i} className={styles.findingRow}>
-                            <div className={styles.findingPath}><code>{f.path}</code><Tag label={f.exposure} cls={f.exposure === "EXPOSED" ? styles.critical : styles.warning} /><Tag label={f.severity} cls={sevColor(f.severity)} /></div>
+                            <div className={styles.findingPath}>
+                              <code>{f.path}</code>
+                              <Tag label={f.exposure} cls={f.exposure === "EXPOSED" ? styles.critical : styles.warning} />
+                              <Tag label={f.severity} cls={sevColor(f.severity)} />
+                            </div>
                             {f.contentPreview && <pre className={styles.preview}>{f.contentPreview}</pre>}
                           </div>
                         ))}
@@ -991,7 +934,11 @@ export default function App() {
                       <Section title={`${r.dangerousHttpMethods.length} método(s) perigoso(s)`}>
                         {r.dangerousHttpMethods.map((m, i) => (
                           <div key={i} className={styles.findingRow}>
-                            <div className={styles.findingPath}><code className={styles.method}>{m.method}</code><span className={styles.muted}>HTTP {m.statusCode}</span><Tag label={m.severity} cls={sevColor(m.severity)} /></div>
+                            <div className={styles.findingPath}>
+                              <code className={styles.method}>{m.method}</code>
+                              <span className={styles.muted}>HTTP {m.statusCode}</span>
+                              <Tag label={m.severity} cls={sevColor(m.severity)} />
+                            </div>
                             <div className={styles.findingNote}>{m.risk}</div>
                           </div>
                         ))}
@@ -1000,45 +947,69 @@ export default function App() {
                   </Card>
                 </div>
 
+                {/* Row 5: Open Redirect + Directory Listing */}
                 <div className={styles.row}>
                   <Card title="OPEN REDIRECT">
                     {r.openRedirectFindings?.filter(f => f.vulnerable).length ? (
-                      <Section title="Vulnerabilidades">
+                      <Section title="Vulnerabilidades detectadas">
                         {r.openRedirectFindings.filter(f => f.vulnerable).map((f, i) => (
                           <div key={i} className={styles.findingRow}>
-                            <div className={styles.findingPath}><code>?{f.parameter}=</code><Tag label="VULNERABLE" cls={styles.critical} /></div>
+                            <div className={styles.findingPath}>
+                              <code>?{f.parameter}=</code>
+                              <Tag label="VULNERABLE" cls={styles.critical} />
+                            </div>
                             <div className={styles.findingNote}>→ {f.redirectedTo}</div>
                           </div>
                         ))}
                       </Section>
-                    ) : <div className={styles.empty}>◈ Nenhum open redirect</div>}
+                    ) : <div className={styles.empty}>◈ Nenhum open redirect detectado</div>}
                   </Card>
                   <Card title="DIRECTORY LISTING">
                     {r.directoryListingFindings?.filter(f => f.listingEnabled).length ? (
                       <Section title="Diretórios expostos">
                         {r.directoryListingFindings.filter(f => f.listingEnabled).map((f, i) => (
                           <div key={i} className={styles.findingRow}>
-                            <div className={styles.findingPath}><code>{f.path}</code><Tag label={f.severity} cls={sevColor(f.severity)} /></div>
+                            <div className={styles.findingPath}>
+                              <code>{f.path}</code>
+                              <Tag label={f.severity} cls={sevColor(f.severity)} />
+                            </div>
                             <div className={styles.findingNote}>Evidência: {f.evidence}</div>
                           </div>
                         ))}
                       </Section>
-                    ) : <div className={styles.empty}>◈ Nenhum directory listing</div>}
+                    ) : <div className={styles.empty}>◈ Nenhum directory listing detectado</div>}
                   </Card>
                 </div>
 
+                {/* Row 6: Reconnaissance + Active Checks — PAREADOS */}
                 <div className={styles.row}>
+
+                  {/* ── Reconnaissance ─────────────────────────────────────── */}
                   <Card title="RECONNAISSANCE">
-                    <Section title="robots.txt">
-                      {r.sensitiveRobotsPaths?.length ? r.sensitiveRobotsPaths.map((p, i) => (
-                        <div key={i} className={styles.findingRow}><code>{p}</code><Tag label="SENSITIVE" cls={styles.warning} /></div>
-                      )) : <div className={styles.empty}>◈ Nenhum path sensível</div>}
+                    <Section title="robots.txt" defaultOpen={true}>
+                      {r.sensitiveRobotsPaths?.length ? (
+                        r.sensitiveRobotsPaths.map((p, i) => (
+                          <div key={i} className={styles.findingRow}>
+                            <div className={styles.findingPath}>
+                              <code>{p}</code>
+                              <Tag label="SENSITIVE" cls={styles.warning} />
+                            </div>
+                          </div>
+                        ))
+                      ) : <div className={styles.empty}>◈ Nenhum path sensível</div>}
                     </Section>
+
                     <Section title="security.txt" defaultOpen={false}>
                       <KV label="Presente" value={boolIcon(r.securityTxtPresent)} />
-                      {r.securityTxtContact && <KV label="Contact" value={<code>{r.securityTxtContact}</code>} />}
+                      {r.securityTxtContact && (
+                        <KV label="Contact" value={<code className={styles.code}>{r.securityTxtContact}</code>} />
+                      )}
+                      {!r.securityTxtPresent && (
+                        <div className={styles.note}>Sem security.txt (RFC 9116) — dificulta reporte responsável de vulnerabilidades.</div>
+                      )}
                     </Section>
-                    <Section title="DNS Security" defaultOpen={true}>
+
+                    <Section title="DNS Security" defaultOpen={false}>
                       {r.dnsSecurityResult ? (
                         <>
                           <div style={{ marginBottom: 10 }}>
@@ -1052,7 +1023,6 @@ export default function App() {
                               }
                             />
                           </div>
-
                           <KV label="SPF" value={
                             <span className={r.dnsSecurityResult.spfPresent ? styles.ok : styles.bad}>
                               {r.dnsSecurityResult.spfPresent
@@ -1065,7 +1035,6 @@ export default function App() {
                               <code className={styles.code}>{r.dnsSecurityResult.spfRecord}</code>
                             </div>
                           )}
-
                           <KV label="DMARC" value={
                             <span className={r.dnsSecurityResult.dmarcPresent ? styles.ok : styles.bad}>
                               {r.dnsSecurityResult.dmarcPresent
@@ -1078,13 +1047,11 @@ export default function App() {
                               <code className={styles.code}>{r.dnsSecurityResult.dmarcRecord}</code>
                             </div>
                           )}
-
                           <KV label="DKIM" value={
                             r.dnsSecurityResult.dkimHintFound
                               ? <span className={styles.ok}>✓ Seletor: {r.dnsSecurityResult.dkimSelector}</span>
-                              : <span className={styles.warn}>⚠ Nenhum seletor comum encontrado</span>
+                              : <span className={styles.warn}>⚠ Nenhum seletor encontrado</span>
                           } />
-
                           <KV label="CAA" value={
                             r.dnsSecurityResult.caaPresent
                               ? <span className={styles.ok}>✓ Configurado</span>
@@ -1095,7 +1062,6 @@ export default function App() {
                               <code className={styles.code}>{r.dnsSecurityResult.caaRecord}</code>
                             </div>
                           )}
-
                           <KV label="MX" value={
                             r.dnsSecurityResult.mxPresent
                               ? <span className={styles.ok}>✓ {r.dnsSecurityResult.mxRecords?.length} servidor(es)</span>
@@ -1108,50 +1074,101 @@ export default function App() {
                               ))}
                             </div>
                           )}
-
                           <div className={styles.note} style={{ marginTop: 8 }}>
                             {r.dnsSecurityResult.summary}
                           </div>
                         </>
-                      ) : (
-                        <div className={styles.empty}>DNS não analisado</div>
-                      )}
+                      ) : <div className={styles.empty}>DNS não analisado</div>}
                     </Section>
                   </Card>
+
+                  {/* ── Active Checks ───────────────────────────────────────── */}
                   <Card title="ACTIVE CHECKS">
-                    <Section title="Application Probes">
+                    <Section title="WAF Detection" defaultOpen={false}>
                       {!r.activeMode ? (
-                        <div className={styles.note} style={{ marginTop: 0 }}>
-                          Probes não executados — habilite o modo <strong>ACTIVE</strong> para ativar XSS probe, detecção de DB error e port scan.
+                        <div className={styles.empty} style={{ padding: "8px 0", textAlign: "left" }}>
+                          Requer modo <strong>ACTIVE</strong>
+                        </div>
+                      ) : (
+                        <>
+                          <KV label="Detectado" value={
+                            r.wafDetectionResult?.detected
+                              ? <span className={styles.ok}>✓ Sim</span>
+                              : <span className={styles.warn}>✗ Não confirmado</span>
+                          } />
+                          {r.wafDetectionResult?.detected && (
+                            <>
+                              <KV label="Provider" value={<strong style={{ color: "var(--accent)" }}>{r.wafDetectionResult.provider}</strong>} />
+                              <KV label="Confiança" value={
+                                <span className={
+                                  r.wafDetectionResult.confidence === "HIGH" ? styles.secure :
+                                    r.wafDetectionResult.confidence === "MEDIUM" ? styles.warning : styles.muted
+                                }>{r.wafDetectionResult.confidence}</span>
+                              } />
+                              <KV label="Evidência" value={<code className={styles.code}>{r.wafDetectionResult.evidence}</code>} />
+                            </>
+                          )}
+                          <KV label="Probe" value={
+                            <span className={
+                              r.wafDetectionResult?.probeResponse === "BLOCKED" ? styles.ok :
+                                r.wafDetectionResult?.probeResponse === "PASSED" ? styles.warn : styles.muted
+                            }>{r.wafDetectionResult?.probeResponse ?? "—"}</span>
+                          } />
+                          <div className={styles.note} style={{ marginTop: 8 }}>{r.wafDetectionResult?.summary}</div>
+                        </>
+                      )}
+                    </Section>
+
+                    {/* Application Probes */}
+                    <Section title="Application Probes" defaultOpen={true}>
+                      {!r.activeMode ? (
+                        <div className={styles.empty} style={{ padding: "8px 0", textAlign: "left" }}>
+                          Requer modo <strong>ACTIVE</strong>
                         </div>
                       ) : (
                         <>
                           <KV label="Input surface" value={boolIcon(r.inputSurfaceDetected, "Detectada", "Não detectada")} />
                           <KV label="XSS probe" value={boolIcon(r.xssProbePerformed, "Executado", "—")} />
-                          <KV label="Reflected XSS" value={r.xssProbePerformed
-                            ? boolIcon(!r.reflectedXssSuspected, "✓ Clean", "⚠ Suspeito")
-                            : <span className={styles.muted}>Sem superfície de input</span>} />
+                          <KV label="Reflected XSS" value={
+                            r.xssProbePerformed
+                              ? boolIcon(!r.reflectedXssSuspected, "✓ Clean", "⚠ Suspeito")
+                              : <span className={styles.muted}>Sem superfície de input</span>
+                          } />
                           <KV label="DB error leak" value={boolIcon(!r.dbErrorLeakageSuspected, "✓ Clean", "⚠ Suspeito")} />
                         </>
                       )}
                     </Section>
+
+                    {/* Port Scan */}
                     <Section title={`Port Scan [${r.openPorts?.length ?? 0}]`} defaultOpen={false}>
-                      {r.openPorts?.length ? (
+                      {!r.activeMode ? (
+                        <div className={styles.empty} style={{ padding: "8px 0", textAlign: "left" }}>
+                          Requer modo <strong>ACTIVE</strong>
+                        </div>
+                      ) : r.openPorts?.length ? (
                         <table className={styles.table}>
-                          <thead><tr><th>Port</th><th>Service</th><th>Sev</th><th>ms</th></tr></thead>
-                          <tbody>{r.openPorts.map(p => (
-                            <tr key={p.port}>
-                              <td><code>{p.port}</code></td><td>{p.service}</td>
-                              <td><Tag label={p.severity} cls={sevColor(p.severity)} /></td>
-                              <td className={styles.muted}>{p.latencyMs}</td>
-                            </tr>
-                          ))}</tbody>
+                          <thead>
+                            <tr><th>Port</th><th>Service</th><th>Sev</th><th>ms</th></tr>
+                          </thead>
+                          <tbody>
+                            {r.openPorts.map(p => (
+                              <tr key={p.port}>
+                                <td><code>{p.port}</code></td>
+                                <td>{p.service}</td>
+                                <td><Tag label={p.severity} cls={sevColor(p.severity)} /></td>
+                                <td className={styles.muted}>{p.latencyMs}</td>
+                              </tr>
+                            ))}
+                          </tbody>
                         </table>
-                      ) : <div className={styles.empty}>Sem portas abertas</div>}
+                      ) : (
+                        <div className={styles.empty}>Sem portas abertas detectadas</div>
+                      )}
                     </Section>
                   </Card>
                 </div>
 
+                {/* Score Breakdown — full width */}
                 <Card title="SCORE BREAKDOWN">
                   <div className={styles.notesList}>
                     {(r.score?.notes ?? []).map((n, i) => (
@@ -1161,6 +1178,7 @@ export default function App() {
                     ))}
                   </div>
                 </Card>
+
               </div>
             )}
           </>
