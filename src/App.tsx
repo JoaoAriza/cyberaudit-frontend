@@ -645,7 +645,6 @@ export default function App() {
   const [view, setView] = useState<View>("scan");
   const [url, setUrl] = useState("github.com");
   const [active, setActive] = useState(false);
-  const [useAsync, setUseAsync] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
@@ -669,7 +668,7 @@ export default function App() {
     setOwnership(null);
     setAsyncState(undefined);
     setScanLoading(true);
-    useAsync ? await runAsync() : await runSync();
+    active ? await runAsync() : await runSync();
   }
 
   async function runSync() {
@@ -797,10 +796,6 @@ export default function App() {
                   <label className={styles.toggle} title="Apenas em domínios autorizados.">
                     <input type="checkbox" checked={active} disabled={scanLoading} onChange={e => setActive(e.target.checked)} />
                     <span className={styles.toggleLabel}>ACTIVE</span>
-                  </label>
-                  <label className={styles.toggle}>
-                    <input type="checkbox" checked={useAsync} disabled={scanLoading} onChange={e => setUseAsync(e.target.checked)} />
-                    <span className={styles.toggleLabel}>ASYNC</span>
                   </label>
                 </div>
                 <div className={styles.actions}>
