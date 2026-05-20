@@ -700,9 +700,16 @@ export default function App() {
   function handleError(err: any) {
     const aborted = err?.name === "CanceledError" || err?.code === "ERR_CANCELED";
     if (aborted) { setError("Scan cancelado."); return; }
-    if (err?.response?.status === 401) { setError("Scan ativo requer autenticação."); setView("login"); return; }
+
+    if (err?.response?.status === 401) {
+      setError("Scan ativo requer autenticação.");
+      setView("login");
+      return;
+    }
 
     const data = err?.response?.data;
+
+    // Ownership verification
     const isOwnership = err?.response?.status === 403 && (
       data?.error === "OWNERSHIP_REQUIRED" ||
       data?.message?.includes("proprietário verificado") ||
@@ -714,7 +721,28 @@ export default function App() {
       setOwnership({ message: data?.message ?? "", host, token: tokenMatch?.[0] ?? null, passiveResult: data?.passiveResult ?? null });
       return;
     }
-    setError(err?.response ? `Erro ${err.response.status}: ${JSON.stringify(err.response.data)}` : `Falha: ${err.message}`);
+
+    // URL inválida ou host inacessível
+    const message = data?.message ?? err?.message ?? "";
+    const isUnreachable =
+      message.toLowerCase().includes("connect timed out") ||
+      message.toLowerCase().includes("connection refused") ||
+      message.toLowerCase().includes("nodename nor servname") ||
+      message.toLowerCase().includes("unknown host") ||
+      message.toLowerCase().includes("name or service not known") ||
+      message.toLowerCase().includes("no route to host") ||
+      message.toLowerCase().includes("network is unreachable") ||
+      message.toLowerCase().includes("failed to connect") ||
+      err?.response?.status === 400;
+
+    if (isUnreachable) {
+      setError(`⚠ Domínio não encontrado ou inacessível: "${url}". Verifique se o endereço está correto e tente novamente.`);
+      return;
+    }
+
+    setError(err?.response
+      ? `Erro ${err.response.status}: ${JSON.stringify(err.response.data)}`
+      : `Falha: ${err.message}`);
   }
 
   async function handlePdf() {
