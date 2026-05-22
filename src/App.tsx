@@ -93,11 +93,7 @@ function Section({ title, children, defaultOpen = true }: {
   title: string; children: React.ReactNode; defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-
-  useEffect(() => {
-    setOpen(defaultOpen);
-  }, [defaultOpen]);
-
+  useEffect(() => { setOpen(defaultOpen); }, [defaultOpen]);
   return (
     <div className={styles.section}>
       <button className={styles.sectionHeader} onClick={() => setOpen(o => !o)}>
@@ -199,6 +195,106 @@ function TerminalLoader({ asyncState }: { asyncState?: string }) {
   );
 }
 
+// ── Slow Scan Toast ───────────────────────────────────────────────────────────
+
+function SlowScanToast({ visible }: { visible: boolean }) {
+  const checks = [
+    { label: "Sensitive Files", detail: "Testa ~25 arquivos críticos no servidor" },
+    { label: "Port Scan", detail: "Verifica 21 portas com validação de banner" },
+    { label: "DNS Security", detail: "Consulta SPF, DMARC, DKIM, CAA e MX" },
+    { label: "WAF Detection", detail: "Envia probes e analisa headers de resposta" },
+    { label: "HTTP Methods", detail: "Testa métodos perigosos (PUT, DELETE, TRACE...)" },
+    { label: "Directory Listing", detail: "Verifica diretórios comuns expostos" },
+  ];
+
+  if (!visible) return null;
+
+  return (
+    <div style={{
+      position: "fixed", top: 72, left: 16, zIndex: 9999,  // ← top: 72 fica abaixo do header
+      width: 340,
+      background: "linear-gradient(135deg, #0d1219 0%, #131b26 100%)",
+      border: "1px solid rgba(0,212,160,.25)",
+      borderLeft: "3px solid var(--accent)",
+      borderRadius: "var(--radius)",
+      boxShadow: "0 8px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(0,212,160,.08)",
+      animation: "slideInLeft .4s cubic-bezier(.16,1,.3,1)",  // ← animação vem da esquerda
+      overflow: "hidden",
+      fontFamily: "var(--mono)",
+    }}>
+      {/* Barra animada no topo */}
+      <div style={{
+        height: 2,
+        background: "linear-gradient(90deg, var(--accent), #3b9eff, var(--accent))",
+        backgroundSize: "200% 100%",
+        animation: "shimmer 2s linear infinite",
+      }} />
+
+      <div style={{ padding: "14px 16px" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 16, color: "var(--accent)", animation: "pulse 2s ease-in-out infinite" }}>◈</span>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", letterSpacing: ".5px" }}>
+              Scan em andamento
+            </div>
+            <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1 }}>
+              Sites com servidor lento podem levar mais tempo
+            </div>
+          </div>
+        </div>
+
+        {/* Explicação */}
+        <div style={{
+          fontSize: 10, color: "var(--text-dim)", lineHeight: 1.7,
+          padding: "8px 10px",
+          background: "rgba(0,0,0,.2)", borderRadius: 4,
+          marginBottom: 10, borderLeft: "2px solid rgba(0,212,160,.2)"
+        }}>
+          O CyberAudit executa múltiplos checks em paralelo. Cada um faz requests
+          ao servidor alvo — se ele for lento ou estiver sobrecarregado,
+          o tempo total aumenta proporcionalmente.
+        </div>
+
+        {/* Checks em andamento */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
+          {checks.map((c, i) => (
+            <div key={i} style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "4px 8px", borderRadius: 4,
+              background: "rgba(0,212,160,.04)",
+              animation: `fadeIn .3s ease ${i * 0.08}s both`,
+            }}>
+              <span style={{
+                fontSize: 7, color: "var(--accent)", flexShrink: 0,
+                animation: `pulse ${1.5 + i * 0.2}s ease-in-out infinite`,
+              }}>⬡</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", marginRight: 6 }}>
+                  {c.label}
+                </span>
+                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                  {c.detail}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: "6px 8px",
+          background: "rgba(59,158,255,.06)",
+          border: "1px solid rgba(59,158,255,.15)",
+          borderRadius: 4, fontSize: 10, color: "#3b9eff",
+        }}>
+          ⓘ Nenhuma ação necessária — aguarde o resultado.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Guest Banner ──────────────────────────────────────────────────────────────
 
 function GuestBanner({ onLogin }: { onLogin: () => void }) {
@@ -255,12 +351,15 @@ function OwnershipCard({ state, onDismiss }: { state: OwnershipState; onDismiss:
       <div className={styles.ownershipSteps}>
         <div className={styles.ownershipStep}>
           <span className={styles.stepNum}>1</span>
-          <div><div className={styles.stepTitle}>Crie o arquivo</div>
-            <code className={styles.stepCode}>https://{state.host}/.well-known/cyberaudit.txt</code></div>
+          <div>
+            <div className={styles.stepTitle}>Crie o arquivo</div>
+            <code className={styles.stepCode}>https://{state.host}/.well-known/cyberaudit.txt</code>
+          </div>
         </div>
         <div className={styles.ownershipStep}>
           <span className={styles.stepNum}>2</span>
-          <div><div className={styles.stepTitle}>Conteúdo do arquivo</div>
+          <div>
+            <div className={styles.stepTitle}>Conteúdo do arquivo</div>
             <div className={styles.tokenRow}>
               <code className={styles.stepCode}>{state.token ?? "—"}</code>
               <button className={styles.copyBtn} onClick={copy}>{copied ? "✓ Copiado" : "Copiar"}</button>
@@ -269,7 +368,8 @@ function OwnershipCard({ state, onDismiss }: { state: OwnershipState; onDismiss:
         </div>
         <div className={styles.ownershipStep}>
           <span className={styles.stepNum}>3</span>
-          <div><div className={styles.stepTitle}>Confirme a verificação</div>
+          <div>
+            <div className={styles.stepTitle}>Confirme a verificação</div>
             <div className={styles.tokenRow}>
               <button className={styles.verifyBtn} onClick={check} disabled={checking}>{checking ? "Verificando..." : "Checar agora"}</button>
               {verified
@@ -292,7 +392,6 @@ function LoginPage({ onBack }: { onBack: () => void }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true); setError(null);
@@ -341,7 +440,6 @@ function AcceptInvitePage({ token }: { token: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password !== confirm) { setError("As senhas não coincidem."); return; }
@@ -355,7 +453,6 @@ function AcceptInvitePage({ token }: { token: string }) {
       setError(err?.response?.data?.message ?? "Convite inválido ou expirado.");
     } finally { setLoading(false); }
   }
-
   if (success) return (
     <div className={styles.loginPage}>
       <div className={styles.loginCard}>
@@ -402,7 +499,6 @@ function InviteItemRow({ inv, onRevoke, roleBadge }: {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const link = inv.acceptLink ? `${window.location.origin}${inv.acceptLink}` : null;
-
   function copyLink() {
     if (!link) return;
     navigator.clipboard.writeText(link);
@@ -618,7 +714,6 @@ function AdminPanel() {
                 </button>
               </form>
             </Card>
-
             <Card title="CONVITES PENDENTES">
               {invites.length === 0
                 ? <div className={styles.empty}>Nenhum convite pendente.</div>
@@ -651,8 +746,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [ownership, setOwnership] = useState<OwnershipState | null>(null);
   const [asyncState, setAsyncState] = useState<string | undefined>();
+  const [showSlowToast, setShowSlowToast] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { if (user && view === "login") setView("scan"); }, [user]);
   useEffect(() => () => { pollRef.current && clearInterval(pollRef.current); }, []);
@@ -661,55 +758,71 @@ export default function App() {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   }, []);
 
-  async function handleScan() {
-    abortRef.current?.abort(); stopPoll();
-    setResult(null);
-    setError(null);
-    setOwnership(null);
-    setAsyncState(undefined);
-    setScanLoading(true);
-    active ? await runAsync() : await runSync();
+  function stopSlowTimer() {
+    setShowSlowToast(false);
+    if (slowTimerRef.current) { clearTimeout(slowTimerRef.current); slowTimerRef.current = null; }
   }
 
-  async function runSync() {
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-    try {
-      const res = await api.get("/scan", { params: { url, active }, signal: ctrl.signal });
-      setResult(res.data);
-    } catch (err: any) { handleError(err); }
-    finally { setScanLoading(false); }
+  async function handleScan() {
+    abortRef.current?.abort(); stopPoll(); stopSlowTimer();
+    setResult(null); setError(null); setOwnership(null); setAsyncState(undefined);
+
+    // Mostra toast informativo após 30s se ainda estiver carregando
+    slowTimerRef.current = setTimeout(() => setShowSlowToast(true), 30000);
+
+    setScanLoading(true);
+    await runAsync();
   }
 
   async function runAsync() {
     try {
       const res = await api.post("/scan/async", null, { params: { url, active } });
-      const scanId: string = res.data.scanId;
+      const scanId = res.data.scanId as string;
       setAsyncState("PENDING");
+
       pollRef.current = setInterval(async () => {
         try {
           const status: AsyncStatus = (await api.get(`/scan/async/${scanId}`)).data;
           setAsyncState(status.state);
-          if (status.state === "DONE") { stopPoll(); setResult(status.result); setScanLoading(false); }
-          if (status.state === "ERROR") { stopPoll(); setError(status.errorMessage ?? "Erro."); setScanLoading(false); }
-        } catch { stopPoll(); setError("Falha ao consultar status."); setScanLoading(false); }
+
+          if (status.state === "DONE") {
+            stopPoll(); stopSlowTimer();
+            setResult(status.result);
+            setScanLoading(false);
+          } else if (status.state === "ERROR") {
+            stopPoll(); stopSlowTimer();
+            setScanLoading(false);
+            const msg = status.errorMessage ?? "";
+            const isUnreachable =
+              msg.includes("UnknownHostException") ||
+              msg.includes("Name or service not known") ||
+              msg.includes("nodename nor servname provided") ||
+              msg.includes("No address associated");
+            setError(isUnreachable
+              ? `⚠ Domínio não encontrado ou inacessível: "${url}". Verifique o endereço e tente novamente.`
+              : `Erro ao processar scan: ${msg}`
+            );
+          }
+        } catch {
+          stopPoll(); stopSlowTimer();
+          setError("Falha ao consultar status do scan. Tente novamente.");
+          setScanLoading(false);
+        }
       }, 2000);
-    } catch (err: any) { handleError(err); setScanLoading(false); }
+
+    } catch (err: any) {
+      stopSlowTimer();
+      handleError(err);
+      setScanLoading(false);
+    }
   }
 
   function handleError(err: any) {
     const aborted = err?.name === "CanceledError" || err?.code === "ERR_CANCELED";
     if (aborted) { setError("Scan cancelado."); return; }
-
-    if (err?.response?.status === 401) {
-      setError("Scan ativo requer autenticação.");
-      setView("login");
-      return;
-    }
+    if (err?.response?.status === 401) { setError("Scan ativo requer autenticação."); setView("login"); return; }
 
     const data = err?.response?.data;
-
-    // Ownership verification
     const isOwnership = err?.response?.status === 403 && (
       data?.error === "OWNERSHIP_REQUIRED" ||
       data?.message?.includes("proprietário verificado") ||
@@ -722,24 +835,20 @@ export default function App() {
       return;
     }
 
-    // URL inválida ou host inacessível
     const message = data?.message ?? err?.message ?? "";
     const isUnreachable =
       message.toLowerCase().includes("connect timed out") ||
       message.toLowerCase().includes("connection refused") ||
-      message.toLowerCase().includes("nodename nor servname") ||
       message.toLowerCase().includes("unknown host") ||
       message.toLowerCase().includes("name or service not known") ||
       message.toLowerCase().includes("no route to host") ||
       message.toLowerCase().includes("network is unreachable") ||
-      message.toLowerCase().includes("failed to connect") ||
       err?.response?.status === 400;
 
     if (isUnreachable) {
       setError(`⚠ Domínio não encontrado ou inacessível: "${url}". Verifique se o endereço está correto e tente novamente.`);
       return;
     }
-
     setError(err?.response
       ? `Erro ${err.response.status}: ${JSON.stringify(err.response.data)}`
       : `Falha: ${err.message}`);
@@ -750,12 +859,12 @@ export default function App() {
     try {
       const res = await api.get("/scan/report/pdf", { params: { url, active }, responseType: "blob" });
       const ts = new Date().toISOString().slice(0, 10);
-      downloadBlob(new Blob([res.data], { type: "application/pdf" }), `cyberaudit-${url.replace(/[^a-z0-9]/gi, "-")}-${ts}.pdf`);
+      downloadBlob(new Blob([res.data], { type: "application/pdf" }),
+        `cyberaudit-${url.replace(/[^a-z0-9]/gi, "-")}-${ts}.pdf`);
     } catch (e: any) { setError(`PDF: ${e.message}`); }
     finally { setPdfLoading(false); }
   }
 
-  // Detecta link de convite na URL
   const inviteToken = getInviteTokenFromUrl();
   if (inviteToken) return <div className={styles.app}><AcceptInvitePage token={inviteToken} /></div>;
 
@@ -773,7 +882,10 @@ export default function App() {
   return (
     <div className={styles.app}>
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/* ── Toast de scan lento — canto superior direito ─────────────────── */}
+      <SlowScanToast visible={showSlowToast} />
+
+      {/* ── Header ───────────────────────────────────────────────────────── */}
       <header className={styles.header}>
         <div className={styles.logo}>
           <span className={styles.logoIcon}>◈</span>
@@ -802,16 +914,15 @@ export default function App() {
 
       <main className={styles.main}>
 
-        {/* ── Guest Banner ──────────────────────────────────────────────────── */}
+        {/* ── Guest Banner ─────────────────────────────────────────────────── */}
         {!isAuthenticated() && view === "scan" && <GuestBanner onLogin={() => setView("login")} />}
 
-        {/* ── Admin Panel ───────────────────────────────────────────────────── */}
+        {/* ── Admin Panel ──────────────────────────────────────────────────── */}
         {view === "admin" && isAdmin() && <AdminPanel />}
 
-        {/* ── Scan View ─────────────────────────────────────────────────────── */}
+        {/* ── Scan View ────────────────────────────────────────────────────── */}
         {view === "scan" && (
           <>
-            {/* Scan form */}
             <div className={styles.scanPanel}>
               <div className={styles.scanForm}>
                 <div className={styles.inputWrap}>
@@ -829,7 +940,7 @@ export default function App() {
                 <div className={styles.actions}>
                   {scanLoading
                     ? <button className={`${styles.btn} ${styles.btnCancel}`}
-                      onClick={() => { abortRef.current?.abort(); stopPoll(); setScanLoading(false); }}>✕ Cancel</button>
+                      onClick={() => { abortRef.current?.abort(); stopPoll(); stopSlowTimer(); setScanLoading(false); }}>✕ Cancel</button>
                     : <button className={`${styles.btn} ${styles.btnScan}`} onClick={handleScan}>◈ Scan</button>}
                   <button className={`${styles.btn} ${styles.btnGhost}`} onClick={handlePdf}
                     disabled={pdfLoading || scanLoading}>{pdfLoading ? "..." : "PDF"}</button>
@@ -840,17 +951,13 @@ export default function App() {
               {error && <div className={styles.errorBox}>{error}</div>}
             </div>
 
-            {/* Ownership verification */}
             {ownership && <OwnershipCard state={ownership} onDismiss={() => setOwnership(null)} />}
-
-            {/* Terminal loader */}
             {scanLoading && <TerminalLoader asyncState={asyncState} />}
 
-            {/* ── Results Dashboard ─────────────────────────────────────────── */}
+            {/* ── Results Dashboard ───────────────────────────────────────── */}
             {r && !scanLoading && (
-              <div
-                key={`${r.url}-${r.activeMode}-${r.score?.score}`}
-                className={styles.dashboard}>
+              <div key={`${r.url}-${r.activeMode}-${r.score?.score}`} className={styles.dashboard}>
+
                 {/* Row 1: Score + Issues */}
                 <div className={styles.row}>
                   <Card>
@@ -1004,10 +1111,10 @@ export default function App() {
                   </Card>
                 </div>
 
-                {/* Row 6: Reconnaissance + Active Checks — PAREADOS */}
+                {/* Row 6: Reconnaissance + Active Checks — SEMPRE PAREADOS */}
                 <div className={styles.row}>
 
-                  {/* ── Reconnaissance ─────────────────────────────────────── */}
+                  {/* ── RECONNAISSANCE ───────────────────────────────────── */}
                   <Card title="RECONNAISSANCE">
                     <Section title="robots.txt" defaultOpen={true}>
                       {r.sensitiveRobotsPaths?.length ? (
@@ -1036,21 +1143,16 @@ export default function App() {
                       {r.dnsSecurityResult ? (
                         <>
                           <div style={{ marginBottom: 10 }}>
-                            <Tag
-                              label={`Email Spoofing Risk: ${r.dnsSecurityResult.emailSpoofingRisk}`}
+                            <Tag label={`Email Spoofing Risk: ${r.dnsSecurityResult.emailSpoofingRisk}`}
                               cls={
                                 r.dnsSecurityResult.emailSpoofingRisk === "LOW" ? styles.secure :
                                   r.dnsSecurityResult.emailSpoofingRisk === "MEDIUM" ? styles.warning :
-                                    r.dnsSecurityResult.emailSpoofingRisk === "HIGH" ? styles.high :
-                                      styles.critical
-                              }
-                            />
+                                    r.dnsSecurityResult.emailSpoofingRisk === "HIGH" ? styles.high : styles.critical
+                              } />
                           </div>
                           <KV label="SPF" value={
                             <span className={r.dnsSecurityResult.spfPresent ? styles.ok : styles.bad}>
-                              {r.dnsSecurityResult.spfPresent
-                                ? `✓ ${r.dnsSecurityResult.spfPolicy}`
-                                : "✗ Ausente"}
+                              {r.dnsSecurityResult.spfPresent ? `✓ ${r.dnsSecurityResult.spfPolicy}` : "✗ Ausente"}
                             </span>
                           } />
                           {r.dnsSecurityResult.spfRecord && (
@@ -1060,9 +1162,7 @@ export default function App() {
                           )}
                           <KV label="DMARC" value={
                             <span className={r.dnsSecurityResult.dmarcPresent ? styles.ok : styles.bad}>
-                              {r.dnsSecurityResult.dmarcPresent
-                                ? `✓ p=${r.dnsSecurityResult.dmarcPolicy?.toLowerCase()}`
-                                : "✗ Ausente"}
+                              {r.dnsSecurityResult.dmarcPresent ? `✓ p=${r.dnsSecurityResult.dmarcPolicy?.toLowerCase()}` : "✗ Ausente"}
                             </span>
                           } />
                           {r.dnsSecurityResult.dmarcRecord && (
@@ -1105,8 +1205,9 @@ export default function App() {
                     </Section>
                   </Card>
 
-                  {/* ── Active Checks ───────────────────────────────────────── */}
+                  {/* ── ACTIVE CHECKS ────────────────────────────────────── */}
                   <Card title="ACTIVE CHECKS">
+
                     <Section title="WAF Detection" defaultOpen={false}>
                       {!r.activeMode ? (
                         <div className={styles.empty} style={{ padding: "8px 0", textAlign: "left" }}>
@@ -1142,7 +1243,6 @@ export default function App() {
                       )}
                     </Section>
 
-                    {/* Application Probes */}
                     <Section title="Application Probes" defaultOpen={true}>
                       {!r.activeMode ? (
                         <div className={styles.empty} style={{ padding: "8px 0", textAlign: "left" }}>
@@ -1162,7 +1262,6 @@ export default function App() {
                       )}
                     </Section>
 
-                    {/* Port Scan */}
                     <Section title={`Port Scan [${r.openPorts?.length ?? 0}]`} defaultOpen={false}>
                       {!r.activeMode ? (
                         <div className={styles.empty} style={{ padding: "8px 0", textAlign: "left" }}>
@@ -1170,9 +1269,7 @@ export default function App() {
                         </div>
                       ) : r.openPorts?.length ? (
                         <table className={styles.table}>
-                          <thead>
-                            <tr><th>Port</th><th>Service</th><th>Sev</th><th>ms</th></tr>
-                          </thead>
+                          <thead><tr><th>Port</th><th>Service</th><th>Sev</th><th>ms</th></tr></thead>
                           <tbody>
                             {r.openPorts.map(p => (
                               <tr key={p.port}>
