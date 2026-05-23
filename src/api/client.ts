@@ -19,7 +19,7 @@ export const api = axios.create({
 
 // Injeta token em todo request automaticamente
 api.interceptors.request.use(config => {
-  const token = getToken();
+  const token = localStorage.getItem("cyberaudit.token")
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });

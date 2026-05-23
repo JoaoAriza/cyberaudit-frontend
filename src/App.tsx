@@ -857,12 +857,28 @@ export default function App() {
   async function handlePdf() {
     setPdfLoading(true);
     try {
-      const res = await api.get("/scan/report/pdf", { params: { url, active }, responseType: "blob" });
+      const res = await api.get("/scan/report/pdf", {
+        params: { url, active },
+        responseType: "blob",
+      });
       const ts = new Date().toISOString().slice(0, 10);
-      downloadBlob(new Blob([res.data], { type: "application/pdf" }),
-        `cyberaudit-${url.replace(/[^a-z0-9]/gi, "-")}-${ts}.pdf`);
-    } catch (e: any) { setError(`PDF: ${e.message}`); }
-    finally { setPdfLoading(false); }
+      downloadBlob(
+        new Blob([res.data], { type: "application/pdf" }),
+        `cyberaudit-${url.replace(/[^a-z0-9]/gi, "-")}-${ts}.pdf`
+      );
+    } catch (e: any) {
+      if (e?.response?.data instanceof Blob) {
+        const text = await e.response.data.text();
+        try {
+          const json = JSON.parse(text);
+          setError(`PDF erro: ${json.message ?? json.error ?? text}`);
+        } catch {
+          setError(`PDF erro: ${text || "Erro desconhecido — verifique o log do backend"}`);
+        }
+      } else {
+        setError(`PDF erro: ${e?.response?.status} — ${e.message}`);
+      }
+    } finally { setPdfLoading(false); }
   }
 
   const inviteToken = getInviteTokenFromUrl();
