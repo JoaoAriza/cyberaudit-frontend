@@ -18,6 +18,7 @@ interface OpenRedirectFinding { parameter: string; testedUrl: string; redirected
 interface DirectoryListingFinding { path: string; statusCode: number; listingEnabled: boolean; evidence: string; severity: string; }
 interface DnsSecurityResult { spfPresent: boolean; spfRecord: string | null; spfPolicy: string; dmarcPresent: boolean; dmarcRecord: string | null; dmarcPolicy: string; dkimHintFound: boolean; dkimSelector: string | null; caaPresent: boolean; caaRecord: string | null; mxPresent: boolean; mxRecords: string[]; emailSpoofingRisk: string; summary: string; }
 interface WafDetectionResult { detected: boolean; provider: string | null; confidence: string | null; evidence: string | null; probeResponse: string | null; summary: string; }
+interface TechFingerprintResult { webServer: string | null; backend: string | null; framework: string | null; cms: string | null; cdn: string | null; language: string | null; libraries: string[]; evidence: string[]; }
 interface ScanResult {
   url: string; finalUrl: string; httpStatus: number; redirectsToHttps: boolean;
   sslInfo: SSLInfo; tlsDetails: TlsDetails; headers: Record<string, string>;
@@ -29,6 +30,7 @@ interface ScanResult {
   securityTxtContact: string | null; openRedirectFindings: OpenRedirectFinding[];
   directoryListingFindings: DirectoryListingFinding[]; score: ScoreResult;
   dnsSecurityResult: DnsSecurityResult | null; wafDetectionResult: WafDetectionResult | null;
+  techFingerprint: TechFingerprintResult | null;
 }
 interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; }
 interface OwnershipState { message: string; host: string; token: string | null; passiveResult: ScanResult | null; }
@@ -113,6 +115,17 @@ function Card({ title, children }: { title?: string; children: React.ReactNode }
   );
 }
 
+// ── Tech Badge ────────────────────────────────────────────────────────────────
+
+function TechBadge({ label, icon }: { label: string; icon: string }) {
+  return (
+    <div className={styles.techBadge}>
+      <span className={styles.techBadgeIcon}>{icon}</span>
+      <span className={styles.techBadgeLabel}>{label}</span>
+    </div>
+  );
+}
+
 // ── Score Gauge ───────────────────────────────────────────────────────────────
 
 function ScoreGauge({ score, risk }: { score: number; risk: string }) {
@@ -160,7 +173,7 @@ function IssueItem({ issue }: { issue: SecurityIssue }) {
 const SCAN_LINES = [
   "→ resolving target...", "→ probing SSL certificate...",
   "→ negotiating TLS handshake...", "→ analyzing security headers...",
-  "→ running CORS probe...", "→ inspecting cookies...",
+  "→ fingerprinting technology stack...", "→ inspecting cookies...",
   "→ checking robots.txt...", "→ scanning sensitive files...",
   "→ testing HTTP methods...", "→ verifying security.txt...",
   "→ detecting open redirects...", "→ checking directory listings...",
@@ -199,16 +212,14 @@ function TerminalLoader({ asyncState }: { asyncState?: string }) {
 
 function SlowScanToast({ visible }: { visible: boolean }) {
   const checks = [
+    { label: "Tech Fingerprint", detail: "Detecta framework, CMS, CDN e linguagem" },
     { label: "Sensitive Files", detail: "Testa ~25 arquivos críticos no servidor" },
     { label: "Port Scan", detail: "Verifica 21 portas com validação de banner" },
     { label: "DNS Security", detail: "Consulta SPF, DMARC, DKIM, CAA e MX" },
     { label: "WAF Detection", detail: "Envia probes e analisa headers de resposta" },
     { label: "HTTP Methods", detail: "Testa métodos perigosos (PUT, DELETE, TRACE...)" },
-    { label: "Directory Listing", detail: "Verifica diretórios comuns expostos" },
   ];
-
   if (!visible) return null;
-
   return (
     <div style={{
       position: "fixed", top: 72, left: 16, zIndex: 9999,
@@ -222,12 +233,7 @@ function SlowScanToast({ visible }: { visible: boolean }) {
       overflow: "hidden",
       fontFamily: "var(--mono)",
     }}>
-      <div style={{
-        height: 2,
-        background: "linear-gradient(90deg, var(--accent), #3b9eff, var(--accent))",
-        backgroundSize: "200% 100%",
-        animation: "shimmer 2s linear infinite",
-      }} />
+      <div style={{ height: 2, background: "linear-gradient(90deg, var(--accent), #3b9eff, var(--accent))", backgroundSize: "200% 100%", animation: "shimmer 2s linear infinite" }} />
       <div style={{ padding: "14px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <span style={{ fontSize: 16, color: "var(--accent)", animation: "pulse 2s ease-in-out infinite" }}>◈</span>
@@ -237,7 +243,7 @@ function SlowScanToast({ visible }: { visible: boolean }) {
           </div>
         </div>
         <div style={{ fontSize: 10, color: "var(--text-dim)", lineHeight: 1.7, padding: "8px 10px", background: "rgba(0,0,0,.2)", borderRadius: 4, marginBottom: 10, borderLeft: "2px solid rgba(0,212,160,.2)" }}>
-          O CyberAudit executa múltiplos checks em paralelo. Cada um faz requests ao servidor alvo — se ele for lento ou estiver sobrecarregado, o tempo total aumenta proporcionalmente.
+          O CyberAudit executa múltiplos checks em paralelo. Cada um faz requests ao servidor alvo.
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
           {checks.map((c, i) => (
@@ -262,9 +268,7 @@ function SlowScanToast({ visible }: { visible: boolean }) {
 
 function GuestBanner({ onLogin }: { onLogin: () => void }) {
   const [status, setStatus] = useState<GuestStatus | null>(null);
-  useEffect(() => {
-    api.get<GuestStatus>("/auth/guest-status").then(r => setStatus(r.data)).catch(() => { });
-  }, []);
+  useEffect(() => { api.get<GuestStatus>("/auth/guest-status").then(r => setStatus(r.data)).catch(() => { }); }, []);
   if (!status) return null;
   const pct = Math.round((status.used / status.dailyLimit) * 100);
   const critical = status.remaining <= 2;
@@ -307,30 +311,9 @@ function OwnershipCard({ state, onDismiss }: { state: OwnershipState; onDismiss:
       <div className={styles.ownershipHeader}><span>⚠</span><span>VERIFICAÇÃO DE PROPRIEDADE</span></div>
       <p className={styles.ownershipText}>Scan ativo detectou riscos em <strong>{state.host}</strong>. Prove que você é o dono do domínio.</p>
       <div className={styles.ownershipSteps}>
-        <div className={styles.ownershipStep}>
-          <span className={styles.stepNum}>1</span>
-          <div><div className={styles.stepTitle}>Crie o arquivo</div><code className={styles.stepCode}>https://{state.host}/.well-known/cyberaudit.txt</code></div>
-        </div>
-        <div className={styles.ownershipStep}>
-          <span className={styles.stepNum}>2</span>
-          <div>
-            <div className={styles.stepTitle}>Conteúdo do arquivo</div>
-            <div className={styles.tokenRow}>
-              <code className={styles.stepCode}>{state.token ?? "—"}</code>
-              <button className={styles.copyBtn} onClick={copy}>{copied ? "✓ Copiado" : "Copiar"}</button>
-            </div>
-          </div>
-        </div>
-        <div className={styles.ownershipStep}>
-          <span className={styles.stepNum}>3</span>
-          <div>
-            <div className={styles.stepTitle}>Confirme a verificação</div>
-            <div className={styles.tokenRow}>
-              <button className={styles.verifyBtn} onClick={check} disabled={checking}>{checking ? "Verificando..." : "Checar agora"}</button>
-              {verified ? <span className={styles.ok}>✓ Verificado! Refaça o scan ativo.</span> : <span className={styles.bad}>Arquivo não encontrado ainda.</span>}
-            </div>
-          </div>
-        </div>
+        <div className={styles.ownershipStep}><span className={styles.stepNum}>1</span><div><div className={styles.stepTitle}>Crie o arquivo</div><code className={styles.stepCode}>https://{state.host}/.well-known/cyberaudit.txt</code></div></div>
+        <div className={styles.ownershipStep}><span className={styles.stepNum}>2</span><div><div className={styles.stepTitle}>Conteúdo do arquivo</div><div className={styles.tokenRow}><code className={styles.stepCode}>{state.token ?? "—"}</code><button className={styles.copyBtn} onClick={copy}>{copied ? "✓ Copiado" : "Copiar"}</button></div></div></div>
+        <div className={styles.ownershipStep}><span className={styles.stepNum}>3</span><div><div className={styles.stepTitle}>Confirme a verificação</div><div className={styles.tokenRow}><button className={styles.verifyBtn} onClick={check} disabled={checking}>{checking ? "Verificando..." : "Checar agora"}</button>{verified ? <span className={styles.ok}>✓ Verificado! Refaça o scan ativo.</span> : <span className={styles.bad}>Arquivo não encontrado ainda.</span>}</div></div></div>
       </div>
       <button className={styles.dismissBtn} onClick={onDismiss}>Fechar</button>
     </div>
@@ -388,13 +371,7 @@ function AcceptInvitePage({ token }: { token: string }) {
     catch (err: any) { setError(err?.response?.data?.message ?? "Convite inválido ou expirado."); }
     finally { setLoading(false); }
   }
-  if (success) return (
-    <div className={styles.loginPage}><div className={styles.loginCard}>
-      <div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
-      <div className={styles.loginTitle} style={{ color: "var(--secure)" }}>✓ Conta criada!</div>
-      <div className={styles.loginSub}>Redirecionando para o login...</div>
-    </div></div>
-  );
+  if (success) return (<div className={styles.loginPage}><div className={styles.loginCard}><div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div><div className={styles.loginTitle} style={{ color: "var(--secure)" }}>✓ Conta criada!</div><div className={styles.loginSub}>Redirecionando para o login...</div></div></div>);
   return (
     <div className={styles.loginPage}><div className={styles.loginCard}>
       <div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
@@ -435,9 +412,7 @@ function InviteItemRow({ inv, onRevoke, roleBadge }: { inv: InviteDto; onRevoke:
         <div style={{ marginTop: 10, padding: 12, background: "var(--surface3)", borderRadius: "var(--radius)", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--border)" }}>
           <div>
             <div style={{ fontSize: 10, letterSpacing: 1, color: "var(--text-muted)", marginBottom: 6 }}>LINK DE ACEITE</div>
-            {link ? (
-              <div className={styles.tokenRow}><code className={styles.stepCode} style={{ flex: 1, fontSize: 11, wordBreak: "break-all" }}>{link}</code><button className={styles.copyBtn} onClick={copyLink}>{copied ? "✓" : "Copiar link"}</button></div>
-            ) : <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Link não disponível — recrie o convite.</span>}
+            {link ? (<div className={styles.tokenRow}><code className={styles.stepCode} style={{ flex: 1, fontSize: 11, wordBreak: "break-all" }}>{link}</code><button className={styles.copyBtn} onClick={copyLink}>{copied ? "✓" : "Copiar link"}</button></div>) : <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Link não disponível — recrie o convite.</span>}
           </div>
           <div style={{ display: "flex", gap: 20, fontSize: 11, color: "var(--text-dim)", flexWrap: "wrap" }}>
             <span>Convidado por: <strong style={{ color: "var(--text)" }}>{inv.invitedByName}</strong></span>
@@ -643,26 +618,21 @@ export default function App() {
 
   const inviteToken = getInviteTokenFromUrl();
   if (inviteToken) return <div className={styles.app}><AcceptInvitePage token={inviteToken} /></div>;
-
-  if (loading) return (
-    <div className={styles.app}><div className={styles.loadingScreen}><span className={styles.logoIcon}>◈</span> Carregando...</div></div>
-  );
-
+  if (loading) return (<div className={styles.app}><div className={styles.loadingScreen}><span className={styles.logoIcon}>◈</span> Carregando...</div></div>);
   if (view === "login") return <div className={styles.app}><LoginPage onBack={() => setView("scan")} /></div>;
 
   const r = result;
   const risk = r?.score?.riskLevel;
+  const tf = r?.techFingerprint;
+  const badgeHost = (r?.finalUrl ?? r?.url ?? "").replace(/^https?:\/\//, "").split("/")[0];
+  const badgeUrl = `${import.meta.env.VITE_API_URL ?? "http://localhost:8081"}/badge/${badgeHost}?v=${r?.score?.score ?? 0}`;
 
   return (
     <div className={styles.app}>
       <SlowScanToast visible={showSlowToast} />
 
-      {/* ── Header ───────────────────────────────────────────────────────── */}
       <header className={styles.header}>
-        <div className={styles.logo}>
-          <span className={styles.logoIcon}>◈</span>
-          <span className={styles.logoText}>CyberAudit</span>
-        </div>
+        <div className={styles.logo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
         <nav className={styles.headerNav}>
           <button className={`${styles.navBtn} ${view === "scan" ? styles.navBtnActive : ""}`} onClick={() => setView("scan")}>Scanner</button>
           {isAdmin() && (<button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`} onClick={() => setView("admin")}>Admin</button>)}
@@ -713,7 +683,6 @@ export default function App() {
             {ownership && <OwnershipCard state={ownership} onDismiss={() => setOwnership(null)} />}
             {scanLoading && <TerminalLoader asyncState={asyncState} />}
 
-            {/* ── Results Dashboard ───────────────────────────────────────── */}
             {r && !scanLoading && (
               <div key={`${r.url}-${r.activeMode}-${r.score?.score}`} className={styles.dashboard}>
 
@@ -730,9 +699,7 @@ export default function App() {
                         <KV label="ACTIVE MODE" value={boolIcon(r.activeMode)} />
                         <KV label="SERVER EXPOSED" value={boolIcon(!r.serverVersionExposed, "✓ Clean", "⚠ Exposed")} />
                         <div className={styles.badgePreview}>
-                          <img
-                            src={`${import.meta.env.VITE_API_URL ?? "http://localhost:8081"}/badge/${(r.finalUrl ?? r.url).replace(/^https?:\/\//, "").split("/")[0]}?v=${r.score?.score}`}
-                            alt="security badge" className={styles.badgeImg} />
+                          <img src={badgeUrl} alt="security badge" className={styles.badgeImg} />
                         </div>
                       </div>
                     </div>
@@ -743,6 +710,33 @@ export default function App() {
                       : <div className={styles.empty}>◈ Nenhuma issue detectada</div>}
                   </Card>
                 </div>
+
+                {/* Row 1b: Technology Fingerprint — full width */}
+                {tf && (tf.webServer || tf.backend || tf.framework || tf.cms || tf.cdn || tf.language || (tf.libraries?.length ?? 0) > 0) && (
+                  <Card title="TECHNOLOGY FINGERPRINT">
+                    <div className={styles.techGrid}>
+                      {tf.webServer && <TechBadge icon="⬡" label={`Web Server: ${tf.webServer}`} />}
+                      {tf.language && <TechBadge icon="⟨⟩" label={`Language: ${tf.language}`} />}
+                      {tf.backend && <TechBadge icon="◻" label={`Backend: ${tf.backend}`} />}
+                      {tf.framework && <TechBadge icon="◈" label={`Framework: ${tf.framework}`} />}
+                      {tf.cms && <TechBadge icon="▦" label={`CMS: ${tf.cms}`} />}
+                      {tf.cdn && <TechBadge icon="◉" label={`CDN: ${tf.cdn}`} />}
+                      {tf.libraries?.map((lib, i) => <TechBadge key={i} icon="◎" label={lib} />)}
+                    </div>
+                    {tf.evidence?.length > 0 && (
+                      <Section title="Evidence" defaultOpen={true}>
+                        <div className={styles.techEvidenceList}>
+                          {tf.evidence.map((e, i) => (
+                            <div key={i} className={styles.techEvidenceItem}>
+                              <span className={styles.techEvidenceDot}>›</span>
+                              <code className={styles.code}>{e}</code>
+                            </div>
+                          ))}
+                        </div>
+                      </Section>
+                    )}
+                  </Card>
+                )}
 
                 {/* Row 2: Transport + Headers */}
                 <div className={styles.row}>
@@ -830,8 +824,6 @@ export default function App() {
 
                 {/* Row 5: Reconnaissance + Active Checks */}
                 <div className={styles.row}>
-
-                  {/* ── RECONNAISSANCE ───────────────────────────────────── */}
                   <Card title="RECONNAISSANCE">
                     <Section title="robots.txt" defaultOpen={true}>
                       {r.sensitiveRobotsPaths?.length ? (
@@ -842,13 +834,11 @@ export default function App() {
                         ))
                       ) : <div className={styles.empty}>◈ Nenhum path sensível</div>}
                     </Section>
-
                     <Section title="security.txt" defaultOpen={true}>
                       <KV label="Presente" value={boolIcon(r.securityTxtPresent)} />
                       {r.securityTxtContact && <KV label="Contact" value={<code className={styles.code}>{r.securityTxtContact}</code>} />}
                       {!r.securityTxtPresent && <div className={styles.note}>Sem security.txt (RFC 9116) — dificulta reporte responsável de vulnerabilidades.</div>}
                     </Section>
-
                     <Section title="DNS Security" defaultOpen={true}>
                       {r.dnsSecurityResult ? (
                         <>
@@ -873,10 +863,7 @@ export default function App() {
                     </Section>
                   </Card>
 
-                  {/* ── ACTIVE CHECKS ────────────────────────────────────── */}
                   <Card title="ACTIVE CHECKS">
-
-                    {/* WAF Detection */}
                     <Section title="WAF Detection" defaultOpen={false}>
                       {!r.activeMode ? (
                         <div className={styles.activeRequired}>Requer modo <strong>ACTIVE</strong></div>
@@ -895,8 +882,6 @@ export default function App() {
                         </>
                       )}
                     </Section>
-
-                    {/* CORS Analysis */}
                     <Section title="CORS Analysis" defaultOpen={false}>
                       {!r.activeMode ? (
                         <div className={styles.activeRequired}>Requer modo <strong>ACTIVE</strong></div>
@@ -911,8 +896,6 @@ export default function App() {
                         </>
                       ) : <div className={styles.empty}>Probe não executado</div>}
                     </Section>
-
-                    {/* Sensitive Files */}
                     <Section title={`Sensitive Files${r.activeMode && r.sensitiveFiles?.length ? ` [${r.sensitiveFiles.length}]` : ""}`} defaultOpen={false}>
                       {!r.activeMode ? (
                         <div className={styles.activeRequired}>Requer modo <strong>ACTIVE</strong></div>
@@ -929,8 +912,6 @@ export default function App() {
                         ))
                       ) : <div className={styles.empty}>◈ Nenhum arquivo sensível exposto</div>}
                     </Section>
-
-                    {/* Application Probes */}
                     <Section title="Application Probes" defaultOpen={false}>
                       {!r.activeMode ? (
                         <div className={styles.activeRequired}>Requer modo <strong>ACTIVE</strong></div>
@@ -943,8 +924,6 @@ export default function App() {
                         </>
                       )}
                     </Section>
-
-                    {/* Port Scan */}
                     <Section title={`Port Scan [${r.openPorts?.length ?? 0}]`} defaultOpen={false}>
                       {!r.activeMode ? (
                         <div className={styles.activeRequired}>Requer modo <strong>ACTIVE</strong></div>
@@ -964,11 +943,10 @@ export default function App() {
                         </table>
                       ) : <div className={styles.empty}>Sem portas abertas detectadas</div>}
                     </Section>
-
                   </Card>
                 </div>
 
-                {/* Score Breakdown — full width */}
+                {/* Score Breakdown */}
                 <Card title="SCORE BREAKDOWN">
                   <div className={styles.notesList}>
                     {(r.score?.notes ?? []).map((n, i) => (

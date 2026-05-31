@@ -1538,3 +1538,76 @@
 .activeRequired strong {
   color: var(--info);
 }
+
+/* ── Active required placeholder ─────────────────────────────────────────── */
+.activeRequired {
+  padding: 10px 12px;
+  background: rgba(59, 158, 255, .05);
+  border: 1px dashed rgba(59, 158, 255, .2);
+  border-radius: var(--radius);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  letter-spacing: .3px;
+}
+
+.activeRequired strong {
+  color: var(--info);
+}
+
+/* ── Technology Fingerprint ──────────────────────────────────────────────── */
+.techGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 12px;
+}
+
+.techBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  transition: border-color .2s;
+}
+
+.techBadge:hover {
+  border-color: var(--accent);
+}
+
+.techBadgeIcon {
+  color: var(--accent);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.techBadgeLabel {
+  color: var(--text);
+  letter-spacing: .3px;
+}
+
+.techEvidenceList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.techEvidenceItem {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.techEvidenceDot {
+  color: var(--accent);
+  flex-shrink: 0;
+  font-size: 13px;
+}
