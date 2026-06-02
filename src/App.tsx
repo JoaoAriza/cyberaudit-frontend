@@ -19,6 +19,7 @@ interface DirectoryListingFinding { path: string; statusCode: number; listingEna
 interface DnsSecurityResult { spfPresent: boolean; spfRecord: string | null; spfPolicy: string; dmarcPresent: boolean; dmarcRecord: string | null; dmarcPolicy: string; dkimHintFound: boolean; dkimSelector: string | null; caaPresent: boolean; caaRecord: string | null; mxPresent: boolean; mxRecords: string[]; emailSpoofingRisk: string; summary: string; }
 interface WafDetectionResult { detected: boolean; provider: string | null; confidence: string | null; evidence: string | null; probeResponse: string | null; summary: string; }
 interface CVEFinding { cveId: string; severity: string; cvssScore: number; description: string; affectedSoftware: string; publishedDate: string; referenceUrl: string; }
+interface ScanChange { category: string; field: string; changeType: string; oldValue: string; newValue: string; severity: string; description: string; }
 interface TechFingerprintResult { webServer: string | null; backend: string | null; framework: string | null; cms: string | null; cdn: string | null; language: string | null; libraries: string[]; evidence: string[]; }
 interface ScanResult {
   url: string; finalUrl: string; httpStatus: number; redirectsToHttps: boolean;
@@ -33,6 +34,7 @@ interface ScanResult {
   dnsSecurityResult: DnsSecurityResult | null; wafDetectionResult: WafDetectionResult | null;
   techFingerprint: TechFingerprintResult | null;
   cveFindings: CVEFinding[];
+  changes: ScanChange[];
 }
 interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; }
 interface OwnershipState { message: string; host: string; token: string | null; passiveResult: ScanResult | null; }
@@ -713,7 +715,33 @@ export default function App() {
                   </Card>
                 </div>
 
-                {/* Row 1b: Technology Fingerprint — sempre visível */}
+                {/* Changes card — só aparece a partir do 2º scan */}
+                {r.changes?.length > 0 && (
+                  <Card title={`CHANGES SINCE LAST SCAN  [${r.changes.length}]`}>
+                    <div className={styles.changesList}>
+                      {r.changes.map((c, i) => (
+                        <div key={i} className={`${styles.changeRow} ${styles["change" + c.changeType]}`}>
+                          <div className={styles.changeHeader}>
+                            <span className={`${styles.changeType} ${styles["ct" + c.changeType]}`}>{c.changeType}</span>
+                            <Tag label={c.severity} cls={sevColor(c.severity)} />
+                            <span className={styles.changeCategory}>{c.category}</span>
+                            <span className={styles.changeField}>{c.field}</span>
+                          </div>
+                          <div className={styles.changeDesc}>{c.description}</div>
+                          {c.oldValue && c.newValue && (
+                            <div className={styles.changeDiff}>
+                              <span className={styles.changeDiffOld}>{c.oldValue}</span>
+                              <span className={styles.changeDiffArrow}>→</span>
+                              <span className={styles.changeDiffNew}>{c.newValue}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+
+                {/* Row 1b: Technology Fingerprint*/}
                 <Card title="TECHNOLOGY FINGERPRINT">
                   {tf && (tf.webServer || tf.backend || tf.framework || tf.cms || tf.cdn || tf.language || (tf.libraries?.length ?? 0) > 0) ? (
                     <div className={styles.techGrid}>
@@ -729,7 +757,7 @@ export default function App() {
                     <div className={styles.empty}>◈ Nenhuma tecnologia identificável detectada — servidor oculta headers de versão</div>
                   )}
                   {(tf?.evidence?.length ?? 0) > 0 && (
-                    <Section title="Evidence" defaultOpen={false}>
+                    <Section title="Evidence" defaultOpen={true}>
                       <div className={styles.techEvidenceList}>
                         {tf?.evidence?.map((e, i) => (
                           <div key={i} className={styles.techEvidenceItem}>
@@ -742,7 +770,7 @@ export default function App() {
                   )}
                 </Card>
 
-                {/* CVE Correlation — sempre visível */}
+                {/* CVE Correlation*/}
                 <Card title={`CVE CORRELATION  [${r.cveFindings?.length ?? 0}]`}>
                   {r.cveFindings?.length > 0 ? (
                     <div className={styles.cveList}>
