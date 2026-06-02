@@ -18,6 +18,7 @@ interface OpenRedirectFinding { parameter: string; testedUrl: string; redirected
 interface DirectoryListingFinding { path: string; statusCode: number; listingEnabled: boolean; evidence: string; severity: string; }
 interface DnsSecurityResult { spfPresent: boolean; spfRecord: string | null; spfPolicy: string; dmarcPresent: boolean; dmarcRecord: string | null; dmarcPolicy: string; dkimHintFound: boolean; dkimSelector: string | null; caaPresent: boolean; caaRecord: string | null; mxPresent: boolean; mxRecords: string[]; emailSpoofingRisk: string; summary: string; }
 interface WafDetectionResult { detected: boolean; provider: string | null; confidence: string | null; evidence: string | null; probeResponse: string | null; summary: string; }
+interface CVEFinding { cveId: string; severity: string; cvssScore: number; description: string; affectedSoftware: string; publishedDate: string; referenceUrl: string; }
 interface TechFingerprintResult { webServer: string | null; backend: string | null; framework: string | null; cms: string | null; cdn: string | null; language: string | null; libraries: string[]; evidence: string[]; }
 interface ScanResult {
   url: string; finalUrl: string; httpStatus: number; redirectsToHttps: boolean;
@@ -31,6 +32,7 @@ interface ScanResult {
   directoryListingFindings: DirectoryListingFinding[]; score: ScoreResult;
   dnsSecurityResult: DnsSecurityResult | null; wafDetectionResult: WafDetectionResult | null;
   techFingerprint: TechFingerprintResult | null;
+  cveFindings: CVEFinding[];
 }
 interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; }
 interface OwnershipState { message: string; host: string; token: string | null; passiveResult: ScanResult | null; }
@@ -711,9 +713,9 @@ export default function App() {
                   </Card>
                 </div>
 
-                {/* Row 1b: Technology Fingerprint — full width */}
-                {tf && (tf.webServer || tf.backend || tf.framework || tf.cms || tf.cdn || tf.language || (tf.libraries?.length ?? 0) > 0) && (
-                  <Card title="TECHNOLOGY FINGERPRINT">
+                {/* Row 1b: Technology Fingerprint — sempre visível */}
+                <Card title="TECHNOLOGY FINGERPRINT">
+                  {tf && (tf.webServer || tf.backend || tf.framework || tf.cms || tf.cdn || tf.language || (tf.libraries?.length ?? 0) > 0) ? (
                     <div className={styles.techGrid}>
                       {tf.webServer && <TechBadge icon="⬡" label={`Web Server: ${tf.webServer}`} />}
                       {tf.language && <TechBadge icon="⟨⟩" label={`Language: ${tf.language}`} />}
@@ -723,20 +725,54 @@ export default function App() {
                       {tf.cdn && <TechBadge icon="◉" label={`CDN: ${tf.cdn}`} />}
                       {tf.libraries?.map((lib, i) => <TechBadge key={i} icon="◎" label={lib} />)}
                     </div>
-                    {tf.evidence?.length > 0 && (
-                      <Section title="Evidence" defaultOpen={true}>
-                        <div className={styles.techEvidenceList}>
-                          {tf.evidence.map((e, i) => (
-                            <div key={i} className={styles.techEvidenceItem}>
-                              <span className={styles.techEvidenceDot}>›</span>
-                              <code className={styles.code}>{e}</code>
-                            </div>
-                          ))}
+                  ) : (
+                    <div className={styles.empty}>◈ Nenhuma tecnologia identificável detectada — servidor oculta headers de versão</div>
+                  )}
+                  {(tf?.evidence?.length ?? 0) > 0 && (
+                    <Section title="Evidence" defaultOpen={false}>
+                      <div className={styles.techEvidenceList}>
+                        {tf?.evidence?.map((e, i) => (
+                          <div key={i} className={styles.techEvidenceItem}>
+                            <span className={styles.techEvidenceDot}>›</span>
+                            <code className={styles.code}>{e}</code>
+                          </div>
+                        ))}
+                      </div>
+                    </Section>
+                  )}
+                </Card>
+
+                {/* CVE Correlation — sempre visível */}
+                <Card title={`CVE CORRELATION  [${r.cveFindings?.length ?? 0}]`}>
+                  {r.cveFindings?.length > 0 ? (
+                    <div className={styles.cveList}>
+                      {r.cveFindings.map((cve, i) => (
+                        <div key={i} className={styles.cveRow}>
+                          <div className={styles.cveHeader}>
+                            <a
+                              href={cve.referenceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={styles.cveId}
+                            >{cve.cveId}</a>
+                            <Tag
+                              label={cve.severity}
+                              cls={sevColor(cve.severity)}
+                            />
+                            <span className={styles.cveScore}>
+                              CVSS {cve.cvssScore.toFixed(1)}
+                            </span>
+                            <span className={styles.cveSoftware}>{cve.affectedSoftware}</span>
+                            <span className={styles.muted}>{cve.publishedDate}</span>
+                          </div>
+                          <div className={styles.cveDesc}>{cve.description}</div>
                         </div>
-                      </Section>
-                    )}
-                  </Card>
-                )}
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={styles.empty}>◈ Sem CVEs correlacionados — versão de software não detectada ou servidor oculta headers</div>
+                  )}
+                </Card>
 
                 {/* Row 2: Transport + Headers */}
                 <div className={styles.row}>
