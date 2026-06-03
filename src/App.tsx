@@ -19,6 +19,15 @@ interface DirectoryListingFinding { path: string; statusCode: number; listingEna
 interface DnsSecurityResult { spfPresent: boolean; spfRecord: string | null; spfPolicy: string; dmarcPresent: boolean; dmarcRecord: string | null; dmarcPolicy: string; dkimHintFound: boolean; dkimSelector: string | null; caaPresent: boolean; caaRecord: string | null; mxPresent: boolean; mxRecords: string[]; emailSpoofingRisk: string; summary: string; }
 interface WafDetectionResult { detected: boolean; provider: string | null; confidence: string | null; evidence: string | null; probeResponse: string | null; summary: string; }
 interface CVEFinding { cveId: string; severity: string; cvssScore: number; description: string; affectedSoftware: string; publishedDate: string; referenceUrl: string; }
+interface CertEntry { commonName: string; issuer: string; notBefore: string; notAfter: string; wildcard: boolean; loggedAt: string; }
+interface CertTransparencyResult {
+  totalCertificates: number; uniqueSubdomains: number;
+  mostRecentIssuance: string | null; oldestIssuance: string | null;
+  recentlyIssued: boolean; wildcardDetected: boolean; unexpectedIssuer: boolean;
+  discoveredSubdomains: string[]; issuers: string[];
+  unexpectedIssuers: string[]; wildcardDomains: string[];
+  recentCerts: CertEntry[];
+}
 interface SubdomainTakeoverFinding { subdomain: string; cnameTarget: string; service: string; vulnerability: string; evidence: string; severity: string; status: string; }
 interface ScanChange { category: string; field: string; changeType: string; oldValue: string; newValue: string; severity: string; description: string; }
 interface TechFingerprintResult { webServer: string | null; backend: string | null; framework: string | null; cms: string | null; cdn: string | null; language: string | null; libraries: string[]; evidence: string[]; }
@@ -37,6 +46,7 @@ interface ScanResult {
   cveFindings: CVEFinding[];
   changes: ScanChange[];
   subdomainTakeover: SubdomainTakeoverFinding[];
+  certTransparency: CertTransparencyResult | null;
 }
 interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; }
 interface OwnershipState { message: string; host: string; token: string | null; passiveResult: ScanResult | null; }
@@ -274,7 +284,7 @@ function SlowScanToast({ visible }: { visible: boolean }) {
 
 function GuestBanner({ onLogin }: { onLogin: () => void }) {
   const [status, setStatus] = useState<GuestStatus | null>(null);
-  useEffect(() => { api.get<GuestStatus>("/auth/guest-status").then(r => setStatus(r.data)).catch(() => { }); }, []);
+  useEffect(() => { api.get<GuestStatus>("/auth/guest-status").then(r => setStatus(r.data)).catch(() => {}); }, []);
   if (!status) return null;
   const pct = Math.round((status.used / status.dailyLimit) * 100);
   const critical = status.remaining <= 2;
@@ -450,8 +460,8 @@ function AdminPanel() {
   useEffect(() => { loadUsers(); loadInvites(); }, []);
   useEffect(() => { if (user?.role === "ADMIN") setInvRole("FREE_EMPLOYEE"); }, [user]);
 
-  async function loadUsers() { setLoading(true); try { setUsers((await api.get<UserManagementDto[]>("/admin/users")).data); } catch { } finally { setLoading(false); } }
-  async function loadInvites() { try { setInvites((await api.get<InviteDto[]>("/admin/invites")).data); } catch { } }
+  async function loadUsers() { setLoading(true); try { setUsers((await api.get<UserManagementDto[]>("/admin/users")).data); } catch {} finally { setLoading(false); } }
+  async function loadInvites() { try { setInvites((await api.get<InviteDto[]>("/admin/invites")).data); } catch {} }
   async function deactivate(id: string) { if (!confirm("Desativar este usuário?")) return; try { await api.delete(`/admin/users/${id}`); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
   async function reactivate(id: string) { try { await api.put(`/admin/users/${id}/reactivate`); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
   async function changeRole(id: string, role: string) { try { await api.put(`/admin/users/${id}/role`, { role }); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
@@ -747,20 +757,19 @@ export default function App() {
                 <Card title="TECHNOLOGY FINGERPRINT">
                   {tf && (tf.webServer || tf.backend || tf.framework || tf.cms || tf.cdn || tf.language || (tf.libraries?.length ?? 0) > 0) ? (
                     <div className={styles.techGrid}>
-                      {tf.webServer && <TechBadge icon="⬡" label={`Web Server: ${tf.webServer}`} />}
-                      {tf.language && <TechBadge icon="⟨⟩" label={`Language: ${tf.language}`} />}
-                      {tf.backend && <TechBadge icon="◻" label={`Backend: ${tf.backend}`} />}
-                      {tf.framework && <TechBadge icon="◈" label={`Framework: ${tf.framework}`} />}
-                      {tf.cms && <TechBadge icon="▦" label={`CMS: ${tf.cms}`} />}
-                      {tf.cdn && <TechBadge icon="◉" label={`CDN: ${tf.cdn}`} />}
+                      {tf.webServer  && <TechBadge icon="⬡" label={`Web Server: ${tf.webServer}`} />}
+                      {tf.language   && <TechBadge icon="⟨⟩" label={`Language: ${tf.language}`} />}
+                      {tf.backend    && <TechBadge icon="◻" label={`Backend: ${tf.backend}`} />}
+                      {tf.framework  && <TechBadge icon="◈" label={`Framework: ${tf.framework}`} />}
+                      {tf.cms        && <TechBadge icon="▦" label={`CMS: ${tf.cms}`} />}
+                      {tf.cdn        && <TechBadge icon="◉" label={`CDN: ${tf.cdn}`} />}
                       {tf.libraries?.map((lib, i) => <TechBadge key={i} icon="◎" label={lib} />)}
                     </div>
                   ) : (
                     <div className={styles.empty}>◈ Nenhuma tecnologia identificável detectada — servidor oculta headers de versão</div>
                   )}
                   {(tf?.evidence?.length ?? 0) > 0 && (
-
-                    <Section title="Evidence" defaultOpen={true}>
+                    <Section title="Evidence" defaultOpen={false}>
                       <div className={styles.techEvidenceList}>
                         {tf?.evidence?.map((e, i) => (
                           <div key={i} className={styles.techEvidenceItem}>
@@ -804,6 +813,96 @@ export default function App() {
                     <div className={styles.empty}>◈ Sem CVEs correlacionados — versão de software não detectada ou servidor oculta headers</div>
                   )}
                 </Card>
+
+                {/* Certificate Transparency */}
+                {r.certTransparency && (
+                  <Card title="CERTIFICATE TRANSPARENCY">
+                    <div className={styles.ctOverview}>
+                      <div className={styles.ctStat}>
+                        <span className={styles.ctStatVal}>{r.certTransparency.totalCertificates}</span>
+                        <span className={styles.ctStatLabel}>Certificados nos logs CT</span>
+                      </div>
+                      <div className={styles.ctStat}>
+                        <span className={styles.ctStatVal}>{r.certTransparency.uniqueSubdomains}</span>
+                        <span className={styles.ctStatLabel}>Subdomínios históricos</span>
+                      </div>
+                      <div className={styles.ctStat}>
+                        <span className={`${styles.ctStatVal} ${r.certTransparency.wildcardDetected ? styles.warn : styles.ok}`}>
+                          {r.certTransparency.wildcardDetected ? "⚠ Sim" : "✓ Não"}
+                        </span>
+                        <span className={styles.ctStatLabel}>Wildcard (*.domínio)</span>
+                      </div>
+                      <div className={styles.ctStat}>
+                        <span className={`${styles.ctStatVal} ${r.certTransparency.recentlyIssued ? styles.warn : styles.ok}`}>
+                          {r.certTransparency.recentlyIssued ? "⚠ Sim" : "—"}
+                        </span>
+                        <span className={styles.ctStatLabel}>Emitido últimos 7 dias</span>
+                      </div>
+                    </div>
+
+                    {r.certTransparency.unexpectedIssuer && (
+                      <div className={styles.ctAlert}>
+                        ⚠ Issuer(s) não autorizado(s) pelo CAA:
+                        {r.certTransparency.unexpectedIssuers.map((i, idx) => (
+                          <Tag key={idx} label={i} cls={styles.critical} />
+                        ))}
+                      </div>
+                    )}
+
+                    {r.certTransparency.issuers?.length > 0 && (
+                      <Section title={`Issuers [${r.certTransparency.issuers.length}]`} defaultOpen={true}>
+                        <div className={styles.ctTagList}>
+                          {r.certTransparency.issuers.map((iss, i) => (
+                            <Tag key={i} label={iss} cls={styles.info} />
+                          ))}
+                        </div>
+                      </Section>
+                    )}
+
+                    {r.certTransparency.wildcardDomains?.length > 0 && (
+                      <Section title={`Wildcards [${r.certTransparency.wildcardDomains.length}]`} defaultOpen={false}>
+                        <div className={styles.ctTagList}>
+                          {r.certTransparency.wildcardDomains.map((w, i) => (
+                            <div key={i} className={styles.findingRow}>
+                              <div className={styles.findingPath}>
+                                <code>{w}</code>
+                                <Tag label="WILDCARD" cls={styles.warning} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </Section>
+                    )}
+
+                    {r.certTransparency.recentCerts?.length > 0 && (
+                      <Section title={`Certificados recentes (30 dias) [${r.certTransparency.recentCerts.length}]`} defaultOpen={false}>
+                        <table className={styles.table}>
+                          <thead><tr><th>Common Name</th><th>Issuer</th><th>Válido de</th><th>Válido até</th></tr></thead>
+                          <tbody>
+                            {r.certTransparency.recentCerts.map((c, i) => (
+                              <tr key={i}>
+                                <td><code className={styles.code}>{c.commonName}{c.wildcard && <Tag label="WC" cls={styles.warning} />}</code></td>
+                                <td className={styles.muted}>{c.issuer}</td>
+                                <td className={styles.muted}>{c.notBefore}</td>
+                                <td className={(c.notAfter < new Date().toISOString().split("T")[0]) ? styles.bad : styles.ok}>{c.notAfter}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </Section>
+                    )}
+
+                    {r.certTransparency.discoveredSubdomains?.length > 0 && (
+                      <Section title={`Subdomínios históricos [${r.certTransparency.discoveredSubdomains.length}]`} defaultOpen={false}>
+                        <div className={styles.ctSubdomainGrid}>
+                          {r.certTransparency.discoveredSubdomains.map((s, i) => (
+                            <code key={i} className={styles.ctSubdomain}>{s}</code>
+                          ))}
+                        </div>
+                      </Section>
+                    )}
+                  </Card>
+                )}
 
                 {/* Subdomain Takeover */}
                 <Card title={`SUBDOMAIN TAKEOVER  [${r.subdomainTakeover?.length ?? 0}]`}>

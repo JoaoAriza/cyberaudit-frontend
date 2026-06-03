@@ -1832,3 +1832,80 @@
   border-radius: 4px;
   word-break: break-all;
 }
+
+/* ── Certificate Transparency ────────────────────────────────────────────── */
+.ctOverview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+@media (max-width: 860px) {
+  .ctOverview { grid-template-columns: repeat(2, 1fr); }
+}
+
+.ctStat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+  padding: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.ctStatVal {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ctStatLabel {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: .3px;
+  text-align: center;
+}
+
+.ctAlert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: rgba(255,64,64,.06);
+  border: 1px solid rgba(255,64,64,.25);
+  border-radius: var(--radius);
+  font-size: 11px;
+  color: var(--critical);
+  margin-bottom: 12px;
+}
+
+.ctTagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.ctSubdomainGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.ctSubdomain {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 3px;
+}
