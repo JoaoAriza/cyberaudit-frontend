@@ -1756,3 +1756,79 @@
 .changeDiffOld   { color: var(--critical); text-decoration: line-through; }
 .changeDiffArrow { color: var(--text-muted); }
 .changeDiffNew   { color: var(--secure); }
+
+/* ── Subdomain Takeover ──────────────────────────────────────────────────── */
+.takeoverList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.takeoverRow {
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.takeoverVulnerable {
+  border-left: 3px solid var(--critical);
+  background: rgba(255, 64, 64, .05);
+}
+
+.takeoverPotential {
+  border-left: 3px solid var(--warning);
+  background: rgba(245, 166, 35, .04);
+}
+
+.takeoverHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.takeoverStatus {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+}
+
+.tsVulnerable { color: var(--critical); }
+.tsPotential  { color: var(--warning); }
+
+.takeoverService {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.takeoverVuln {
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.takeoverCname {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.takeoverEvidence {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 5px 8px;
+  border-radius: 4px;
+  word-break: break-all;
+}

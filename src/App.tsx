@@ -19,6 +19,7 @@ interface DirectoryListingFinding { path: string; statusCode: number; listingEna
 interface DnsSecurityResult { spfPresent: boolean; spfRecord: string | null; spfPolicy: string; dmarcPresent: boolean; dmarcRecord: string | null; dmarcPolicy: string; dkimHintFound: boolean; dkimSelector: string | null; caaPresent: boolean; caaRecord: string | null; mxPresent: boolean; mxRecords: string[]; emailSpoofingRisk: string; summary: string; }
 interface WafDetectionResult { detected: boolean; provider: string | null; confidence: string | null; evidence: string | null; probeResponse: string | null; summary: string; }
 interface CVEFinding { cveId: string; severity: string; cvssScore: number; description: string; affectedSoftware: string; publishedDate: string; referenceUrl: string; }
+interface SubdomainTakeoverFinding { subdomain: string; cnameTarget: string; service: string; vulnerability: string; evidence: string; severity: string; status: string; }
 interface ScanChange { category: string; field: string; changeType: string; oldValue: string; newValue: string; severity: string; description: string; }
 interface TechFingerprintResult { webServer: string | null; backend: string | null; framework: string | null; cms: string | null; cdn: string | null; language: string | null; libraries: string[]; evidence: string[]; }
 interface ScanResult {
@@ -35,6 +36,7 @@ interface ScanResult {
   techFingerprint: TechFingerprintResult | null;
   cveFindings: CVEFinding[];
   changes: ScanChange[];
+  subdomainTakeover: SubdomainTakeoverFinding[];
 }
 interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; }
 interface OwnershipState { message: string; host: string; token: string | null; passiveResult: ScanResult | null; }
@@ -741,7 +743,7 @@ export default function App() {
                   </Card>
                 )}
 
-                {/* Row 1b: Technology Fingerprint*/}
+                {/* Row 1b: Technology Fingerprint — sempre visível */}
                 <Card title="TECHNOLOGY FINGERPRINT">
                   {tf && (tf.webServer || tf.backend || tf.framework || tf.cms || tf.cdn || tf.language || (tf.libraries?.length ?? 0) > 0) ? (
                     <div className={styles.techGrid}>
@@ -757,6 +759,7 @@ export default function App() {
                     <div className={styles.empty}>◈ Nenhuma tecnologia identificável detectada — servidor oculta headers de versão</div>
                   )}
                   {(tf?.evidence?.length ?? 0) > 0 && (
+
                     <Section title="Evidence" defaultOpen={true}>
                       <div className={styles.techEvidenceList}>
                         {tf?.evidence?.map((e, i) => (
@@ -770,7 +773,7 @@ export default function App() {
                   )}
                 </Card>
 
-                {/* CVE Correlation*/}
+                {/* CVE Correlation — sempre visível */}
                 <Card title={`CVE CORRELATION  [${r.cveFindings?.length ?? 0}]`}>
                   {r.cveFindings?.length > 0 ? (
                     <div className={styles.cveList}>
@@ -799,6 +802,34 @@ export default function App() {
                     </div>
                   ) : (
                     <div className={styles.empty}>◈ Sem CVEs correlacionados — versão de software não detectada ou servidor oculta headers</div>
+                  )}
+                </Card>
+
+                {/* Subdomain Takeover */}
+                <Card title={`SUBDOMAIN TAKEOVER  [${r.subdomainTakeover?.length ?? 0}]`}>
+                  {r.subdomainTakeover?.length > 0 ? (
+                    <div className={styles.takeoverList}>
+                      {r.subdomainTakeover.map((t, i) => (
+                        <div key={i} className={`${styles.takeoverRow} ${t.status === "VULNERABLE" ? styles.takeoverVulnerable : styles.takeoverPotential}`}>
+                          <div className={styles.takeoverHeader}>
+                            <span className={`${styles.takeoverStatus} ${t.status === "VULNERABLE" ? styles.tsVulnerable : styles.tsPotential}`}>{t.status}</span>
+                            <Tag label={t.severity} cls={sevColor(t.severity)} />
+                            <code className={styles.code}>{t.subdomain}</code>
+                            <span className={styles.takeoverService}>via {t.service}</span>
+                          </div>
+                          <div className={styles.takeoverVuln}>{t.vulnerability}</div>
+                          <div className={styles.takeoverCname}>
+                            <span className={styles.muted}>CNAME →</span>
+                            <code className={styles.code}>{t.cnameTarget}</code>
+                          </div>
+                          {t.evidence && (
+                            <div className={styles.takeoverEvidence}>{t.evidence}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={styles.empty}>◈ Nenhum subdomínio vulnerável a takeover detectado</div>
                   )}
                 </Card>
 
