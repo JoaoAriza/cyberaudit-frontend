@@ -280,6 +280,52 @@ function SlowScanToast({ visible }: { visible: boolean }) {
   );
 }
 
+// ── Severity → CSS var helpers ───────────────────────────────────────────────
+
+function sev2var(sev?: string): string {
+  const s = (sev ?? "").toUpperCase();
+  if (s === "CRITICAL") return "var(--critical)";
+  if (s === "HIGH")     return "var(--high)";
+  if (s === "MEDIUM")   return "var(--warning)";
+  if (s === "LOW")      return "var(--low)";
+  if (s === "SECURE")   return "var(--secure)";
+  return "var(--info)";
+}
+function worstVar(items: { severity?: string }[]): string {
+  if (!items?.length) return "var(--secure)";
+  for (const lv of ["CRITICAL", "HIGH", "MEDIUM", "LOW"])
+    if (items.some(i => (i.severity ?? "").toUpperCase() === lv)) return sev2var(lv);
+  return "var(--info)";
+}
+
+// ── Sidebar Nav Item ─────────────────────────────────────────────────────────
+
+function SidebarNavItem({
+  icon, title, color, metric, label, locked, active, onClick,
+}: {
+  icon: string; title: string; color: string;
+  metric: React.ReactNode; label: string;
+  locked?: boolean; active?: boolean; onClick?: () => void;
+}) {
+  return (
+    <button
+      className={`${styles.sidebarNavItem} ${active ? styles.sidebarNavItemActive : ""} ${locked ? styles.sidebarNavItemLocked : ""}`}
+      style={{ "--mc-color": color } as React.CSSProperties}
+      onClick={locked ? undefined : onClick}
+      disabled={locked}
+      tabIndex={locked ? -1 : 0}
+    >
+      <span className={styles.sidebarNavAccent} />
+      <span className={styles.sidebarNavIcon}>{icon}</span>
+      <div className={styles.sidebarNavInfo}>
+        <span className={styles.sidebarNavTitle}>{title}</span>
+        <span className={styles.sidebarNavLabel}>{label}</span>
+      </div>
+      <span className={styles.sidebarNavMetric}>{locked ? "🔒" : metric}</span>
+    </button>
+  );
+}
+
 // ── Guest Banner ──────────────────────────────────────────────────────────────
 
 function GuestBanner({ onLogin, refreshKey }: { onLogin: () => void; refreshKey: number }) {
@@ -557,6 +603,7 @@ export default function App() {
   const [asyncState, setAsyncState] = useState<string | undefined>();
   const [showSlowToast, setShowSlowToast] = useState(false);
   const [guestRefreshKey, setGuestRefreshKey] = useState(0);
+  const [openModule, setOpenModule] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -590,7 +637,7 @@ export default function App() {
         try {
           const status: AsyncStatus = (await api.get(`/scan/async/${scanId}`)).data;
           setAsyncState(status.state);
-          if (status.state === "DONE") { stopPoll(); stopSlowTimer(); setResult(status.result); setScanLoading(false); setGuestRefreshKey(k => k + 1); }
+          if (status.state === "DONE") { stopPoll(); stopSlowTimer(); setResult(status.result); setOpenModule("issues"); setScanLoading(false); setGuestRefreshKey(k => k + 1); }
           else if (status.state === "ERROR") {
             stopPoll(); stopSlowTimer(); setScanLoading(false);
             const msg = status.errorMessage ?? "";
@@ -645,6 +692,39 @@ export default function App() {
   const tf = r?.techFingerprint;
   const badgeHost = (r?.finalUrl ?? r?.url ?? "").replace(/^https?:\/\//, "").split("/")[0];
   const badgeUrl = `${import.meta.env.VITE_API_URL ?? "http://localhost:8081"}/badge/${badgeHost}?v=${r?.score?.score ?? 0}`;
+
+  // ── Module card computed values ──────────────────────────────────────────
+  const headerEntries = Object.entries(r?.headers ?? {});
+  const missingH      = headerEntries.filter(([, v]) => v.startsWith("MISSING")).length;
+  const weakH         = headerEntries.filter(([, v]) => v.startsWith("WEAK")).length;
+  const headerColor   = missingH === 0 && weakH === 0 ? "var(--secure)"
+    : missingH > 2 ? "var(--critical)" : missingH > 0 ? "var(--warning)" : "var(--info)";
+  const issueCount    = r?.score?.issues?.length ?? 0;
+  const issueColor    = issueCount === 0 ? "var(--secure)" : worstVar(r?.score?.issues ?? []);
+  const cookieCount   = r?.cookieIssues?.length ?? 0;
+  const cookieColor   = cookieCount === 0 ? "var(--secure)"
+    : (r?.cookieIssues ?? []).some(c => c.risk?.toUpperCase() === "HIGH") ? "var(--high)"
+    : (r?.cookieIssues ?? []).some(c => c.risk?.toUpperCase() === "MEDIUM") ? "var(--warning)" : "var(--info)";
+  const dangerMethods = r?.dangerousHttpMethods?.filter(m => m.enabled) ?? [];
+  const httpColor     = dangerMethods.length === 0 ? "var(--secure)" : "var(--warning)";
+  const redirectVuln  = r?.openRedirectFindings?.filter(f => f.vulnerable) ?? [];
+  const redirectColor = redirectVuln.length > 0 ? "var(--critical)" : "var(--secure)";
+  const dirExposed    = r?.directoryListingFindings?.filter(f => f.listingEnabled) ?? [];
+  const dirColor      = dirExposed.length > 0 ? "var(--warning)" : "var(--secure)";
+  const cveCount      = r?.cveFindings?.length ?? 0;
+  const maxCvss       = cveCount > 0 ? Math.max(...(r?.cveFindings ?? []).map(c => c.cvssScore)) : 0;
+  const cveColor      = cveCount === 0 ? "var(--secure)" : maxCvss >= 9 ? "var(--critical)" : maxCvss >= 7 ? "var(--high)" : maxCvss >= 4 ? "var(--warning)" : "var(--info)";
+  const ct            = r?.certTransparency;
+  const certColor     = !ct ? "var(--text-muted)" : ct.unexpectedIssuer ? "var(--critical)" : ct.wildcardDetected ? "var(--warning)" : "var(--info)";
+  const takeoverVuln  = r?.subdomainTakeover?.filter(t => t.status === "VULNERABLE") ?? [];
+  const takeoverColor = takeoverVuln.length > 0 ? "var(--critical)" : (r?.subdomainTakeover?.length ?? 0) > 0 ? "var(--warning)" : "var(--secure)";
+  const dns           = r?.dnsSecurityResult;
+  const reconProbs    = dns ? [!dns.spfPresent, !dns.dmarcPresent, !dns.caaPresent].filter(Boolean).length : 0;
+  const reconColor    = reconProbs >= 2 ? "var(--critical)" : reconProbs >= 1 ? "var(--warning)" : "var(--secure)";
+  const changeCount   = r?.changes?.length ?? 0;
+  const changesColor  = (r?.changes ?? []).some(c => c.changeType === "DEGRADED") ? "var(--critical)" : changeCount > 0 ? "var(--warning)" : "var(--secure)";
+  const techFirst     = tf?.webServer ?? tf?.framework ?? tf?.cms ?? tf?.language ?? "—";
+  const tlsColor      = !(r?.sslInfo?.valid) ? "var(--critical)" : r?.tlsDetails?.weakProtocol ? "var(--warning)" : "var(--secure)";
 
   return (
     <div className={styles.app}>
@@ -705,455 +785,606 @@ export default function App() {
             {r && !scanLoading && (
               <div key={`${r.url}-${r.activeMode}-${r.score?.score}`} className={styles.dashboard}>
 
-                {/* Row 1: Score + Issues */}
-                <div className={styles.row}>
-                  <Card>
-                    <div className={styles.overviewCard}>
-                      <ScoreGauge score={r.score?.score ?? 0} risk={risk ?? "CRITICAL"} />
-                      <div className={styles.overviewMeta}>
-                        <div className={`${styles.riskBadge} ${riskColor(risk)}`}>{risk}</div>
-                        <KV label="URL" value={r.finalUrl ?? r.url} />
-                        <KV label="HTTP" value={r.httpStatus} />
-                        <KV label="HTTPS REDIRECT" value={boolIcon(r.redirectsToHttps)} />
-                        <KV label="ACTIVE MODE" value={boolIcon(r.activeMode)} />
-                        <KV label="SERVER EXPOSED" value={boolIcon(!r.serverVersionExposed, "✓ Clean", "⚠ Exposed")} />
-                        <div className={styles.badgePreview}>
-                          <img src={badgeUrl} alt="security badge" className={styles.badgeImg} />
-                        </div>
+                {/* ── Left Nav ── */}
+                  <nav className={styles.sidebarNav}>
+                    <div className={styles.sidebarTarget}>
+                      <div
+                        className={styles.sidebarTargetScore}
+                        style={{ color: risk === "SECURE" ? "var(--secure)" : risk === "WARNING" ? "var(--warning)" : "var(--critical)" }}
+                      >
+                        {r.score?.score}<span className={styles.sidebarTargetScoreMax}>/100</span>
+                      </div>
+                      <div className={styles.sidebarTargetMeta}>
+                        <div className={`${styles.sidebarTargetRisk} ${riskColor(risk)}`}>{risk}</div>
+                        <div className={styles.sidebarTargetUrl}>{badgeHost}</div>
                       </div>
                     </div>
-                  </Card>
-                  <Card title={`ISSUES  [${r.score?.issues?.length ?? 0}]`}>
-                    {r.score?.issues?.length
-                      ? <div className={styles.issuesList}>{r.score.issues.map(i => <IssueItem key={i.id} issue={i} />)}</div>
-                      : <div className={styles.empty}>◈ Nenhuma issue detectada</div>}
-                  </Card>
-                </div>
+                    <div className={styles.sidebarNavHeader}>Módulos de segurança</div>
 
-                {/* Changes card — só aparece a partir do 2º scan */}
-                {r.changes?.length > 0 && (
-                  <Card title={`CHANGES SINCE LAST SCAN  [${r.changes.length}]`}>
-                    <div className={styles.changesList}>
-                      {r.changes.map((c, i) => (
-                        <div key={i} className={`${styles.changeRow} ${styles["change" + c.changeType]}`}>
-                          <div className={styles.changeHeader}>
-                            <span className={`${styles.changeType} ${styles["ct" + c.changeType]}`}>{c.changeType}</span>
-                            <Tag label={c.severity} cls={sevColor(c.severity)} />
-                            <span className={styles.changeCategory}>{c.category}</span>
-                            <span className={styles.changeField}>{c.field}</span>
-                          </div>
-                          <div className={styles.changeDesc}>{c.description}</div>
-                          {c.oldValue && c.newValue && (
-                            <div className={styles.changeDiff}>
-                              <span className={styles.changeDiffOld}>{c.oldValue}</span>
-                              <span className={styles.changeDiffArrow}>→</span>
-                              <span className={styles.changeDiffNew}>{c.newValue}</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                )}
+                    <SidebarNavItem icon="⚠" title="Issues"
+                      color={issueColor}
+                      metric={issueCount === 0 ? "✓" : issueCount}
+                      label={issueCount === 0 ? "SECURE" : (r.score?.issues?.[0]?.severity ?? "FOUND")}
+                      active={openModule === "issues"}
+                      onClick={() => setOpenModule("issues")} />
 
-                {/* Row 1b: Technology Fingerprint — sempre visível */}
-                <Card title="TECHNOLOGY FINGERPRINT">
-                  {tf && (tf.webServer || tf.backend || tf.framework || tf.cms || tf.cdn || tf.language || (tf.libraries?.length ?? 0) > 0) ? (
-                    <div className={styles.techGrid}>
-                      {tf.webServer  && <TechBadge icon="⬡" label={`Web Server: ${tf.webServer}`} />}
-                      {tf.language   && <TechBadge icon="⟨⟩" label={`Language: ${tf.language}`} />}
-                      {tf.backend    && <TechBadge icon="◻" label={`Backend: ${tf.backend}`} />}
-                      {tf.framework  && <TechBadge icon="◈" label={`Framework: ${tf.framework}`} />}
-                      {tf.cms        && <TechBadge icon="▦" label={`CMS: ${tf.cms}`} />}
-                      {tf.cdn        && <TechBadge icon="◉" label={`CDN: ${tf.cdn}`} />}
-                      {tf.libraries?.map((lib, i) => <TechBadge key={i} icon="◎" label={lib} />)}
-                    </div>
-                  ) : (
-                    <div className={styles.empty}>◈ Nenhuma tecnologia identificável detectada — servidor oculta headers de versão</div>
-                  )}
-                  {(tf?.evidence?.length ?? 0) > 0 && (
-                    <Section title="Evidence" defaultOpen={false}>
-                      <div className={styles.techEvidenceList}>
-                        {tf?.evidence?.map((e, i) => (
-                          <div key={i} className={styles.techEvidenceItem}>
-                            <span className={styles.techEvidenceDot}>›</span>
-                            <code className={styles.code}>{e}</code>
-                          </div>
-                        ))}
-                      </div>
-                    </Section>
-                  )}
-                </Card>
+                    <SidebarNavItem icon="⬡" title="Security Headers"
+                      color={headerColor}
+                      metric={missingH + weakH === 0 ? "✓" : missingH + weakH}
+                      label={missingH + weakH === 0 ? "SECURE" : missingH > 2 ? "CRITICAL" : "WARNING"}
+                      active={openModule === "headers"}
+                      onClick={() => setOpenModule("headers")} />
 
-                {/* CVE Correlation — sempre visível */}
-                <Card title={`CVE CORRELATION  [${r.cveFindings?.length ?? 0}]`}>
-                  {r.cveFindings?.length > 0 ? (
-                    <div className={styles.cveList}>
-                      {r.cveFindings.map((cve, i) => (
-                        <div key={i} className={styles.cveRow}>
-                          <div className={styles.cveHeader}>
-                            <a
-                              href={cve.referenceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={styles.cveId}
-                            >{cve.cveId}</a>
-                            <Tag
-                              label={cve.severity}
-                              cls={sevColor(cve.severity)}
-                            />
-                            <span className={styles.cveScore}>
-                              CVSS {cve.cvssScore.toFixed(1)}
-                            </span>
-                            <span className={styles.cveSoftware}>{cve.affectedSoftware}</span>
-                            <span className={styles.muted}>{cve.publishedDate}</span>
-                          </div>
-                          <div className={styles.cveDesc}>{cve.description}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className={styles.empty}>◈ Sem CVEs correlacionados — versão de software não detectada ou servidor oculta headers</div>
-                  )}
-                </Card>
+                    <SidebarNavItem icon="⬟" title="Transport Security"
+                      color={tlsColor}
+                      metric={r.sslInfo?.valid ? (r.sslInfo.daysRemaining ?? "?") + "d" : "✗"}
+                      label={!r.sslInfo?.valid ? "INVALID CERT" : r.tlsDetails?.weakProtocol ? "WEAK PROTOCOL" : "SECURE"}
+                      active={openModule === "transport"}
+                      onClick={() => setOpenModule("transport")} />
 
-                {/* Certificate Transparency */}
-                {r.certTransparency && (
-                  <Card title="CERTIFICATE TRANSPARENCY">
-                    <div className={styles.ctOverview}>
-                      <div className={styles.ctStat}>
-                        <span className={styles.ctStatVal}>{r.certTransparency.totalCertificates}</span>
-                        <span className={styles.ctStatLabel}>Certificados nos logs CT</span>
-                      </div>
-                      <div className={styles.ctStat}>
-                        <span className={styles.ctStatVal}>{r.certTransparency.uniqueSubdomains}</span>
-                        <span className={styles.ctStatLabel}>Subdomínios históricos</span>
-                      </div>
-                      <div className={styles.ctStat}>
-                        <span className={`${styles.ctStatVal} ${r.certTransparency.wildcardDetected ? styles.warn : styles.ok}`}>
-                          {r.certTransparency.wildcardDetected ? "⚠ Sim" : "✓ Não"}
-                        </span>
-                        <span className={styles.ctStatLabel}>Wildcard (*.domínio)</span>
-                      </div>
-                      <div className={styles.ctStat}>
-                        <span className={`${styles.ctStatVal} ${r.certTransparency.recentlyIssued ? styles.warn : styles.ok}`}>
-                          {r.certTransparency.recentlyIssued ? "⚠ Sim" : "—"}
-                        </span>
-                        <span className={styles.ctStatLabel}>Emitido últimos 7 dias</span>
-                      </div>
-                    </div>
+                    <SidebarNavItem icon="⟨⟩" title="Technology"
+                      color="var(--info)"
+                      metric={techFirst}
+                      label="DETECTED"
+                      active={openModule === "tech"}
+                      onClick={() => setOpenModule("tech")} />
 
-                    {r.certTransparency.unexpectedIssuer && (
-                      <div className={styles.ctAlert}>
-                        ⚠ Issuer(s) não autorizado(s) pelo CAA:
-                        {r.certTransparency.unexpectedIssuers.map((i, idx) => (
-                          <Tag key={idx} label={i} cls={styles.critical} />
-                        ))}
-                      </div>
+                    {changeCount > 0 && (
+                      <SidebarNavItem icon="△" title="Changes"
+                        color={changesColor}
+                        metric={changeCount}
+                        label={changesColor === "var(--critical)" ? "DEGRADED" : "CHANGED"}
+                        active={openModule === "changes"}
+                        onClick={() => setOpenModule("changes")} />
                     )}
 
-                    {r.certTransparency.issuers?.length > 0 && (
-                      <Section title={`Issuers [${r.certTransparency.issuers.length}]`} defaultOpen={true}>
-                        <div className={styles.ctTagList}>
-                          {r.certTransparency.issuers.map((iss, i) => (
-                            <Tag key={i} label={iss} cls={styles.info} />
+                    <SidebarNavItem icon="☰" title="Cookie Security"
+                      color={cookieColor}
+                      metric={cookieCount === 0 ? "✓" : cookieCount}
+                      label={cookieCount === 0 ? "SECURE" : "ISSUES FOUND"}
+                      active={openModule === "cookies"}
+                      onClick={() => setOpenModule("cookies")} />
+
+                    <SidebarNavItem icon="⚙" title="HTTP Methods"
+                      color={httpColor}
+                      metric={dangerMethods.length === 0 ? "✓" : dangerMethods.length}
+                      label={dangerMethods.length === 0 ? "SECURE" : "DANGEROUS"}
+                      active={openModule === "http"}
+                      onClick={() => setOpenModule("http")} />
+
+                    <SidebarNavItem icon="↪" title="Open Redirect"
+                      color={redirectColor}
+                      metric={redirectVuln.length === 0 ? "✓" : redirectVuln.length}
+                      label={redirectVuln.length === 0 ? "SECURE" : "VULNERABLE"}
+                      active={openModule === "redirect"}
+                      onClick={() => setOpenModule("redirect")} />
+
+                    <SidebarNavItem icon="◫" title="Directory Listing"
+                      color={dirColor}
+                      metric={dirExposed.length === 0 ? "✓" : dirExposed.length}
+                      label={dirExposed.length === 0 ? "SECURE" : "EXPOSED"}
+                      active={openModule === "dirlist"}
+                      onClick={() => setOpenModule("dirlist")} />
+
+                    <SidebarNavItem icon="◉" title="Reconnaissance"
+                      color={reconColor}
+                      metric={dns ? `${[dns.spfPresent, dns.dmarcPresent, dns.caaPresent].filter(Boolean).length}/3` : "—"}
+                      label={dns?.emailSpoofingRisk ? `SPOOFING: ${dns.emailSpoofingRisk}` : "UNKNOWN"}
+                      active={openModule === "recon"}
+                      onClick={() => setOpenModule("recon")} />
+
+                    <SidebarNavItem icon="◈" title="CVE Correlation"
+                      color={cveColor}
+                      metric={cveCount === 0 ? "✓" : cveCount}
+                      label={cveCount === 0 ? "SECURE" : maxCvss >= 9 ? "CRITICAL" : maxCvss >= 7 ? "HIGH" : maxCvss >= 4 ? "MEDIUM" : "LOW"}
+                      active={openModule === "cve"}
+                      onClick={() => setOpenModule("cve")} />
+
+                    <SidebarNavItem icon="◑" title="Cert Transparency"
+                      color={certColor}
+                      metric={ct ? ct.totalCertificates : "—"}
+                      label={!ct ? "N/A" : ct.unexpectedIssuer ? "ISSUER ALERT" : ct.wildcardDetected ? "WILDCARD" : "INFO"}
+                      active={openModule === "cert"}
+                      onClick={() => setOpenModule("cert")} />
+
+                    <SidebarNavItem icon="◎" title="Subdomain Takeover"
+                      color={takeoverColor}
+                      metric={takeoverVuln.length === 0 ? "✓" : takeoverVuln.length}
+                      label={takeoverVuln.length === 0 ? "SECURE" : "VULNERABLE"}
+                      active={openModule === "takeover"}
+                      onClick={() => setOpenModule("takeover")} />
+
+                    <SidebarNavItem icon="▣" title="Active Checks"
+                      color={r.activeMode ? "var(--info)" : "var(--text-muted)"}
+                      metric={!r.activeMode ? "OFF" : r.wafDetectionResult?.detected ? "WAF" : `${r.openPorts?.length ?? 0}p`}
+                      label={!r.activeMode ? "REQUIRES ACTIVE" : r.wafDetectionResult?.detected ? "WAF DETECTED" : "ACTIVE"}
+                      locked={!r.activeMode}
+                      active={openModule === "active"}
+                      onClick={() => setOpenModule("active")} />
+
+                  </nav>
+
+                  {/* ── Right: Overview + Content ── */}
+                  <div className={styles.dashboardRight}>
+
+                    <div className={styles.row}>
+                      <Card>
+                        <div className={styles.overviewCard}>
+                          <ScoreGauge score={r.score?.score ?? 0} risk={risk ?? "CRITICAL"} />
+                          <div className={styles.overviewMeta}>
+                            <div className={`${styles.riskBadge} ${riskColor(risk)}`}>{risk}</div>
+                            <KV label="URL"            value={r.finalUrl ?? r.url} />
+                            <KV label="HTTP"           value={r.httpStatus} />
+                            <KV label="HTTPS REDIRECT" value={boolIcon(r.redirectsToHttps)} />
+                            <KV label="ACTIVE MODE"    value={boolIcon(r.activeMode)} />
+                            <KV label="SERVER EXPOSED" value={boolIcon(!r.serverVersionExposed, "✓ Clean", "⚠ Exposed")} />
+                            <div className={styles.badgePreview}>
+                              <img src={badgeUrl} alt="security badge" className={styles.badgeImg} />
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                      <Card title="SCORE BREAKDOWN">
+                        <div className={styles.notesList}>
+                          {(r.score?.notes ?? []).map((n, i) => (
+                            <div key={i} className={`${styles.noteRow} ${n.includes("-") ? styles.noteMinus : styles.noteOk}`}>
+                              <span>{n.includes("-") ? "▼" : "◈"}</span>{n}
+                            </div>
                           ))}
                         </div>
-                      </Section>
-                    )}
-
-                    {r.certTransparency.wildcardDomains?.length > 0 && (
-                      <Section title={`Wildcards [${r.certTransparency.wildcardDomains.length}]`} defaultOpen={false}>
-                        <div className={styles.ctTagList}>
-                          {r.certTransparency.wildcardDomains.map((w, i) => (
-                            <div key={i} className={styles.findingRow}>
-                              <div className={styles.findingPath}>
-                                <code>{w}</code>
-                                <Tag label="WILDCARD" cls={styles.warning} />
+                      </Card>
+                      <Card title="POR QUE ALGUNS CHECKS DEMORAM?">
+                        <div className={styles.scanInfoList}>
+                          {([
+                            { icon: "⬟", label: "SSL / TLS", detail: "Handshake real + validação do certificado" },
+                            { icon: "⬡", label: "Security Headers", detail: "Analisa 8+ headers na resposta HTTP" },
+                            { icon: "◉", label: "DNS Security", detail: "Consultas DNS: SPF, DMARC, DKIM, CAA, MX" },
+                            { icon: "⟨⟩", label: "Tech Fingerprint", detail: "Detecta stack via headers e body HTML" },
+                            { icon: "◈", label: "CVE Lookup", detail: "Cruza versões detectadas com base NVD/CVE" },
+                            { icon: "▣", label: "WAF & Port Scan", detail: "Probes ativos + 21 portas (modo ACTIVE)" },
+                          ] as { icon: string; label: string; detail: string }[]).map((item, i) => (
+                            <div key={i} className={styles.scanInfoItem}>
+                              <span className={styles.scanInfoItemIcon}>{item.icon}</span>
+                              <div>
+                                <div className={styles.scanInfoItemLabel}>{item.label}</div>
+                                <div className={styles.scanInfoItemDetail}>{item.detail}</div>
                               </div>
                             </div>
                           ))}
                         </div>
-                      </Section>
+                      </Card>
+                    </div>
+
+                    <div className={styles.sidebarContent}>
+
+                    {!openModule && (
+                      <div className={styles.sidebarEmpty}>◈ Selecione um módulo para ver os detalhes</div>
                     )}
 
-                    {r.certTransparency.recentCerts?.length > 0 && (
-                      <Section title={`Certificados recentes (30 dias) [${r.certTransparency.recentCerts.length}]`} defaultOpen={false}>
-                        <table className={styles.table}>
-                          <thead><tr><th>Common Name</th><th>Issuer</th><th>Válido de</th><th>Válido até</th></tr></thead>
-                          <tbody>
-                            {r.certTransparency.recentCerts.map((c, i) => (
-                              <tr key={i}>
-                                <td><code className={styles.code}>{c.commonName}{c.wildcard && <Tag label="WC" cls={styles.warning} />}</code></td>
-                                <td className={styles.muted}>{c.issuer}</td>
-                                <td className={styles.muted}>{c.notBefore}</td>
-                                <td className={(c.notAfter < new Date().toISOString().split("T")[0]) ? styles.bad : styles.ok}>{c.notAfter}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </Section>
+                    {openModule === "issues" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": issueColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>⚠</span>
+                          <span className={styles.sidebarContentTitleText}>Issues</span>
+                        </div>
+                        {issueCount
+                          ? <div className={styles.issuesList}>{r.score.issues.map(i => <IssueItem key={i.id} issue={i} />)}</div>
+                          : <div className={styles.empty}>◈ Nenhuma issue detectada</div>}
+                      </>
                     )}
 
-                    {r.certTransparency.discoveredSubdomains?.length > 0 && (
-                      <Section title={`Subdomínios históricos [${r.certTransparency.discoveredSubdomains.length}]`} defaultOpen={false}>
-                        <div className={styles.ctSubdomainGrid}>
-                          {r.certTransparency.discoveredSubdomains.map((s, i) => (
-                            <code key={i} className={styles.ctSubdomain}>{s}</code>
+                    {openModule === "headers" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": headerColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>⬡</span>
+                          <span className={styles.sidebarContentTitleText}>Security Headers</span>
+                        </div>
+                        <Section title="Headers" defaultOpen={true}>
+                          {Object.entries(r.headers ?? {}).map(([k, v]) => <KV key={k} label={k} value={headerStatus(v)} />)}
+                        </Section>
+                      </>
+                    )}
+
+                    {openModule === "transport" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": tlsColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>⬟</span>
+                          <span className={styles.sidebarContentTitleText}>Transport Security</span>
+                        </div>
+                        <Section title="SSL / TLS" defaultOpen={true}>
+                          <KV label="Protocol"  value={<span className={r.tlsDetails?.weakProtocol ? styles.bad : styles.ok}>{r.tlsDetails?.negotiatedProtocol ?? "—"}</span>} />
+                          <KV label="Cipher"    value={<code className={styles.code}>{r.tlsDetails?.cipherSuite ?? "—"}</code>} />
+                          <KV label="Valid"     value={boolIcon(r.sslInfo?.valid)} />
+                          <KV label="Expires"   value={r.sslInfo?.expirationDate ?? "—"} />
+                          <KV label="Days left" value={<span className={(r.sslInfo?.daysRemaining ?? 0) < 30 ? styles.bad : (r.sslInfo?.daysRemaining ?? 0) < 90 ? styles.warn : styles.ok}>{r.sslInfo?.daysRemaining ?? "—"}d</span>} />
+                          {r.tlsDetails?.message && <div className={styles.note}>{r.tlsDetails.message}</div>}
+                        </Section>
+                      </>
+                    )}
+
+                    {openModule === "tech" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": "var(--info)" } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>⟨⟩</span>
+                          <span className={styles.sidebarContentTitleText}>Technology Fingerprint</span>
+                        </div>
+                        {tf && (tf.webServer || tf.backend || tf.framework || tf.cms || tf.cdn || tf.language || (tf.libraries?.length ?? 0) > 0) ? (
+                          <>
+                            <div className={styles.techGrid}>
+                              {tf.webServer  && <TechBadge icon="⬡"  label={`Web Server: ${tf.webServer}`} />}
+                              {tf.language   && <TechBadge icon="⟨⟩" label={`Language: ${tf.language}`} />}
+                              {tf.backend    && <TechBadge icon="◻"  label={`Backend: ${tf.backend}`} />}
+                              {tf.framework  && <TechBadge icon="◈"  label={`Framework: ${tf.framework}`} />}
+                              {tf.cms        && <TechBadge icon="▦"  label={`CMS: ${tf.cms}`} />}
+                              {tf.cdn        && <TechBadge icon="◉"  label={`CDN: ${tf.cdn}`} />}
+                              {tf.libraries?.map((lib, i) => <TechBadge key={i} icon="◎" label={lib} />)}
+                            </div>
+                            {(tf.evidence?.length ?? 0) > 0 && (
+                              <Section title="Evidence" defaultOpen={false}>
+                                <div className={styles.techEvidenceList}>
+                                  {tf.evidence?.map((e, i) => (
+                                    <div key={i} className={styles.techEvidenceItem}>
+                                      <span className={styles.techEvidenceDot}>›</span>
+                                      <code className={styles.code}>{e}</code>
+                                    </div>
+                                  ))}
+                                </div>
+                              </Section>
+                            )}
+                          </>
+                        ) : <div className={styles.empty}>◈ Nenhuma tecnologia identificável — servidor oculta headers de versão</div>}
+                      </>
+                    )}
+
+                    {openModule === "changes" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": changesColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>△</span>
+                          <span className={styles.sidebarContentTitleText}>Changes Since Last Scan</span>
+                        </div>
+                        <div className={styles.changesList}>
+                          {(r.changes ?? []).map((c, i) => (
+                            <div key={i} className={`${styles.changeRow} ${styles["change" + c.changeType]}`}>
+                              <div className={styles.changeHeader}>
+                                <span className={`${styles.changeType} ${styles["ct" + c.changeType]}`}>{c.changeType}</span>
+                                <Tag label={c.severity} cls={sevColor(c.severity)} />
+                                <span className={styles.changeCategory}>{c.category}</span>
+                                <span className={styles.changeField}>{c.field}</span>
+                              </div>
+                              <div className={styles.changeDesc}>{c.description}</div>
+                              {c.oldValue && c.newValue && (
+                                <div className={styles.changeDiff}>
+                                  <span className={styles.changeDiffOld}>{c.oldValue}</span>
+                                  <span className={styles.changeDiffArrow}>→</span>
+                                  <span className={styles.changeDiffNew}>{c.newValue}</span>
+                                </div>
+                              )}
+                            </div>
                           ))}
                         </div>
-                      </Section>
+                      </>
                     )}
-                  </Card>
-                )}
 
-                {/* Subdomain Takeover */}
-                <Card title={`SUBDOMAIN TAKEOVER  [${r.subdomainTakeover?.length ?? 0}]`}>
-                  {r.subdomainTakeover?.length > 0 ? (
-                    <div className={styles.takeoverList}>
-                      {r.subdomainTakeover.map((t, i) => (
-                        <div key={i} className={`${styles.takeoverRow} ${t.status === "VULNERABLE" ? styles.takeoverVulnerable : styles.takeoverPotential}`}>
-                          <div className={styles.takeoverHeader}>
-                            <span className={`${styles.takeoverStatus} ${t.status === "VULNERABLE" ? styles.tsVulnerable : styles.tsPotential}`}>{t.status}</span>
-                            <Tag label={t.severity} cls={sevColor(t.severity)} />
-                            <code className={styles.code}>{t.subdomain}</code>
-                            <span className={styles.takeoverService}>via {t.service}</span>
-                          </div>
-                          <div className={styles.takeoverVuln}>{t.vulnerability}</div>
-                          <div className={styles.takeoverCname}>
-                            <span className={styles.muted}>CNAME →</span>
-                            <code className={styles.code}>{t.cnameTarget}</code>
-                          </div>
-                          {t.evidence && (
-                            <div className={styles.takeoverEvidence}>{t.evidence}</div>
-                          )}
+                    {openModule === "cookies" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": cookieColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>☰</span>
+                          <span className={styles.sidebarContentTitleText}>Cookie Security</span>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className={styles.empty}>◈ Nenhum subdomínio vulnerável a takeover detectado</div>
-                  )}
-                </Card>
+                        {r.cookieIssues?.length ? (
+                          <Section title={`${r.cookieIssues.length} cookie(s) com problemas`} defaultOpen={true}>
+                            {r.cookieIssues.map((c, i) => (
+                              <div key={i} className={styles.cookieRow}>
+                                <div className={styles.cookieName}><code>{c.name}</code><Tag label={c.risk} cls={sevColor(c.risk)} /></div>
+                                <div className={styles.cookieFlags}>
+                                  <span className={c.httpOnly ? styles.ok : styles.bad}>HttpOnly</span>
+                                  <span className={c.secure ? styles.ok : styles.bad}>Secure</span>
+                                  <span className={styles.muted}>SameSite: {c.sameSite}</span>
+                                </div>
+                                <div className={styles.cookieIssue}>{c.issues}</div>
+                              </div>
+                            ))}
+                          </Section>
+                        ) : <div className={styles.empty}>◈ Nenhum problema detectado</div>}
+                      </>
+                    )}
 
-                {/* Row 2: Transport + Headers */}
-                <div className={styles.row}>
-                  <Card title="TRANSPORT SECURITY">
-                    <Section title="SSL / TLS">
-                      <KV label="Protocol" value={<span className={r.tlsDetails?.weakProtocol ? styles.bad : styles.ok}>{r.tlsDetails?.negotiatedProtocol ?? "—"}</span>} />
-                      <KV label="Cipher" value={<code className={styles.code}>{r.tlsDetails?.cipherSuite ?? "—"}</code>} />
-                      <KV label="Valid" value={boolIcon(r.sslInfo?.valid)} />
-                      <KV label="Expires" value={r.sslInfo?.expirationDate ?? "—"} />
-                      <KV label="Days left" value={<span className={(r.sslInfo?.daysRemaining ?? 0) < 30 ? styles.bad : (r.sslInfo?.daysRemaining ?? 0) < 90 ? styles.warn : styles.ok}>{r.sslInfo?.daysRemaining ?? "—"}d</span>} />
-                      {r.tlsDetails?.message && <div className={styles.note}>{r.tlsDetails.message}</div>}
-                    </Section>
-                  </Card>
-                  <Card title="SECURITY HEADERS">
-                    <Section title="Headers">
-                      {Object.entries(r.headers ?? {}).map(([k, v]) => <KV key={k} label={k} value={headerStatus(v)} />)}
-                    </Section>
-                  </Card>
-                </div>
+                    {openModule === "http" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": httpColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>⚙</span>
+                          <span className={styles.sidebarContentTitleText}>HTTP Methods</span>
+                        </div>
+                        {r.dangerousHttpMethods?.length ? (
+                          <Section title={`${r.dangerousHttpMethods.length} método(s)`} defaultOpen={true}>
+                            {r.dangerousHttpMethods.map((m, i) => (
+                              <div key={i} className={styles.findingRow}>
+                                <div className={styles.findingPath}>
+                                  <code className={styles.method}>{m.method}</code>
+                                  <span className={styles.muted}>HTTP {m.statusCode}</span>
+                                  <Tag label={m.severity} cls={sevColor(m.severity)} />
+                                </div>
+                                <div className={styles.findingNote}>{m.risk}</div>
+                              </div>
+                            ))}
+                          </Section>
+                        ) : <div className={styles.empty}>◈ Nenhum método perigoso</div>}
+                      </>
+                    )}
 
-                {/* Row 3: Cookies + HTTP Methods */}
-                <div className={styles.row}>
-                  <Card title="COOKIE SECURITY">
-                    {r.cookieIssues?.length ? (
-                      <Section title={`${r.cookieIssues.length} cookie(s) com problemas`}>
-                        {r.cookieIssues.map((c, i) => (
-                          <div key={i} className={styles.cookieRow}>
-                            <div className={styles.cookieName}><code>{c.name}</code><Tag label={c.risk} cls={sevColor(c.risk)} /></div>
-                            <div className={styles.cookieFlags}>
-                              <span className={c.httpOnly ? styles.ok : styles.bad}>HttpOnly</span>
-                              <span className={c.secure ? styles.ok : styles.bad}>Secure</span>
-                              <span className={styles.muted}>SameSite: {c.sameSite}</span>
+                    {openModule === "redirect" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": redirectColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>↪</span>
+                          <span className={styles.sidebarContentTitleText}>Open Redirect</span>
+                        </div>
+                        {redirectVuln.length ? (
+                          <Section title="Vulnerabilidades detectadas" defaultOpen={true}>
+                            {redirectVuln.map((f, i) => (
+                              <div key={i} className={styles.findingRow}>
+                                <div className={styles.findingPath}><code>?{f.parameter}=</code><Tag label="VULNERABLE" cls={styles.critical} /></div>
+                                <div className={styles.findingNote}>→ {f.redirectedTo}</div>
+                              </div>
+                            ))}
+                          </Section>
+                        ) : <div className={styles.empty}>◈ Nenhum open redirect detectado</div>}
+                      </>
+                    )}
+
+                    {openModule === "dirlist" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": dirColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>◫</span>
+                          <span className={styles.sidebarContentTitleText}>Directory Listing</span>
+                        </div>
+                        {dirExposed.length ? (
+                          <Section title="Diretórios expostos" defaultOpen={true}>
+                            {dirExposed.map((f, i) => (
+                              <div key={i} className={styles.findingRow}>
+                                <div className={styles.findingPath}><code>{f.path}</code><Tag label={f.severity} cls={sevColor(f.severity)} /></div>
+                                <div className={styles.findingNote}>Evidência: {f.evidence}</div>
+                              </div>
+                            ))}
+                          </Section>
+                        ) : <div className={styles.empty}>◈ Nenhum directory listing detectado</div>}
+                      </>
+                    )}
+
+                    {openModule === "recon" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": reconColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>◉</span>
+                          <span className={styles.sidebarContentTitleText}>Reconnaissance</span>
+                        </div>
+                        <Section title="robots.txt" defaultOpen={true}>
+                          {r.sensitiveRobotsPaths?.length ? (
+                            r.sensitiveRobotsPaths.map((p, i) => (
+                              <div key={i} className={styles.findingRow}>
+                                <div className={styles.findingPath}><code>{p}</code><Tag label="SENSITIVE" cls={styles.warning} /></div>
+                              </div>
+                            ))
+                          ) : <div className={styles.empty}>◈ Nenhum path sensível</div>}
+                        </Section>
+                        <Section title="security.txt" defaultOpen={true}>
+                          <KV label="Presente" value={boolIcon(r.securityTxtPresent)} />
+                          {r.securityTxtContact && <KV label="Contact" value={<code className={styles.code}>{r.securityTxtContact}</code>} />}
+                          {!r.securityTxtPresent && <div className={styles.note}>Sem security.txt (RFC 9116) — dificulta reporte responsável de vulnerabilidades.</div>}
+                        </Section>
+                        {dns && (
+                          <Section title="DNS Security" defaultOpen={true}>
+                            <div style={{ marginBottom: 10 }}>
+                              <Tag label={`Email Spoofing Risk: ${dns.emailSpoofingRisk}`}
+                                cls={dns.emailSpoofingRisk === "LOW" ? styles.secure : dns.emailSpoofingRisk === "MEDIUM" ? styles.warning : dns.emailSpoofingRisk === "HIGH" ? styles.high : styles.critical} />
                             </div>
-                            <div className={styles.cookieIssue}>{c.issues}</div>
+                            <KV label="SPF"   value={<span className={dns.spfPresent ? styles.ok : styles.bad}>{dns.spfPresent ? `✓ ${dns.spfPolicy}` : "✗ Ausente"}</span>} />
+                            {dns.spfRecord   && <div className={styles.note} style={{ marginBottom: 6 }}><code className={styles.code}>{dns.spfRecord}</code></div>}
+                            <KV label="DMARC" value={<span className={dns.dmarcPresent ? styles.ok : styles.bad}>{dns.dmarcPresent ? `✓ p=${dns.dmarcPolicy?.toLowerCase()}` : "✗ Ausente"}</span>} />
+                            {dns.dmarcRecord && <div className={styles.note} style={{ marginBottom: 6 }}><code className={styles.code}>{dns.dmarcRecord}</code></div>}
+                            <KV label="DKIM"  value={dns.dkimHintFound ? <span className={styles.ok}>✓ Seletor: {dns.dkimSelector}</span> : <span className={styles.warn}>⚠ Nenhum seletor encontrado</span>} />
+                            <KV label="CAA"   value={dns.caaPresent ? <span className={styles.ok}>✓ Configurado</span> : <span className={styles.warn}>⚠ Ausente — qualquer CA pode emitir certificado</span>} />
+                            {dns.caaRecord   && <div className={styles.note} style={{ marginBottom: 6 }}><code className={styles.code}>{dns.caaRecord}</code></div>}
+                            <KV label="MX"    value={dns.mxPresent ? <span className={styles.ok}>✓ {dns.mxRecords?.length} servidor(es)</span> : <span className={styles.muted}>Sem servidores de email</span>} />
+                            {dns.mxPresent && dns.mxRecords?.length > 0 && (
+                              <div className={styles.note}>{dns.mxRecords.map((mx, i) => <div key={i}><code className={styles.code}>{mx}</code></div>)}</div>
+                            )}
+                            <div className={styles.note} style={{ marginTop: 8 }}>{dns.summary}</div>
+                          </Section>
+                        )}
+                      </>
+                    )}
+
+                    {openModule === "cve" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": cveColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>◈</span>
+                          <span className={styles.sidebarContentTitleText}>CVE Correlation</span>
+                        </div>
+                        {cveCount > 0 ? (
+                          <div className={styles.cveList}>
+                            {r.cveFindings.map((cve, i) => (
+                              <div key={i} className={styles.cveRow}>
+                                <div className={styles.cveHeader}>
+                                  <a href={cve.referenceUrl} target="_blank" rel="noopener noreferrer" className={styles.cveId}>{cve.cveId}</a>
+                                  <Tag label={cve.severity} cls={sevColor(cve.severity)} />
+                                  <span className={styles.cveScore}>CVSS {cve.cvssScore.toFixed(1)}</span>
+                                  <span className={styles.cveSoftware}>{cve.affectedSoftware}</span>
+                                  <span className={styles.muted}>{cve.publishedDate}</span>
+                                </div>
+                                <div className={styles.cveDesc}>{cve.description}</div>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </Section>
-                    ) : <div className={styles.empty}>◈ Nenhum problema detectado</div>}
-                  </Card>
-                  <Card title="HTTP METHODS">
-                    {r.dangerousHttpMethods?.length ? (
-                      <Section title={`${r.dangerousHttpMethods.length} método(s) perigoso(s)`}>
-                        {r.dangerousHttpMethods.map((m, i) => (
-                          <div key={i} className={styles.findingRow}>
-                            <div className={styles.findingPath}>
-                              <code className={styles.method}>{m.method}</code>
-                              <span className={styles.muted}>HTTP {m.statusCode}</span>
-                              <Tag label={m.severity} cls={sevColor(m.severity)} />
+                        ) : <div className={styles.empty}>◈ Sem CVEs correlacionados — versão de software não detectada ou servidor oculta headers</div>}
+                      </>
+                    )}
+
+                    {openModule === "cert" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": certColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>◑</span>
+                          <span className={styles.sidebarContentTitleText}>Certificate Transparency</span>
+                        </div>
+                        {ct ? (
+                          <>
+                            <div className={styles.ctOverview}>
+                              <div className={styles.ctStat}>
+                                <span className={styles.ctStatVal}>{ct.totalCertificates}</span>
+                                <span className={styles.ctStatLabel}>Certificados nos logs CT</span>
+                              </div>
+                              <div className={styles.ctStat}>
+                                <span className={styles.ctStatVal}>{ct.uniqueSubdomains}</span>
+                                <span className={styles.ctStatLabel}>Subdomínios históricos</span>
+                              </div>
+                              <div className={styles.ctStat}>
+                                <span className={`${styles.ctStatVal} ${ct.wildcardDetected ? styles.warn : styles.ok}`}>{ct.wildcardDetected ? "⚠ Sim" : "✓ Não"}</span>
+                                <span className={styles.ctStatLabel}>Wildcard (*.domínio)</span>
+                              </div>
+                              <div className={styles.ctStat}>
+                                <span className={`${styles.ctStatVal} ${ct.recentlyIssued ? styles.warn : styles.ok}`}>{ct.recentlyIssued ? "⚠ Sim" : "—"}</span>
+                                <span className={styles.ctStatLabel}>Emitido últimos 7 dias</span>
+                              </div>
                             </div>
-                            <div className={styles.findingNote}>{m.risk}</div>
-                          </div>
-                        ))}
-                      </Section>
-                    ) : <div className={styles.empty}>◈ Nenhum método perigoso</div>}
-                  </Card>
-                </div>
+                            {ct.unexpectedIssuer && (
+                              <div className={styles.ctAlert}>⚠ Issuer(s) não autorizado(s) pelo CAA: {ct.unexpectedIssuers.map((iss, i) => <Tag key={i} label={iss} cls={styles.critical} />)}</div>
+                            )}
+                            {ct.issuers?.length > 0 && (
+                              <Section title={`Issuers [${ct.issuers.length}]`} defaultOpen={true}>
+                                <div className={styles.ctTagList}>{ct.issuers.map((iss, i) => <Tag key={i} label={iss} cls={styles.info} />)}</div>
+                              </Section>
+                            )}
+                            {ct.wildcardDomains?.length > 0 && (
+                              <Section title={`Wildcards [${ct.wildcardDomains.length}]`} defaultOpen={false}>
+                                <div className={styles.ctTagList}>
+                                  {ct.wildcardDomains.map((w, i) => (
+                                    <div key={i} className={styles.findingRow}><div className={styles.findingPath}><code>{w}</code><Tag label="WILDCARD" cls={styles.warning} /></div></div>
+                                  ))}
+                                </div>
+                              </Section>
+                            )}
+                            {ct.recentCerts?.length > 0 && (
+                              <Section title={`Certificados recentes [${ct.recentCerts.length}]`} defaultOpen={false}>
+                                <table className={styles.table}>
+                                  <thead><tr><th>Common Name</th><th>Issuer</th><th>Válido de</th><th>Válido até</th></tr></thead>
+                                  <tbody>
+                                    {ct.recentCerts.map((c, i) => (
+                                      <tr key={i}>
+                                        <td><code className={styles.code}>{c.commonName}{c.wildcard && <Tag label="WC" cls={styles.warning} />}</code></td>
+                                        <td className={styles.muted}>{c.issuer}</td>
+                                        <td className={styles.muted}>{c.notBefore}</td>
+                                        <td className={(c.notAfter < new Date().toISOString().split("T")[0]) ? styles.bad : styles.ok}>{c.notAfter}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </Section>
+                            )}
+                            {ct.discoveredSubdomains?.length > 0 && (
+                              <Section title={`Subdomínios históricos [${ct.discoveredSubdomains.length}]`} defaultOpen={false}>
+                                <div className={styles.ctSubdomainGrid}>{ct.discoveredSubdomains.map((s, i) => <code key={i} className={styles.ctSubdomain}>{s}</code>)}</div>
+                              </Section>
+                            )}
+                          </>
+                        ) : <div className={styles.empty}>◈ Não analisado</div>}
+                      </>
+                    )}
 
-                {/* Row 4: Open Redirect + Directory Listing */}
-                <div className={styles.row}>
-                  <Card title="OPEN REDIRECT">
-                    {r.openRedirectFindings?.filter(f => f.vulnerable).length ? (
-                      <Section title="Vulnerabilidades detectadas">
-                        {r.openRedirectFindings.filter(f => f.vulnerable).map((f, i) => (
-                          <div key={i} className={styles.findingRow}>
-                            <div className={styles.findingPath}><code>?{f.parameter}=</code><Tag label="VULNERABLE" cls={styles.critical} /></div>
-                            <div className={styles.findingNote}>→ {f.redirectedTo}</div>
+                    {openModule === "takeover" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": takeoverColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>◎</span>
+                          <span className={styles.sidebarContentTitleText}>Subdomain Takeover</span>
+                        </div>
+                        {(r.subdomainTakeover?.length ?? 0) > 0 ? (
+                          <div className={styles.takeoverList}>
+                            {r.subdomainTakeover.map((t, i) => (
+                              <div key={i} className={`${styles.takeoverRow} ${t.status === "VULNERABLE" ? styles.takeoverVulnerable : styles.takeoverPotential}`}>
+                                <div className={styles.takeoverHeader}>
+                                  <span className={`${styles.takeoverStatus} ${t.status === "VULNERABLE" ? styles.tsVulnerable : styles.tsPotential}`}>{t.status}</span>
+                                  <Tag label={t.severity} cls={sevColor(t.severity)} />
+                                  <code className={styles.code}>{t.subdomain}</code>
+                                  <span className={styles.takeoverService}>via {t.service}</span>
+                                </div>
+                                <div className={styles.takeoverVuln}>{t.vulnerability}</div>
+                                <div className={styles.takeoverCname}><span className={styles.muted}>CNAME →</span><code className={styles.code}>{t.cnameTarget}</code></div>
+                                {t.evidence && <div className={styles.takeoverEvidence}>{t.evidence}</div>}
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </Section>
-                    ) : <div className={styles.empty}>◈ Nenhum open redirect detectado</div>}
-                  </Card>
-                  <Card title="DIRECTORY LISTING">
-                    {r.directoryListingFindings?.filter(f => f.listingEnabled).length ? (
-                      <Section title="Diretórios expostos">
-                        {r.directoryListingFindings.filter(f => f.listingEnabled).map((f, i) => (
-                          <div key={i} className={styles.findingRow}>
-                            <div className={styles.findingPath}><code>{f.path}</code><Tag label={f.severity} cls={sevColor(f.severity)} /></div>
-                            <div className={styles.findingNote}>Evidência: {f.evidence}</div>
-                          </div>
-                        ))}
-                      </Section>
-                    ) : <div className={styles.empty}>◈ Nenhum directory listing detectado</div>}
-                  </Card>
-                </div>
+                        ) : <div className={styles.empty}>◈ Nenhum subdomínio vulnerável a takeover detectado</div>}
+                      </>
+                    )}
 
-                {/* Row 5: Reconnaissance + Active Checks */}
-                <div className={styles.row}>
-                  <Card title="RECONNAISSANCE">
-                    <Section title="robots.txt" defaultOpen={true}>
-                      {r.sensitiveRobotsPaths?.length ? (
-                        r.sensitiveRobotsPaths.map((p, i) => (
-                          <div key={i} className={styles.findingRow}>
-                            <div className={styles.findingPath}><code>{p}</code><Tag label="SENSITIVE" cls={styles.warning} /></div>
-                          </div>
-                        ))
-                      ) : <div className={styles.empty}>◈ Nenhum path sensível</div>}
-                    </Section>
-                    <Section title="security.txt" defaultOpen={true}>
-                      <KV label="Presente" value={boolIcon(r.securityTxtPresent)} />
-                      {r.securityTxtContact && <KV label="Contact" value={<code className={styles.code}>{r.securityTxtContact}</code>} />}
-                      {!r.securityTxtPresent && <div className={styles.note}>Sem security.txt (RFC 9116) — dificulta reporte responsável de vulnerabilidades.</div>}
-                    </Section>
-                    <Section title="DNS Security" defaultOpen={true}>
-                      {r.dnsSecurityResult ? (
-                        <>
-                          <div style={{ marginBottom: 10 }}>
-                            <Tag label={`Email Spoofing Risk: ${r.dnsSecurityResult.emailSpoofingRisk}`}
-                              cls={r.dnsSecurityResult.emailSpoofingRisk === "LOW" ? styles.secure : r.dnsSecurityResult.emailSpoofingRisk === "MEDIUM" ? styles.warning : r.dnsSecurityResult.emailSpoofingRisk === "HIGH" ? styles.high : styles.critical} />
-                          </div>
-                          <KV label="SPF" value={<span className={r.dnsSecurityResult.spfPresent ? styles.ok : styles.bad}>{r.dnsSecurityResult.spfPresent ? `✓ ${r.dnsSecurityResult.spfPolicy}` : "✗ Ausente"}</span>} />
-                          {r.dnsSecurityResult.spfRecord && <div className={styles.note} style={{ marginBottom: 6 }}><code className={styles.code}>{r.dnsSecurityResult.spfRecord}</code></div>}
-                          <KV label="DMARC" value={<span className={r.dnsSecurityResult.dmarcPresent ? styles.ok : styles.bad}>{r.dnsSecurityResult.dmarcPresent ? `✓ p=${r.dnsSecurityResult.dmarcPolicy?.toLowerCase()}` : "✗ Ausente"}</span>} />
-                          {r.dnsSecurityResult.dmarcRecord && <div className={styles.note} style={{ marginBottom: 6 }}><code className={styles.code}>{r.dnsSecurityResult.dmarcRecord}</code></div>}
-                          <KV label="DKIM" value={r.dnsSecurityResult.dkimHintFound ? <span className={styles.ok}>✓ Seletor: {r.dnsSecurityResult.dkimSelector}</span> : <span className={styles.warn}>⚠ Nenhum seletor encontrado</span>} />
-                          <KV label="CAA" value={r.dnsSecurityResult.caaPresent ? <span className={styles.ok}>✓ Configurado</span> : <span className={styles.warn}>⚠ Ausente — qualquer CA pode emitir certificado</span>} />
-                          {r.dnsSecurityResult.caaRecord && <div className={styles.note} style={{ marginBottom: 6 }}><code className={styles.code}>{r.dnsSecurityResult.caaRecord}</code></div>}
-                          <KV label="MX" value={r.dnsSecurityResult.mxPresent ? <span className={styles.ok}>✓ {r.dnsSecurityResult.mxRecords?.length} servidor(es)</span> : <span className={styles.muted}>Sem servidores de email</span>} />
-                          {r.dnsSecurityResult.mxPresent && r.dnsSecurityResult.mxRecords?.length > 0 && (
-                            <div className={styles.note}>{r.dnsSecurityResult.mxRecords.map((mx: string, i: number) => <div key={i}><code className={styles.code}>{mx}</code></div>)}</div>
-                          )}
-                          <div className={styles.note} style={{ marginTop: 8 }}>{r.dnsSecurityResult.summary}</div>
-                        </>
-                      ) : <div className={styles.empty}>DNS não analisado</div>}
-                    </Section>
-                  </Card>
-
-                  <Card title="ACTIVE CHECKS">
-                    <Section title="WAF Detection" defaultOpen={false}>
-                      {!r.activeMode ? (
-                        <div className={styles.activeRequired}>Requer modo <strong>ACTIVE</strong></div>
-                      ) : (
-                        <>
+                    {openModule === "active" && r.activeMode && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": "var(--info)" } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>▣</span>
+                          <span className={styles.sidebarContentTitleText}>Active Checks</span>
+                        </div>
+                        <Section title="WAF Detection" defaultOpen={true}>
                           <KV label="Detectado" value={r.wafDetectionResult?.detected ? <span className={styles.ok}>✓ Sim</span> : <span className={styles.warn}>✗ Não confirmado</span>} />
-                          {r.wafDetectionResult?.detected && (
-                            <>
-                              <KV label="Provider" value={<strong style={{ color: "var(--accent)" }}>{r.wafDetectionResult.provider}</strong>} />
-                              <KV label="Confiança" value={<span className={r.wafDetectionResult.confidence === "HIGH" ? styles.secure : r.wafDetectionResult.confidence === "MEDIUM" ? styles.warning : styles.muted}>{r.wafDetectionResult.confidence}</span>} />
-                              <KV label="Evidência" value={<code className={styles.code}>{r.wafDetectionResult.evidence}</code>} />
-                            </>
-                          )}
+                          {r.wafDetectionResult?.detected && (<>
+                            <KV label="Provider"  value={<strong style={{ color: "var(--accent)" }}>{r.wafDetectionResult.provider}</strong>} />
+                            <KV label="Confiança" value={<span className={r.wafDetectionResult.confidence === "HIGH" ? styles.secure : r.wafDetectionResult.confidence === "MEDIUM" ? styles.warning : styles.muted}>{r.wafDetectionResult.confidence}</span>} />
+                            <KV label="Evidência" value={<code className={styles.code}>{r.wafDetectionResult.evidence}</code>} />
+                          </>)}
                           <KV label="Probe" value={<span className={r.wafDetectionResult?.probeResponse === "BLOCKED" ? styles.ok : r.wafDetectionResult?.probeResponse === "PASSED" ? styles.warn : styles.muted}>{r.wafDetectionResult?.probeResponse ?? "—"}</span>} />
                           {r.wafDetectionResult?.summary && <div className={styles.note} style={{ marginTop: 8 }}>{r.wafDetectionResult.summary}</div>}
-                        </>
-                      )}
-                    </Section>
-                    <Section title="CORS Analysis" defaultOpen={false}>
-                      {!r.activeMode ? (
-                        <div className={styles.activeRequired}>Requer modo <strong>ACTIVE</strong></div>
-                      ) : r.corsResult?.tested ? (
-                        <>
-                          <KV label="Allow-Origin" value={<code className={styles.code}>{r.corsResult.allowOriginValue}</code>} />
-                          <KV label="Wildcard" value={boolIcon(!r.corsResult.wildcardOrigin, "✓ No", "⚠ YES")} />
-                          <KV label="Reflects Origin" value={boolIcon(!r.corsResult.reflectsOrigin, "✓ No", "⚠ YES")} />
-                          <KV label="Credentials" value={boolIcon(!r.corsResult.credentialsAllowed, "✓ No", "⚠ YES")} />
-                          <KV label="Null Origin" value={boolIcon(!r.corsResult.nullOriginAccepted, "✓ No", "⚠ YES")} />
-                          <div className={styles.note}>{r.corsResult.message}</div>
-                        </>
-                      ) : <div className={styles.empty}>Probe não executado</div>}
-                    </Section>
-                    <Section title={`Sensitive Files${r.activeMode && r.sensitiveFiles?.length ? ` [${r.sensitiveFiles.length}]` : ""}`} defaultOpen={false}>
-                      {!r.activeMode ? (
-                        <div className={styles.activeRequired}>Requer modo <strong>ACTIVE</strong></div>
-                      ) : r.sensitiveFiles?.length ? (
-                        r.sensitiveFiles.map((f, i) => (
-                          <div key={i} className={styles.findingRow}>
-                            <div className={styles.findingPath}>
-                              <code>{f.path}</code>
-                              <Tag label={f.exposure} cls={f.exposure === "EXPOSED" ? styles.critical : styles.warning} />
-                              <Tag label={f.severity} cls={sevColor(f.severity)} />
-                            </div>
-                            {f.contentPreview && <pre className={styles.preview}>{f.contentPreview}</pre>}
-                          </div>
-                        ))
-                      ) : <div className={styles.empty}>◈ Nenhum arquivo sensível exposto</div>}
-                    </Section>
-                    <Section title="Application Probes" defaultOpen={false}>
-                      {!r.activeMode ? (
-                        <div className={styles.activeRequired}>Requer modo <strong>ACTIVE</strong></div>
-                      ) : (
-                        <>
-                          <KV label="Input surface" value={boolIcon(r.inputSurfaceDetected, "Detectada", "Não detectada")} />
-                          <KV label="XSS probe" value={boolIcon(r.xssProbePerformed, "Executado", "—")} />
-                          <KV label="Reflected XSS" value={r.xssProbePerformed ? boolIcon(!r.reflectedXssSuspected, "✓ Clean", "⚠ Suspeito") : <span className={styles.muted}>Sem superfície de input</span>} />
-                          <KV label="DB error leak" value={boolIcon(!r.dbErrorLeakageSuspected, "✓ Clean", "⚠ Suspeito")} />
-                        </>
-                      )}
-                    </Section>
-                    <Section title={`Port Scan [${r.openPorts?.length ?? 0}]`} defaultOpen={false}>
-                      {!r.activeMode ? (
-                        <div className={styles.activeRequired}>Requer modo <strong>ACTIVE</strong></div>
-                      ) : r.openPorts?.length ? (
-                        <table className={styles.table}>
-                          <thead><tr><th>Port</th><th>Service</th><th>Sev</th><th>ms</th></tr></thead>
-                          <tbody>
-                            {r.openPorts.map(p => (
-                              <tr key={p.port}>
-                                <td><code>{p.port}</code></td>
-                                <td>{p.service}</td>
-                                <td><Tag label={p.severity} cls={sevColor(p.severity)} /></td>
-                                <td className={styles.muted}>{p.latencyMs}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : <div className={styles.empty}>Sem portas abertas detectadas</div>}
-                    </Section>
-                  </Card>
-                </div>
+                        </Section>
+                        <Section title="CORS Analysis" defaultOpen={false}>
+                          {r.corsResult?.tested ? (<>
+                            <KV label="Allow-Origin"   value={<code className={styles.code}>{r.corsResult.allowOriginValue}</code>} />
+                            <KV label="Wildcard"        value={boolIcon(!r.corsResult.wildcardOrigin, "✓ No", "⚠ YES")} />
+                            <KV label="Reflects Origin" value={boolIcon(!r.corsResult.reflectsOrigin, "✓ No", "⚠ YES")} />
+                            <KV label="Credentials"     value={boolIcon(!r.corsResult.credentialsAllowed, "✓ No", "⚠ YES")} />
+                            <KV label="Null Origin"     value={boolIcon(!r.corsResult.nullOriginAccepted, "✓ No", "⚠ YES")} />
+                            <div className={styles.note}>{r.corsResult.message}</div>
+                          </>) : <div className={styles.empty}>Probe não executado</div>}
+                        </Section>
+                        <Section title={`Sensitive Files${r.sensitiveFiles?.length ? ` [${r.sensitiveFiles.length}]` : ""}`} defaultOpen={false}>
+                          {r.sensitiveFiles?.length ? (
+                            r.sensitiveFiles.map((f, i) => (
+                              <div key={i} className={styles.findingRow}>
+                                <div className={styles.findingPath}>
+                                  <code>{f.path}</code>
+                                  <Tag label={f.exposure} cls={f.exposure === "EXPOSED" ? styles.critical : styles.warning} />
+                                  <Tag label={f.severity} cls={sevColor(f.severity)} />
+                                </div>
+                                {f.contentPreview && <pre className={styles.preview}>{
+f.contentPreview}</pre>}
+                              </div>
+                            ))
+                          ) : <div className={styles.empty}>◈ Nenhum arquivo sensível exposto</div>}
+                        </Section>
+                        <Section title="Application Probes" defaultOpen={false}>
+                          <>
+                            <KV label="Input surface" value={boolIcon(r.inputSurfaceDetected, "Detectada", "Não detectada")} />
+                            <KV label="XSS probe" value={boolIcon(r.xssProbePerformed, "Executado", "—")} />
+                            <KV label="Reflected XSS" value={r.xssProbePerformed ? boolIcon(!r.reflectedXssSuspected, "✓ Clean", "⚠ Suspeito") : <span className={styles.muted}>Sem superfície de input</span>} />
+                            <KV label="DB error leak" value={boolIcon(!r.dbErrorLeakageSuspected, "✓ Clean", "⚠ Suspeito")} />
+                          </>
+                        </Section>
+                        <Section title={`Port Scan [${r.openPorts?.length ?? 0}]`} defaultOpen={false}>
+                          {r.openPorts?.length ? (
+                            <table className={styles.table}>
+                              <thead><tr><th>Port</th><th>Service</th><th>Sev</th><th>ms</th></tr></thead>
+                              <tbody>
+                                {r.openPorts.map((p, i) => (
+                                  <tr key={i}>
+                                    <td><code>{p.port}</code></td>
+                                    <td>{p.service}</td>
+                                    <td><Tag label={p.severity} cls={sevColor(p.severity)} /></td>
+                                    <td className={styles.muted}>{p.latencyMs}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          ) : <div className={styles.empty}>Sem portas abertas detectadas</div>}
+                        </Section>
+                      </>
+                    )}
 
-                {/* Score Breakdown */}
-                <Card title="SCORE BREAKDOWN">
-                  <div className={styles.notesList}>
-                    {(r.score?.notes ?? []).map((n, i) => (
-                      <div key={i} className={`${styles.noteRow} ${n.includes("-") ? styles.noteMinus : styles.noteOk}`}>
-                        <span>{n.includes("-") ? "▼" : "◈"}</span>{n}
-                      </div>
-                    ))}
+                    </div>
                   </div>
-                </Card>
-
               </div>
             )}
           </>
