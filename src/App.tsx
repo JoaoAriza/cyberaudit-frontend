@@ -799,8 +799,7 @@ export default function App() {
                         <div className={styles.sidebarTargetUrl}>{badgeHost}</div>
                       </div>
                     </div>
-                    <div className={styles.sidebarNavHeader}>Módulos de segurança</div>
-
+                    <div className={styles.sidebarNavGroup}>Visão Geral</div>
                     <SidebarNavItem icon="⚠" title="Issues"
                       color={issueColor}
                       metric={issueCount === 0 ? "✓" : issueCount}
@@ -808,57 +807,31 @@ export default function App() {
                       active={openModule === "issues"}
                       onClick={() => setOpenModule("issues")} />
 
+                    <div className={styles.sidebarNavGroup}>HTTP &amp; Headers</div>
                     <SidebarNavItem icon="⬡" title="Security Headers"
                       color={headerColor}
                       metric={missingH + weakH === 0 ? "✓" : missingH + weakH}
                       label={missingH + weakH === 0 ? "SECURE" : missingH > 2 ? "CRITICAL" : "WARNING"}
                       active={openModule === "headers"}
                       onClick={() => setOpenModule("headers")} />
-
                     <SidebarNavItem icon="⬟" title="Transport Security"
                       color={tlsColor}
                       metric={r.sslInfo?.valid ? (r.sslInfo.daysRemaining ?? "?") + "d" : "✗"}
                       label={!r.sslInfo?.valid ? "INVALID CERT" : r.tlsDetails?.weakProtocol ? "WEAK PROTOCOL" : "SECURE"}
                       active={openModule === "transport"}
                       onClick={() => setOpenModule("transport")} />
-
-                    <SidebarNavItem icon="⟨⟩" title="Technology"
-                      color="var(--info)"
-                      metric={techFirst}
-                      label="DETECTED"
-                      active={openModule === "tech"}
-                      onClick={() => setOpenModule("tech")} />
-
-                    {changeCount > 0 && (
-                      <SidebarNavItem icon="△" title="Changes"
-                        color={changesColor}
-                        metric={changeCount}
-                        label={changesColor === "var(--critical)" ? "DEGRADED" : "CHANGED"}
-                        active={openModule === "changes"}
-                        onClick={() => setOpenModule("changes")} />
-                    )}
-
-                    <SidebarNavItem icon="☰" title="Cookie Security"
-                      color={cookieColor}
-                      metric={cookieCount === 0 ? "✓" : cookieCount}
-                      label={cookieCount === 0 ? "SECURE" : "ISSUES FOUND"}
-                      active={openModule === "cookies"}
-                      onClick={() => setOpenModule("cookies")} />
-
                     <SidebarNavItem icon="⚙" title="HTTP Methods"
                       color={httpColor}
                       metric={dangerMethods.length === 0 ? "✓" : dangerMethods.length}
                       label={dangerMethods.length === 0 ? "SECURE" : "DANGEROUS"}
                       active={openModule === "http"}
                       onClick={() => setOpenModule("http")} />
-
                     <SidebarNavItem icon="↪" title="Open Redirect"
                       color={redirectColor}
                       metric={redirectVuln.length === 0 ? "✓" : redirectVuln.length}
                       label={redirectVuln.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "redirect"}
                       onClick={() => setOpenModule("redirect")} />
-
                     <SidebarNavItem icon="◫" title="Directory Listing"
                       color={dirColor}
                       metric={dirExposed.length === 0 ? "✓" : dirExposed.length}
@@ -866,27 +839,19 @@ export default function App() {
                       active={openModule === "dirlist"}
                       onClick={() => setOpenModule("dirlist")} />
 
+                    <div className={styles.sidebarNavGroup}>DNS &amp; Domínio</div>
                     <SidebarNavItem icon="◉" title="Reconnaissance"
                       color={reconColor}
                       metric={dns ? `${[dns.spfPresent, dns.dmarcPresent, dns.caaPresent].filter(Boolean).length}/3` : "—"}
                       label={dns?.emailSpoofingRisk ? `SPOOFING: ${dns.emailSpoofingRisk}` : "UNKNOWN"}
                       active={openModule === "recon"}
                       onClick={() => setOpenModule("recon")} />
-
-                    <SidebarNavItem icon="◈" title="CVE Correlation"
-                      color={cveColor}
-                      metric={cveCount === 0 ? "✓" : cveCount}
-                      label={cveCount === 0 ? "SECURE" : maxCvss >= 9 ? "CRITICAL" : maxCvss >= 7 ? "HIGH" : maxCvss >= 4 ? "MEDIUM" : "LOW"}
-                      active={openModule === "cve"}
-                      onClick={() => setOpenModule("cve")} />
-
                     <SidebarNavItem icon="◑" title="Cert Transparency"
                       color={certColor}
                       metric={ct ? ct.totalCertificates : "—"}
                       label={!ct ? "N/A" : ct.unexpectedIssuer ? "ISSUER ALERT" : ct.wildcardDetected ? "WILDCARD" : "INFO"}
                       active={openModule === "cert"}
                       onClick={() => setOpenModule("cert")} />
-
                     <SidebarNavItem icon="◎" title="Subdomain Takeover"
                       color={takeoverColor}
                       metric={takeoverVuln.length === 0 ? "✓" : takeoverVuln.length}
@@ -894,6 +859,37 @@ export default function App() {
                       active={openModule === "takeover"}
                       onClick={() => setOpenModule("takeover")} />
 
+                    <div className={styles.sidebarNavGroup}>Aplicação</div>
+                    <SidebarNavItem icon="⟨⟩" title="Technology"
+                      color="var(--info)"
+                      metric={techFirst}
+                      label="DETECTED"
+                      active={openModule === "tech"}
+                      onClick={() => setOpenModule("tech")} />
+                    <SidebarNavItem icon="☰" title="Cookie Security"
+                      color={cookieColor}
+                      metric={cookieCount === 0 ? "✓" : cookieCount}
+                      label={cookieCount === 0 ? "SECURE" : "ISSUES FOUND"}
+                      active={openModule === "cookies"}
+                      onClick={() => setOpenModule("cookies")} />
+                    <SidebarNavItem icon="◈" title="CVE Correlation"
+                      color={cveColor}
+                      metric={cveCount === 0 ? "✓" : cveCount}
+                      label={cveCount === 0 ? "SECURE" : maxCvss >= 9 ? "CRITICAL" : maxCvss >= 7 ? "HIGH" : maxCvss >= 4 ? "MEDIUM" : "LOW"}
+                      active={openModule === "cve"}
+                      onClick={() => setOpenModule("cve")} />
+
+                    {changeCount > 0 && (<>
+                      <div className={styles.sidebarNavGroup}>Monitoramento</div>
+                      <SidebarNavItem icon="△" title="Changes"
+                        color={changesColor}
+                        metric={changeCount}
+                        label={changesColor === "var(--critical)" ? "DEGRADED" : "CHANGED"}
+                        active={openModule === "changes"}
+                        onClick={() => setOpenModule("changes")} />
+                    </>)}
+
+                    <div className={styles.sidebarNavGroup}>Active</div>
                     <SidebarNavItem icon="▣" title="Active Checks"
                       color={r.activeMode ? "var(--info)" : "var(--text-muted)"}
                       metric={!r.activeMode ? "OFF" : r.wafDetectionResult?.detected ? "WAF" : `${r.openPorts?.length ?? 0}p`}
