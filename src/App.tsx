@@ -282,9 +282,9 @@ function SlowScanToast({ visible }: { visible: boolean }) {
 
 // ── Guest Banner ──────────────────────────────────────────────────────────────
 
-function GuestBanner({ onLogin }: { onLogin: () => void }) {
+function GuestBanner({ onLogin, refreshKey }: { onLogin: () => void; refreshKey: number }) {
   const [status, setStatus] = useState<GuestStatus | null>(null);
-  useEffect(() => { api.get<GuestStatus>("/auth/guest-status").then(r => setStatus(r.data)).catch(() => {}); }, []);
+  useEffect(() => { api.get<GuestStatus>("/auth/guest-status").then(r => setStatus(r.data)).catch(() => {}); }, [refreshKey]);
   if (!status) return null;
   const pct = Math.round((status.used / status.dailyLimit) * 100);
   const critical = status.remaining <= 2;
@@ -556,6 +556,7 @@ export default function App() {
   const [ownership, setOwnership] = useState<OwnershipState | null>(null);
   const [asyncState, setAsyncState] = useState<string | undefined>();
   const [showSlowToast, setShowSlowToast] = useState(false);
+  const [guestRefreshKey, setGuestRefreshKey] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -579,15 +580,17 @@ export default function App() {
   }
 
   async function runAsync() {
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
-      const res = await api.post("/scan/async", null, { params: { url, active, refresh: true } });
+      const res = await api.post("/scan/async", null, { params: { url, active, refresh: true }, signal: controller.signal });
       const scanId = res.data.scanId as string;
       setAsyncState("PENDING");
       pollRef.current = setInterval(async () => {
         try {
           const status: AsyncStatus = (await api.get(`/scan/async/${scanId}`)).data;
           setAsyncState(status.state);
-          if (status.state === "DONE") { stopPoll(); stopSlowTimer(); setResult(status.result); setScanLoading(false); }
+          if (status.state === "DONE") { stopPoll(); stopSlowTimer(); setResult(status.result); setScanLoading(false); setGuestRefreshKey(k => k + 1); }
           else if (status.state === "ERROR") {
             stopPoll(); stopSlowTimer(); setScanLoading(false);
             const msg = status.errorMessage ?? "";
@@ -667,7 +670,7 @@ export default function App() {
       </header>
 
       <main className={styles.main}>
-        {!isAuthenticated() && view === "scan" && <GuestBanner onLogin={() => setView("login")} />}
+        {!isAuthenticated() && view === "scan" && <GuestBanner onLogin={() => setView("login")} refreshKey={guestRefreshKey} />}
         {view === "admin" && isAdmin() && <AdminPanel />}
 
         {view === "scan" && (
