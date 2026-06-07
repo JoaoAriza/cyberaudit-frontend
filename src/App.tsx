@@ -186,96 +186,66 @@ function IssueItem({ issue }: { issue: SecurityIssue }) {
 
 // ── Terminal Loader ───────────────────────────────────────────────────────────
 
-const SCAN_LINES = [
-  "→ resolving target...", "→ probing SSL certificate...",
-  "→ negotiating TLS handshake...", "→ analyzing security headers...",
-  "→ fingerprinting technology stack...", "→ inspecting cookies...",
-  "→ checking robots.txt...", "→ scanning sensitive files...",
-  "→ testing HTTP methods...", "→ verifying security.txt...",
-  "→ detecting open redirects...", "→ checking directory listings...",
-  "→ querying DNS security...", "→ detecting WAF...",
-  "→ calculating risk score...",
-];
-function TerminalLoader({ asyncState }: { asyncState?: string }) {
-  const [lines, setLines] = useState<string[]>([SCAN_LINES[0]]);
-  const idx = useRef(1);
-  useEffect(() => {
-    const t = setInterval(() => {
-      if (idx.current < SCAN_LINES.length)
-        setLines(prev => [...prev, SCAN_LINES[idx.current++]]);
-    }, 700);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <div className={styles.terminal}>
-      <div className={styles.terminalBar}>
-        <span className={styles.termDot} style={{ background: "#ff5f57" }} />
-        <span className={styles.termDot} style={{ background: "#febc2e" }} />
-        <span className={styles.termDot} style={{ background: "#28c840" }} />
-        <span className={styles.termTitle}>cyberaudit scan {asyncState ? `[${asyncState}]` : ""}</span>
-      </div>
-      <div className={styles.terminalBody}>
-        {lines.map((l, i) => (
-          <div key={i} className={styles.termLine} style={{ animationDelay: `${i * 0.05}s` }}>{l}</div>
-        ))}
-        <div className={styles.termCursor}>█</div>
-      </div>
-    </div>
-  );
-}
-
 // ── Slow Scan Toast ───────────────────────────────────────────────────────────
 
 function SlowScanToast({ visible }: { visible: boolean }) {
+  const [expanded, setExpanded] = useState(false);
   const checks = [
-    { label: "Tech Fingerprint", detail: "Detecta framework, CMS, CDN e linguagem" },
-    { label: "Sensitive Files", detail: "Testa ~25 arquivos críticos no servidor" },
-    { label: "Port Scan", detail: "Verifica 21 portas com validação de banner" },
-    { label: "DNS Security", detail: "Consulta SPF, DMARC, DKIM, CAA e MX" },
-    { label: "WAF Detection", detail: "Envia probes e analisa headers de resposta" },
-    { label: "HTTP Methods", detail: "Testa métodos perigosos (PUT, DELETE, TRACE...)" },
+    { icon: "⬟", label: "SSL / TLS",         detail: "Handshake real + validação do certificado" },
+    { icon: "⬡", label: "Security Headers",   detail: "Analisa 8+ headers na resposta HTTP" },
+    { icon: "◉", label: "DNS Security",       detail: "Consultas DNS: SPF, DMARC, DKIM, CAA, MX" },
+    { icon: "⟨⟩", label: "Tech Fingerprint",  detail: "Detecta stack via headers e body HTML" },
+    { icon: "◈", label: "CVE Lookup",         detail: "Cruza versões detectadas com base NVD/CVE" },
+    { icon: "▣", label: "WAF & Port Scan",    detail: "Probes ativos + 21 portas (modo ACTIVE)" },
   ];
   if (!visible) return null;
   return (
     <div style={{
-      position: "fixed", top: 72, left: 16, zIndex: 9999,
-      width: 340,
-      background: "linear-gradient(135deg, #0d1219 0%, #131b26 100%)",
-      border: "1px solid rgba(0,212,160,.25)",
-      borderLeft: "3px solid var(--accent)",
-      borderRadius: "var(--radius)",
-      boxShadow: "0 8px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(0,212,160,.08)",
-      animation: "slideInLeft .4s cubic-bezier(.16,1,.3,1)",
-      overflow: "hidden",
-      fontFamily: "var(--mono)",
+      position: "fixed", bottom: 24, right: 24, zIndex: 9999,
+      fontFamily: "var(--mono)", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8,
     }}>
-      <div style={{ height: 2, background: "linear-gradient(90deg, var(--accent), #3b9eff, var(--accent))", backgroundSize: "200% 100%", animation: "shimmer 2s linear infinite" }} />
-      <div style={{ padding: "14px 16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <span style={{ fontSize: 16, color: "var(--accent)", animation: "pulse 2s ease-in-out infinite" }}>◈</span>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", letterSpacing: ".5px" }}>Scan em andamento</div>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1 }}>Sites com servidor lento podem levar mais tempo</div>
+      {expanded && (
+        <div style={{
+          width: 320, background: "#0d1219",
+          border: "1px solid rgba(0,212,160,.25)", borderRadius: "var(--radius)",
+          boxShadow: "0 8px 32px rgba(0,0,0,.7)",
+          overflow: "hidden", animation: "fadeUp .25s ease",
+        }}>
+          <div style={{ height: 2, background: "linear-gradient(90deg, var(--accent), #3b9eff)" }} />
+          <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", letterSpacing: ".5px" }}>Por que alguns checks demoram?</div>
+            <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Cada módulo faz requests reais ao servidor alvo</div>
+          </div>
+          <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
+            {checks.map((c, i) => (
+              <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <span style={{ color: "var(--accent)", fontSize: 12, marginTop: 1, flexShrink: 0 }}>{c.icon}</span>
+                <div>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", marginRight: 6 }}>{c.label}</span>
+                  <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{c.detail}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-        <div style={{ fontSize: 10, color: "var(--text-dim)", lineHeight: 1.7, padding: "8px 10px", background: "rgba(0,0,0,.2)", borderRadius: 4, marginBottom: 10, borderLeft: "2px solid rgba(0,212,160,.2)" }}>
-          O CyberAudit executa múltiplos checks em paralelo. Cada um faz requests ao servidor alvo.
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
-          {checks.map((c, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", borderRadius: 4, background: "rgba(0,212,160,.04)", animation: `fadeIn .3s ease ${i * 0.08}s both` }}>
-              <span style={{ fontSize: 7, color: "var(--accent)", flexShrink: 0, animation: `pulse ${1.5 + i * 0.2}s ease-in-out infinite` }}>⬡</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", marginRight: 6 }}>{c.label}</span>
-                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{c.detail}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ padding: "6px 8px", background: "rgba(59,158,255,.06)", border: "1px solid rgba(59,158,255,.15)", borderRadius: 4, fontSize: 10, color: "#3b9eff" }}>
-          ⓘ Nenhuma ação necessária — aguarde o resultado.
-        </div>
-      </div>
+      )}
+      <button
+        onClick={() => setExpanded(v => !v)}
+        style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "8px 14px",
+          background: "#0d1219",
+          border: "1px solid rgba(0,212,160,.35)",
+          borderLeft: "3px solid var(--accent)",
+          borderRadius: "var(--radius)",
+          boxShadow: "0 4px 16px rgba(0,0,0,.6)",
+          cursor: "pointer", fontFamily: "var(--mono)", color: "var(--text)",
+          fontSize: 11, animation: "fadeUp .3s ease",
+        }}
+      >
+        <span style={{ color: "var(--warning)", fontSize: 13 }}>⏱</span>
+        <span>Scan demorando · <span style={{ color: "var(--accent)" }}>{expanded ? "fechar" : "ver possíveis causas →"}</span></span>
+      </button>
     </div>
   );
 }
@@ -299,6 +269,66 @@ function worstVar(items: { severity?: string }[]): string {
 }
 
 // ── Sidebar Nav Item ─────────────────────────────────────────────────────────
+
+// ── Module info descriptions ─────────────────────────────────────────────────
+
+const MODULE_INFO: Record<string, { title: string; icon: string; what: string; does: string; tip: string }> = {
+  issues:    { title: "Issues", icon: "⚠", what: "Painel consolidado de todas as vulnerabilidades detectadas no scan.", does: "Lista cada problema encontrado com severidade (CRITICAL → LOW), impacto descrito e recomendação objetiva de correção. É o ponto de partida para priorizar o que corrigir primeiro.", tip: "Comece pelos itens CRITICAL e HIGH — são os que mais comprometem o score e representam risco real de exploração." },
+  headers:   { title: "Security Headers", icon: "⬡", what: "Verifica a presença e configuração dos headers HTTP de segurança enviados pelo servidor.", does: "Analisa 8+ headers: Content-Security-Policy, HSTS, X-Frame-Options, Referrer-Policy, Permissions-Policy, X-Content-Type-Options, entre outros. Cada header ausente ou mal configurado aumenta a superfície de ataque.", tip: "HSTS e CSP são os mais críticos. Um site sem HSTS pode ser atacado via downgrade para HTTP mesmo com HTTPS ativo." },
+  transport: { title: "Transport Security", icon: "⬟", what: "Analisa a camada de criptografia SSL/TLS que protege a comunicação entre o usuário e o servidor.", does: "Verifica validade do certificado, protocolo negociado (TLS 1.2/1.3), cipher suite utilizado, data de expiração e dias restantes. Protocolos antigos (SSLv3, TLS 1.0/1.1) são considerados inseguros.", tip: "Certificados expirados ou protocolos fracos ativam avisos de segurança no navegador e afastam usuários instantaneamente." },
+  http:      { title: "HTTP Methods", icon: "⚙", what: "Testa quais métodos HTTP o servidor aceita além do GET/POST padrão.", does: "Envia requisições com métodos PUT, DELETE, PATCH, TRACE, OPTIONS e HEAD. Métodos como TRACE e PUT habilitados podem permitir upload de arquivos maliciosos ou revelar headers internos via XSS refletido.", tip: "TRACE deve estar sempre desabilitado. PUT/DELETE só devem existir em APIs protegidas por autenticação." },
+  redirect:  { title: "Open Redirect", icon: "↪", what: "Detecta endpoints da aplicação que redirecionam usuários para URLs externas sem validação.", does: "Injeta URLs maliciosas nos parâmetros de redirecionamento comuns (returnUrl, next, redirect, url, etc.) e verifica se o servidor segue o redirecionamento. Explorado em ataques de phishing e bypass de OAuth.", tip: "Open Redirect é frequentemente subestimado — mas é usado para dar aparência legítima a links de phishing." },
+  dirlist:   { title: "Directory Listing", icon: "◫", what: "Verifica se o servidor expõe a listagem de conteúdo de diretórios publicamente.", does: "Testa caminhos comuns (/uploads, /files, /static, /backup, etc.) para verificar se o servidor retorna listagem de arquivos em vez de erro 403. Permite que atacantes descubram arquivos sensíveis sem precisar adivinhar nomes.", tip: "Desative a opção 'Indexes' no Apache ou 'autoindex' no Nginx. Nunca armazene backups em diretórios públicos." },
+  recon:     { title: "Reconnaissance DNS", icon: "◉", what: "Analisa os registros DNS do domínio relacionados à segurança de email e autoridade de certificados.", does: "Consulta registros SPF (anti-spoofing de email), DMARC (política de autenticação de email), DKIM, CAA (restringe quais CAs podem emitir certificados) e MX. Configurações ausentes facilitam spoofing e phishing.", tip: "SPF + DMARC juntos bloqueiam a maioria dos ataques de spoofing de email em nome do seu domínio." },
+  cert:      { title: "Certificate Transparency", icon: "◑", what: "Consulta os logs públicos de CT (Certificate Transparency) para mapear todos os certificados já emitidos para o domínio.", does: "Retorna quantidade total de certificados, subdomínios descobertos via CT logs, emissoras (CAs) utilizadas, wildcards detectados e certificados emitidos recentemente. Útil para descoberta de infraestrutura e detecção de emissões não autorizadas.", tip: "Se aparecer um certificado de uma CA desconhecida, investigue imediatamente — pode indicar comprometimento." },
+  takeover:  { title: "Subdomain Takeover", icon: "◎", what: "Detecta subdomínios que apontam para serviços externos desativados, permitindo que atacantes assumam o controle.", does: "Verifica CNAMEs que apontam para GitHub Pages, Heroku, Netlify, AWS S3, Azure e outros. Se o serviço foi deletado mas o DNS ainda aponta para ele, qualquer pessoa pode registrar esse serviço e servir conteúdo em nome do seu domínio.", tip: "Subdomínio takeover é silencioso e frequentemente não detectado por meses. Remova CNAMEs órfãos imediatamente." },
+  tech:      { title: "Technology Stack", icon: "⟨⟩", what: "Identifica as tecnologias usadas pelo site através de análise de headers, body HTML e comportamento do servidor.", does: "Detecta servidor web (Apache, Nginx, IIS), framework (Laravel, Django, Rails), CMS (WordPress, Drupal), CDN (Cloudflare, Fastly) e linguagem. Tecnologias expostas publicamente podem direcionar ataques a CVEs específicos.", tip: "Oculte cabeçalhos como Server e X-Powered-By para não entregar informações de stack para atacantes." },
+  cookies:   { title: "Cookie Security", icon: "☰", what: "Analisa os atributos de segurança de todos os cookies definidos pelo servidor.", does: "Verifica presença dos atributos Secure (só enviado via HTTPS), HttpOnly (inacessível ao JavaScript), SameSite (proteção CSRF) e escopo de domínio/path. Cookies de sessão sem esses atributos podem ser roubados via XSS ou enviados em ataques CSRF.", tip: "Todo cookie de sessão deve ter Secure + HttpOnly + SameSite=Strict ou Lax. Sem isso, uma vulnerabilidade XSS vira sequestro de conta." },
+  cve:       { title: "CVE Correlation", icon: "◈", what: "Cruza as tecnologias detectadas com a base de dados pública de vulnerabilidades CVE/NVD.", does: "Usa as versões identificadas no módulo Technology para consultar o NVD e retornar CVEs conhecidos. Exibe CVSS score, nível de severidade e links de referência para cada vulnerabilidade. Versões desatualizadas podem ter exploits públicos disponíveis.", tip: "Um CVSS ≥ 9.0 com exploit público disponível deve ser tratado como emergência — atualize imediatamente." },
+  changes:   { title: "Changes Since Last Scan", icon: "△", what: "Compara o resultado atual com o último scan registrado do mesmo domínio.", does: "Detecta configurações que melhoraram (IMPROVED), pioraram (DEGRADED) ou são novas (NEW) desde o scan anterior. Útil para monitorar o impacto de deploys e mudanças de infraestrutura na postura de segurança.", tip: "Use este módulo após cada deploy para garantir que nenhuma configuração de segurança foi acidentalmente removida." },
+  active:    { title: "Active Checks", icon: "▣", what: "Módulo avançado que executa probes ativos contra o servidor. Requer autorização explícita do proprietário do modulo contratante.", does: "Executa: detecção de WAF (Web Application Firewall), análise de política CORS, varredura de ~25 arquivos sensíveis (.env, backup.sql, etc.), probes de XSS refletido e injeção de DB error, e port scan em 21 portas comuns. Cada probe faz requests reais ao servidor.", tip: "Use APENAS em domínios que você é proprietário ou tem autorização explícita. Probes não autorizados podem ser ilegais." },
+};
+
+// ── Module Info Modal ─────────────────────────────────────────────────────────
+
+function ModuleInfoModal({ moduleKey, onClose }: { moduleKey: string | null; onClose: () => void }) {
+  const info = moduleKey ? MODULE_INFO[moduleKey] : null;
+  useEffect(() => {
+    if (!info) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [info, onClose]);
+  if (!info) return null;
+  return (
+    <div className={styles.modalBackdrop} onClick={onClose}>
+      <div className={styles.moduleInfoPanel} onClick={e => e.stopPropagation()}>
+        <div className={styles.moduleInfoHeader}>
+          <span className={styles.moduleInfoIcon}>{info.icon}</span>
+          <div>
+            <div className={styles.moduleInfoTitle}>{info.title}</div>
+            <div className={styles.moduleInfoSub}>Informações do módulo</div>
+          </div>
+          <button className={styles.moduleInfoClose} onClick={onClose}>✕</button>
+        </div>
+        <div className={styles.moduleInfoBody}>
+          <div className={styles.moduleInfoSection}>
+            <div className={styles.moduleInfoLabel}>ESCOPO DO MÓDULO</div>
+            <p className={styles.moduleInfoText}>{info.what}</p>
+          </div>
+          <div className={styles.moduleInfoSection}>
+            <div className={styles.moduleInfoLabel}>METODOLOGIA DE ANÁLISE</div>
+            <p className={styles.moduleInfoText}>{info.does}</p>
+          </div>
+          <div className={styles.moduleInfoTip}>
+            <span className={styles.moduleInfoTipIcon}>◈</span>
+            <p>{info.tip}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function SidebarNavItem({
   icon, title, color, metric, label, locked, active, onClick,
@@ -600,10 +630,10 @@ export default function App() {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ownership, setOwnership] = useState<OwnershipState | null>(null);
-  const [asyncState, setAsyncState] = useState<string | undefined>();
   const [showSlowToast, setShowSlowToast] = useState(false);
   const [guestRefreshKey, setGuestRefreshKey] = useState(0);
   const [openModule, setOpenModule] = useState<string | null>(null);
+  const [openModuleInfo, setOpenModuleInfo] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -620,7 +650,7 @@ export default function App() {
 
   async function handleScan() {
     abortRef.current?.abort(); stopPoll(); stopSlowTimer();
-    setResult(null); setError(null); setOwnership(null); setAsyncState(undefined);
+    setResult(null); setError(null); setOwnership(null);
     slowTimerRef.current = setTimeout(() => setShowSlowToast(true), 30000);
     setScanLoading(true);
     await runAsync();
@@ -632,11 +662,9 @@ export default function App() {
     try {
       const res = await api.post("/scan/async", null, { params: { url, active, refresh: true }, signal: controller.signal });
       const scanId = res.data.scanId as string;
-      setAsyncState("PENDING");
       pollRef.current = setInterval(async () => {
         try {
           const status: AsyncStatus = (await api.get(`/scan/async/${scanId}`)).data;
-          setAsyncState(status.state);
           if (status.state === "DONE") { stopPoll(); stopSlowTimer(); setResult(status.result); setOpenModule("issues"); setScanLoading(false); setGuestRefreshKey(k => k + 1); }
           else if (status.state === "ERROR") {
             stopPoll(); stopSlowTimer(); setScanLoading(false);
@@ -780,7 +808,6 @@ export default function App() {
             </div>
 
             {ownership && <OwnershipCard state={ownership} onDismiss={() => setOwnership(null)} />}
-            {scanLoading && <TerminalLoader asyncState={asyncState} />}
 
             {r && !scanLoading && (
               <div key={`${r.url}-${r.activeMode}-${r.score?.score}`} className={styles.dashboard}>
@@ -805,7 +832,7 @@ export default function App() {
                       metric={issueCount === 0 ? "✓" : issueCount}
                       label={issueCount === 0 ? "SECURE" : (r.score?.issues?.[0]?.severity ?? "FOUND")}
                       active={openModule === "issues"}
-                      onClick={() => setOpenModule("issues")} />
+                      onClick={() => setOpenModule("issues")}/>
 
                     <div className={styles.sidebarNavGroup}>HTTP &amp; Headers</div>
                     <SidebarNavItem icon="⬡" title="Security Headers"
@@ -813,31 +840,31 @@ export default function App() {
                       metric={missingH + weakH === 0 ? "✓" : missingH + weakH}
                       label={missingH + weakH === 0 ? "SECURE" : missingH > 2 ? "CRITICAL" : "WARNING"}
                       active={openModule === "headers"}
-                      onClick={() => setOpenModule("headers")} />
+                      onClick={() => setOpenModule("headers")}/>
                     <SidebarNavItem icon="⬟" title="Transport Security"
                       color={tlsColor}
                       metric={r.sslInfo?.valid ? (r.sslInfo.daysRemaining ?? "?") + "d" : "✗"}
                       label={!r.sslInfo?.valid ? "INVALID CERT" : r.tlsDetails?.weakProtocol ? "WEAK PROTOCOL" : "SECURE"}
                       active={openModule === "transport"}
-                      onClick={() => setOpenModule("transport")} />
+                      onClick={() => setOpenModule("transport")}/>
                     <SidebarNavItem icon="⚙" title="HTTP Methods"
                       color={httpColor}
                       metric={dangerMethods.length === 0 ? "✓" : dangerMethods.length}
                       label={dangerMethods.length === 0 ? "SECURE" : "DANGEROUS"}
                       active={openModule === "http"}
-                      onClick={() => setOpenModule("http")} />
+                      onClick={() => setOpenModule("http")}/>
                     <SidebarNavItem icon="↪" title="Open Redirect"
                       color={redirectColor}
                       metric={redirectVuln.length === 0 ? "✓" : redirectVuln.length}
                       label={redirectVuln.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "redirect"}
-                      onClick={() => setOpenModule("redirect")} />
+                      onClick={() => setOpenModule("redirect")}/>
                     <SidebarNavItem icon="◫" title="Directory Listing"
                       color={dirColor}
                       metric={dirExposed.length === 0 ? "✓" : dirExposed.length}
                       label={dirExposed.length === 0 ? "SECURE" : "EXPOSED"}
                       active={openModule === "dirlist"}
-                      onClick={() => setOpenModule("dirlist")} />
+                      onClick={() => setOpenModule("dirlist")}/>
 
                     <div className={styles.sidebarNavGroup}>DNS &amp; Domínio</div>
                     <SidebarNavItem icon="◉" title="Reconnaissance"
@@ -845,19 +872,19 @@ export default function App() {
                       metric={dns ? `${[dns.spfPresent, dns.dmarcPresent, dns.caaPresent].filter(Boolean).length}/3` : "—"}
                       label={dns?.emailSpoofingRisk ? `SPOOFING: ${dns.emailSpoofingRisk}` : "UNKNOWN"}
                       active={openModule === "recon"}
-                      onClick={() => setOpenModule("recon")} />
+                      onClick={() => setOpenModule("recon")}/>
                     <SidebarNavItem icon="◑" title="Cert Transparency"
                       color={certColor}
                       metric={ct ? ct.totalCertificates : "—"}
                       label={!ct ? "N/A" : ct.unexpectedIssuer ? "ISSUER ALERT" : ct.wildcardDetected ? "WILDCARD" : "INFO"}
                       active={openModule === "cert"}
-                      onClick={() => setOpenModule("cert")} />
+                      onClick={() => setOpenModule("cert")}/>
                     <SidebarNavItem icon="◎" title="Subdomain Takeover"
                       color={takeoverColor}
                       metric={takeoverVuln.length === 0 ? "✓" : takeoverVuln.length}
                       label={takeoverVuln.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "takeover"}
-                      onClick={() => setOpenModule("takeover")} />
+                      onClick={() => setOpenModule("takeover")}/>
 
                     <div className={styles.sidebarNavGroup}>Aplicação</div>
                     <SidebarNavItem icon="⟨⟩" title="Technology"
@@ -865,19 +892,19 @@ export default function App() {
                       metric={techFirst}
                       label="DETECTED"
                       active={openModule === "tech"}
-                      onClick={() => setOpenModule("tech")} />
+                      onClick={() => setOpenModule("tech")}/>
                     <SidebarNavItem icon="☰" title="Cookie Security"
                       color={cookieColor}
                       metric={cookieCount === 0 ? "✓" : cookieCount}
                       label={cookieCount === 0 ? "SECURE" : "ISSUES FOUND"}
                       active={openModule === "cookies"}
-                      onClick={() => setOpenModule("cookies")} />
+                      onClick={() => setOpenModule("cookies")}/>
                     <SidebarNavItem icon="◈" title="CVE Correlation"
                       color={cveColor}
                       metric={cveCount === 0 ? "✓" : cveCount}
                       label={cveCount === 0 ? "SECURE" : maxCvss >= 9 ? "CRITICAL" : maxCvss >= 7 ? "HIGH" : maxCvss >= 4 ? "MEDIUM" : "LOW"}
                       active={openModule === "cve"}
-                      onClick={() => setOpenModule("cve")} />
+                      onClick={() => setOpenModule("cve")}/>
 
                     {changeCount > 0 && (<>
                       <div className={styles.sidebarNavGroup}>Monitoramento</div>
@@ -886,7 +913,7 @@ export default function App() {
                         metric={changeCount}
                         label={changesColor === "var(--critical)" ? "DEGRADED" : "CHANGED"}
                         active={openModule === "changes"}
-                        onClick={() => setOpenModule("changes")} />
+                        onClick={() => setOpenModule("changes")}/>
                     </>)}
 
                     <div className={styles.sidebarNavGroup}>Active</div>
@@ -896,9 +923,11 @@ export default function App() {
                       label={!r.activeMode ? "REQUIRES ACTIVE" : r.wafDetectionResult?.detected ? "WAF DETECTED" : "ACTIVE"}
                       locked={!r.activeMode}
                       active={openModule === "active"}
-                      onClick={() => setOpenModule("active")} />
+                      onClick={() => setOpenModule("active")}/>
 
                   </nav>
+
+                  <ModuleInfoModal moduleKey={openModuleInfo} onClose={() => setOpenModuleInfo(null)} />
 
                   {/* ── Right: Overview + Content ── */}
                   <div className={styles.dashboardRight}>
@@ -929,24 +958,27 @@ export default function App() {
                           ))}
                         </div>
                       </Card>
-                      <Card title="POR QUE ALGUNS CHECKS DEMORAM?">
-                        <div className={styles.scanInfoList}>
-                          {([
-                            { icon: "⬟", label: "SSL / TLS", detail: "Handshake real + validação do certificado" },
-                            { icon: "⬡", label: "Security Headers", detail: "Analisa 8+ headers na resposta HTTP" },
-                            { icon: "◉", label: "DNS Security", detail: "Consultas DNS: SPF, DMARC, DKIM, CAA, MX" },
-                            { icon: "⟨⟩", label: "Tech Fingerprint", detail: "Detecta stack via headers e body HTML" },
-                            { icon: "◈", label: "CVE Lookup", detail: "Cruza versões detectadas com base NVD/CVE" },
-                            { icon: "▣", label: "WAF & Port Scan", detail: "Probes ativos + 21 portas (modo ACTIVE)" },
-                          ] as { icon: string; label: string; detail: string }[]).map((item, i) => (
-                            <div key={i} className={styles.scanInfoItem}>
-                              <span className={styles.scanInfoItemIcon}>{item.icon}</span>
-                              <div>
-                                <div className={styles.scanInfoItemLabel}>{item.label}</div>
-                                <div className={styles.scanInfoItemDetail}>{item.detail}</div>
+                      <Card title="DISTRIBUIÇÃO DE SEVERIDADE">
+                        <div className={styles.sevDist}>
+                          {(["CRITICAL","HIGH","MEDIUM","LOW"] as const).map(sev => {
+                            const count = (r.score?.issues ?? []).filter(i => (i.severity ?? "").toUpperCase() === sev).length;
+                            const total = r.score?.issues?.length ?? 0;
+                            const pct   = total > 0 ? Math.round((count / total) * 100) : 0;
+                            const color = sev === "CRITICAL" ? "var(--critical)" : sev === "HIGH" ? "var(--high)" : sev === "MEDIUM" ? "var(--warning)" : "var(--low)";
+                            return (
+                              <div key={sev} className={styles.sevDistRow}>
+                                <span className={styles.sevDistLabel} style={{ color }}>{sev}</span>
+                                <div className={styles.sevDistBar}>
+                                  <div className={styles.sevDistFill} style={{ width: `${pct}%`, background: color }} />
+                                </div>
+                                <span className={styles.sevDistCount} style={{ color: count > 0 ? color : "var(--text-muted)" }}>{count}</span>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
+                          <div className={styles.sevDistTotal}>
+                            <span>{r.score?.issues?.length ?? 0} issues totais</span>
+                            <span>{(r.score?.issues ?? []).filter(i => ["CRITICAL","HIGH"].includes((i.severity ?? "").toUpperCase())).length} críticos/altos</span>
+                          </div>
                         </div>
                       </Card>
                     </div>
@@ -962,6 +994,8 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": issueColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>⚠</span>
                           <span className={styles.sidebarContentTitleText}>Issues</span>
+                        
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("issues")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         {issueCount
                           ? <div className={styles.issuesList}>{r.score.issues.map(i => <IssueItem key={i.id} issue={i} />)}</div>
@@ -974,6 +1008,8 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": headerColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>⬡</span>
                           <span className={styles.sidebarContentTitleText}>Security Headers</span>
+                        
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("headers")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         <Section title="Headers" defaultOpen={true}>
                           {Object.entries(r.headers ?? {}).map(([k, v]) => <KV key={k} label={k} value={headerStatus(v)} />)}
@@ -986,6 +1022,8 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": tlsColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>⬟</span>
                           <span className={styles.sidebarContentTitleText}>Transport Security</span>
+                        
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("transport")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         <Section title="SSL / TLS" defaultOpen={true}>
                           <KV label="Protocol"  value={<span className={r.tlsDetails?.weakProtocol ? styles.bad : styles.ok}>{r.tlsDetails?.negotiatedProtocol ?? "—"}</span>} />
@@ -1003,6 +1041,8 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": "var(--info)" } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>⟨⟩</span>
                           <span className={styles.sidebarContentTitleText}>Technology Fingerprint</span>
+                        
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("tech")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         {tf && (tf.webServer || tf.backend || tf.framework || tf.cms || tf.cdn || tf.language || (tf.libraries?.length ?? 0) > 0) ? (
                           <>
@@ -1037,6 +1077,8 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": changesColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>△</span>
                           <span className={styles.sidebarContentTitleText}>Changes Since Last Scan</span>
+                        
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("changes")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         <div className={styles.changesList}>
                           {(r.changes ?? []).map((c, i) => (
@@ -1066,6 +1108,8 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": cookieColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>☰</span>
                           <span className={styles.sidebarContentTitleText}>Cookie Security</span>
+                        
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("cookies")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         {r.cookieIssues?.length ? (
                           <Section title={`${r.cookieIssues.length} cookie(s) com problemas`} defaultOpen={true}>
@@ -1090,6 +1134,8 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": httpColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>⚙</span>
                           <span className={styles.sidebarContentTitleText}>HTTP Methods</span>
+                        
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("http")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         {r.dangerousHttpMethods?.length ? (
                           <Section title={`${r.dangerousHttpMethods.length} método(s)`} defaultOpen={true}>
@@ -1113,6 +1159,8 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": redirectColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>↪</span>
                           <span className={styles.sidebarContentTitleText}>Open Redirect</span>
+                        
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("redirect")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         {redirectVuln.length ? (
                           <Section title="Vulnerabilidades detectadas" defaultOpen={true}>
@@ -1132,6 +1180,8 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": dirColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◫</span>
                           <span className={styles.sidebarContentTitleText}>Directory Listing</span>
+                        
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("dirlist")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         {dirExposed.length ? (
                           <Section title="Diretórios expostos" defaultOpen={true}>
@@ -1151,6 +1201,7 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": reconColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◉</span>
                           <span className={styles.sidebarContentTitleText}>Reconnaissance</span>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("recon")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         <Section title="robots.txt" defaultOpen={true}>
                           {r.sensitiveRobotsPaths?.length ? (
@@ -1194,6 +1245,8 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": cveColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◈</span>
                           <span className={styles.sidebarContentTitleText}>CVE Correlation</span>
+                        
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("cve")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         {cveCount > 0 ? (
                           <div className={styles.cveList}>
@@ -1219,6 +1272,8 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": certColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◑</span>
                           <span className={styles.sidebarContentTitleText}>Certificate Transparency</span>
+                        
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("cert")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         {ct ? (
                           <>
@@ -1289,6 +1344,8 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": takeoverColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◎</span>
                           <span className={styles.sidebarContentTitleText}>Subdomain Takeover</span>
+                        
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("takeover")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         {(r.subdomainTakeover?.length ?? 0) > 0 ? (
                           <div className={styles.takeoverList}>
@@ -1315,6 +1372,8 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": "var(--info)" } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>▣</span>
                           <span className={styles.sidebarContentTitleText}>Active Checks</span>
+                        
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("active")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         <Section title="WAF Detection" defaultOpen={true}>
                           <KV label="Detectado" value={r.wafDetectionResult?.detected ? <span className={styles.ok}>✓ Sim</span> : <span className={styles.warn}>✗ Não confirmado</span>} />
