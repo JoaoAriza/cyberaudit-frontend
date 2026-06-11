@@ -794,6 +794,34 @@
   font-size: 12px;
 }
 
+.issueCveBadge {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(59, 158, 255, .12);
+  border: 1px solid rgba(59, 158, 255, .35);
+  color: var(--info);
+  flex-shrink: 0;
+}
+
+.issueCveLink {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--info);
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(59, 158, 255, .35);
+  transition: border-color .15s, color .15s;
+}
+
+.issueCveLink:hover {
+  color: #7bbfff;
+  border-color: #7bbfff;
+}
+
 .issueBody {
   padding: 10px 14px;
   background: var(--surface);

@@ -47,7 +47,15 @@ interface ScanResult {
   changes: ScanChange[];
   subdomainTakeover: SubdomainTakeoverFinding[];
   certTransparency: CertTransparencyResult | null;
+  apiDocsExposure: ApiDocsExposureFinding[];
+  graphQlIntrospection: GraphQlIntrospectionFinding[];
+  jwtSecurity: JwtSecurityFinding[];
+  pathTraversal: PathTraversalFinding[];
 }
+interface ApiDocsExposureFinding { path: string; type: string; severity: string; evidence: string | null; description: string; }
+interface GraphQlIntrospectionFinding { endpoint: string; introspectionEnabled: boolean; playgroundExposed: boolean; typeCount: number; severity: string; evidence: string | null; }
+interface JwtSecurityFinding { source: string; algorithm: string; hasExpiry: boolean; expired: boolean; hasIssuer: boolean; hasAudience: boolean; issues: string[]; severity: string; evidence: string | null; }
+interface PathTraversalFinding { parameter: string; payload: string; target: string; evidence: string | null; severity: string; }
 interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; }
 interface OwnershipState { message: string; host: string; token: string | null; passiveResult: ScanResult | null; }
 interface GuestStatus { used: number; remaining: number; dailyLimit: number; resetsAt: string; }
@@ -167,17 +175,34 @@ function ScoreGauge({ score, risk }: { score: number; risk: string }) {
 
 function IssueItem({ issue }: { issue: SecurityIssue }) {
   const [open, setOpen] = useState(false);
+  const isCve = issue.id.startsWith("CVE_");
+  // Extract "Ref: URL" from recommendation if present
+  const refMatch = issue.recommendation.match(/Ref:\s*(https?:\/\/\S+)/);
+  const refUrl   = refMatch ? refMatch[1] : null;
+  const fixText  = refUrl ? issue.recommendation.replace(/\s*Ref:\s*https?:\/\/\S+/, "").trim() : issue.recommendation;
+  // Extract CVE ID from title (e.g. "CVE-2021-41773 — ...")
+  const cveIdMatch = issue.title.match(/^(CVE-\d{4}-\d+)/);
+  const cveId = cveIdMatch ? cveIdMatch[1] : null;
+
   return (
     <div className={`${styles.issue} ${sevColor(issue.severity)}`}>
       <button className={styles.issueHeader} onClick={() => setOpen(o => !o)}>
         <span className={`${styles.issueSev} ${sevColor(issue.severity)}`}>{issue.severity}</span>
+        {isCve && <span className={styles.issueCveBadge}>CVE</span>}
         <span className={styles.issueTitle}>{issue.title}</span>
         <span className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`}>›</span>
       </button>
       {open && (
         <div className={styles.issueBody}>
-          <div><span className={styles.label}>IMPACT</span> {issue.impact}</div>
-          <div><span className={styles.label}>FIX</span> {issue.recommendation}</div>
+          <div><span className={styles.label}>IMPACTO</span> {issue.impact}</div>
+          <div>
+            <span className={styles.label}>CORREÇÃO</span> {fixText}
+            {refUrl && cveId && (
+              <a href={refUrl} target="_blank" rel="noopener noreferrer" className={styles.issueCveLink}>
+                Ver {cveId} no NVD ↗
+              </a>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -286,6 +311,10 @@ const MODULE_INFO: Record<string, { title: string; icon: string; what: string; d
   cookies:   { title: "Cookie Security", icon: "☰", what: "Analisa os atributos de segurança de todos os cookies definidos pelo servidor.", does: "Verifica presença dos atributos Secure (só enviado via HTTPS), HttpOnly (inacessível ao JavaScript), SameSite (proteção CSRF) e escopo de domínio/path. Cookies de sessão sem esses atributos podem ser roubados via XSS ou enviados em ataques CSRF.", tip: "Todo cookie de sessão deve ter Secure + HttpOnly + SameSite=Strict ou Lax. Sem isso, uma vulnerabilidade XSS vira sequestro de conta." },
   cve:       { title: "CVE Correlation", icon: "◈", what: "Cruza as tecnologias detectadas com a base de dados pública de vulnerabilidades CVE/NVD.", does: "Usa as versões identificadas no módulo Technology para consultar o NVD e retornar CVEs conhecidos. Exibe CVSS score, nível de severidade e links de referência para cada vulnerabilidade. Versões desatualizadas podem ter exploits públicos disponíveis.", tip: "Um CVSS ≥ 9.0 com exploit público disponível deve ser tratado como emergência — atualize imediatamente." },
   changes:   { title: "Changes Since Last Scan", icon: "△", what: "Compara o resultado atual com o último scan registrado do mesmo domínio.", does: "Detecta configurações que melhoraram (IMPROVED), pioraram (DEGRADED) ou são novas (NEW) desde o scan anterior. Útil para monitorar o impacto de deploys e mudanças de infraestrutura na postura de segurança.", tip: "Use este módulo após cada deploy para garantir que nenhuma configuração de segurança foi acidentalmente removida." },
+  apidocs:   { title: "API Docs Exposure", icon: "◈", what: "Detecta documentação de APIs (Swagger, OpenAPI, ReDoc) exposta publicamente sem autenticação.", does: "Testa 18 paths comuns (/swagger-ui, /api-docs, /openapi.json, etc.) e confirma com marcadores de conteúdo específicos. Exibe tipo de doc, severidade e evidência. Specs JSON/YAML são HIGH pois expõem todos os endpoints, parâmetros e modelos da API.", tip: "Coloque autenticação básica (ou desative completamente) nos endpoints de documentação em produção. Nunca exponha a spec completa da API publicamente." },
+  graphql:   { title: "GraphQL Introspection", icon: "◈", what: "Detecta endpoints GraphQL com introspection habilitada ou interface interativa (GraphiQL/Playground) acessível publicamente.", does: "Envia a query { __schema { types { name } } } para 11 paths comuns. Se aceita, conta os tipos retornados — quanto mais tipos, mais informação exposta. Verifica também se há UI interativa via GET.", tip: "Desabilite introspection em produção. Em frameworks como Apollo, use 'introspection: false'. Nunca exponha o Playground publicamente." },
+  jwt:       { title: "JWT Security", icon: "◈", what: "Analisa tokens JWT presentes em cookies ou headers de resposta em busca de configurações inseguras.", does: "Decodifica o header do JWT sem fazer requests adicionais (passivo). Verifica: alg:none (sem assinatura), algoritmos simétricos fracos (HS256), ausência de exp (token que nunca expira), tokens expirados sendo servidos, e ausência de iss/aud.", tip: "Use RS256 ou ES256, sempre inclua exp (máx 1h para tokens de acesso), valide iss e aud no backend. Nunca aceite alg:none." },
+  traversal: { title: "Path Traversal / LFI", icon: "◈", what: "Testa parâmetros que referenciam arquivos (file, page, path, template, etc.) com payloads de traversal para verificar se o servidor serve arquivos do sistema.", does: "Injeta payloads Unix e Windows (../../../etc/passwd, ..\..\windows\win.ini, variantes com %2F, %5C) em 12 parâmetros file-like. Confirma exploração com assinaturas de conteúdo — exige dupla evidência para evitar FPs.", tip: "Nunca passe nomes de arquivo diretamente de parâmetros de usuário ao filesystem. Use whitelists de páginas permitidas, nunca concatenação direta de path." },
   active:    { title: "Active Checks", icon: "▣", what: "Módulo avançado que executa probes ativos contra o servidor. Requer autorização explícita do proprietário do modulo contratante.", does: "Executa: detecção de WAF (Web Application Firewall), análise de política CORS, varredura de ~25 arquivos sensíveis (.env, backup.sql, etc.), probes de XSS refletido e injeção de DB error, e port scan em 21 portas comuns. Cada probe faz requests reais ao servidor.", tip: "Use APENAS em domínios que você é proprietário ou tem autorização explícita. Probes não autorizados podem ser ilegais." },
 };
 
@@ -752,7 +781,15 @@ export default function App() {
   const changeCount   = r?.changes?.length ?? 0;
   const changesColor  = (r?.changes ?? []).some(c => c.changeType === "DEGRADED") ? "var(--critical)" : changeCount > 0 ? "var(--warning)" : "var(--secure)";
   const techFirst     = tf?.webServer ?? tf?.framework ?? tf?.cms ?? tf?.language ?? "—";
-  const tlsColor      = !(r?.sslInfo?.valid) ? "var(--critical)" : r?.tlsDetails?.weakProtocol ? "var(--warning)" : "var(--secure)";
+  const apiDocsCount   = r?.apiDocsExposure?.length ?? 0;
+  const apiDocsColor   = apiDocsCount === 0 ? "var(--secure)" : (r?.apiDocsExposure ?? []).some(f => f.severity === "HIGH") ? "var(--high)" : "var(--warning)";
+  const gqlFindings    = r?.graphQlIntrospection ?? [];
+  const gqlColor       = gqlFindings.length === 0 ? "var(--secure)" : gqlFindings.some(f => f.severity === "HIGH") ? "var(--high)" : "var(--warning)";
+  const jwtFindings    = r?.jwtSecurity ?? [];
+  const jwtColor       = jwtFindings.length === 0 ? "var(--secure)" : jwtFindings.some(f => f.severity === "CRITICAL") ? "var(--critical)" : jwtFindings.some(f => f.severity === "HIGH") ? "var(--high)" : "var(--warning)";
+  const ptFindings     = r?.pathTraversal ?? [];
+  const ptColor        = ptFindings.length === 0 ? "var(--secure)" : "var(--critical)";
+  const tlsColor       = !(r?.sslInfo?.valid) ? "var(--critical)" : r?.tlsDetails?.weakProtocol ? "var(--warning)" : "var(--secure)";
 
   return (
     <div className={styles.app}>
@@ -899,6 +936,30 @@ export default function App() {
                       label={cookieCount === 0 ? "SECURE" : "ISSUES FOUND"}
                       active={openModule === "cookies"}
                       onClick={() => setOpenModule("cookies")}/>
+                    <SidebarNavItem icon="◈" title="API Docs"
+                      color={apiDocsColor}
+                      metric={apiDocsCount === 0 ? "✓" : apiDocsCount}
+                      label={apiDocsCount === 0 ? "SECURE" : "EXPOSED"}
+                      active={openModule === "apidocs"}
+                      onClick={() => setOpenModule("apidocs")}/>
+                    <SidebarNavItem icon="◈" title="GraphQL"
+                      color={gqlColor}
+                      metric={gqlFindings.length === 0 ? "✓" : gqlFindings.length}
+                      label={gqlFindings.length === 0 ? "SECURE" : gqlFindings.some(f => f.playgroundExposed) ? "PLAYGROUND" : "INTROSPECTION"}
+                      active={openModule === "graphql"}
+                      onClick={() => setOpenModule("graphql")}/>
+                    <SidebarNavItem icon="◈" title="JWT Security"
+                      color={jwtColor}
+                      metric={jwtFindings.length === 0 ? "✓" : jwtFindings.length}
+                      label={jwtFindings.length === 0 ? "SECURE" : jwtFindings.some(f => f.severity === "CRITICAL") ? "CRITICAL" : "ISSUES FOUND"}
+                      active={openModule === "jwt"}
+                      onClick={() => setOpenModule("jwt")}/>
+                    <SidebarNavItem icon="◈" title="Path Traversal"
+                      color={ptColor}
+                      metric={ptFindings.length === 0 ? "✓" : ptFindings.length}
+                      label={ptFindings.length === 0 ? "SECURE" : "VULNERABLE"}
+                      active={openModule === "traversal"}
+                      onClick={() => setOpenModule("traversal")}/>
                     <SidebarNavItem icon="◈" title="CVE Correlation"
                       color={cveColor}
                       metric={cveCount === 0 ? "✓" : cveCount}
@@ -1264,6 +1325,114 @@ export default function App() {
                             ))}
                           </div>
                         ) : <div className={styles.empty}>◈ Sem CVEs correlacionados — versão de software não detectada ou servidor oculta headers</div>}
+                      </>
+                    )}
+
+                    {openModule === "apidocs" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": apiDocsColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>◈</span>
+                          <span className={styles.sidebarContentTitleText}>API Docs Exposure</span>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("apidocs")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                        </div>
+                        {apiDocsCount > 0 ? (
+                          <div className={styles.cveList}>
+                            {(r?.apiDocsExposure ?? []).map((f, i) => (
+                              <div key={i} className={styles.cveRow}>
+                                <div className={styles.cveHeader}>
+                                  <code className={styles.code}>{f.path}</code>
+                                  <Tag label={f.type} cls={styles.info} />
+                                  <Tag label={f.severity} cls={sevColor(f.severity)} />
+                                </div>
+                                <div className={styles.cveDesc}>{f.description}</div>
+                                {f.evidence && <div className={styles.findingNote}><span className={styles.muted}>Evidence: </span><code className={styles.code}>{f.evidence}</code></div>}
+                              </div>
+                            ))}
+                          </div>
+                        ) : <div className={styles.empty}>◈ Nenhuma documentação de API exposta detectada</div>}
+                      </>
+                    )}
+
+                    {openModule === "graphql" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": gqlColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>◈</span>
+                          <span className={styles.sidebarContentTitleText}>GraphQL Introspection</span>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("graphql")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                        </div>
+                        {gqlFindings.length > 0 ? (
+                          <div className={styles.cveList}>
+                            {gqlFindings.map((f, i) => (
+                              <div key={i} className={styles.cveRow}>
+                                <div className={styles.cveHeader}>
+                                  <code className={styles.code}>{f.endpoint}</code>
+                                  <Tag label={f.severity} cls={sevColor(f.severity)} />
+                                  {f.playgroundExposed && <Tag label="PLAYGROUND" cls={styles.critical} />}
+                                  {f.introspectionEnabled && <Tag label="INTROSPECTION" cls={styles.warning} />}
+                                  {f.typeCount > 0 && <span className={styles.muted}>{f.typeCount} tipos</span>}
+                                </div>
+                                {f.evidence && <div className={styles.findingNote}><code className={styles.code}>{f.evidence}</code></div>}
+                              </div>
+                            ))}
+                          </div>
+                        ) : <div className={styles.empty}>◈ Nenhum endpoint GraphQL detectado</div>}
+                      </>
+                    )}
+
+                    {openModule === "jwt" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": jwtColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>◈</span>
+                          <span className={styles.sidebarContentTitleText}>JWT Security</span>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("jwt")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                        </div>
+                        {jwtFindings.length > 0 ? (
+                          <div className={styles.cveList}>
+                            {jwtFindings.map((jwt, i) => (
+                              <div key={i} className={styles.cveRow}>
+                                <div className={styles.cveHeader}>
+                                  <code className={styles.code}>{jwt.source}</code>
+                                  <Tag label={jwt.severity} cls={sevColor(jwt.severity)} />
+                                  <span className={styles.muted}>alg={jwt.algorithm}</span>
+                                </div>
+                                <div className={styles.findingPath}>
+                                  <span className={jwt.hasExpiry ? (jwt.expired ? styles.bad : styles.ok) : styles.bad}>
+                                    exp: {!jwt.hasExpiry ? "MISSING" : jwt.expired ? "EXPIRED" : "✓"}
+                                  </span>
+                                  <span className={jwt.hasIssuer ? styles.ok : styles.muted}>iss: {jwt.hasIssuer ? "✓" : "—"}</span>
+                                  <span className={jwt.hasAudience ? styles.ok : styles.muted}>aud: {jwt.hasAudience ? "✓" : "—"}</span>
+                                </div>
+                                <div className={styles.cveDesc}>{(jwt.issues ?? []).join(" · ")}</div>
+                                {jwt.evidence && <div className={styles.findingNote}><code className={styles.code}>{jwt.evidence}</code></div>}
+                              </div>
+                            ))}
+                          </div>
+                        ) : <div className={styles.empty}>◈ Nenhum JWT com problemas de segurança detectado</div>}
+                      </>
+                    )}
+
+                    {openModule === "traversal" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": ptColor } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>◈</span>
+                          <span className={styles.sidebarContentTitleText}>Path Traversal / LFI</span>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("traversal")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                        </div>
+                        {ptFindings.length > 0 ? (
+                          <div className={styles.cveList}>
+                            {ptFindings.map((pt, i) => (
+                              <div key={i} className={styles.cveRow}>
+                                <div className={styles.cveHeader}>
+                                  <code className={styles.code}>?{pt.parameter}=</code>
+                                  <Tag label="CRITICAL" cls={styles.critical} />
+                                  <span className={styles.muted}>→ {pt.target}</span>
+                                </div>
+                                <div className={styles.findingNote}><span className={styles.muted}>Payload: </span><code className={styles.code}>{pt.payload}</code></div>
+                                {pt.evidence && <div className={styles.findingNote}><span className={styles.muted}>Evidence: </span><code className={styles.code}>{pt.evidence}</code></div>}
+                              </div>
+                            ))}
+                          </div>
+                        ) : <div className={styles.empty}>◈ Nenhum path traversal / LFI detectado</div>}
                       </>
                     )}
 
