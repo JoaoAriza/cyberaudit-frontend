@@ -51,11 +51,19 @@ interface ScanResult {
   graphQlIntrospection: GraphQlIntrospectionFinding[];
   jwtSecurity: JwtSecurityFinding[];
   pathTraversal: PathTraversalFinding[];
+  ssrfFindings: SsrfFinding[];
+  hostHeaderFindings: HostHeaderFinding[];
+  sourceMapFindings: SourceMapFinding[];
+  crlfFindings: CrlfFinding[];
 }
 interface ApiDocsExposureFinding { path: string; type: string; severity: string; evidence: string | null; description: string; }
 interface GraphQlIntrospectionFinding { endpoint: string; introspectionEnabled: boolean; playgroundExposed: boolean; typeCount: number; severity: string; evidence: string | null; }
 interface JwtSecurityFinding { source: string; algorithm: string; hasExpiry: boolean; expired: boolean; hasIssuer: boolean; hasAudience: boolean; issues: string[]; severity: string; evidence: string | null; }
 interface PathTraversalFinding { parameter: string; payload: string; target: string; evidence: string | null; severity: string; }
+interface SsrfFinding { parameter: string; payload: string; indicator: string; evidence: string | null; severity: string; }
+interface HostHeaderFinding { injectedHeader: string; injectedValue: string; reflectionPoint: string; evidence: string | null; severity: string; }
+interface SourceMapFinding { type: string; url: string; evidence: string | null; severity: string; }
+interface CrlfFinding { parameter: string; payload: string; injectionType: string; evidence: string | null; severity: string; }
 interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; }
 interface OwnershipState { message: string; host: string; token: string | null; passiveResult: ScanResult | null; }
 interface GuestStatus { used: number; remaining: number; dailyLimit: number; resetsAt: string; }
@@ -72,9 +80,13 @@ function getInviteTokenFromUrl(): string | null {
   return match ? match[1] : null;
 }
 function riskColor(level?: string) {
-  if (level === "SECURE") return styles.secure;
-  if (level === "WARNING") return styles.warning;
+  if (level === "SECURE")   return styles.secure;
+  if (level === "LOW")      return styles.low;
+  if (level === "MEDIUM")   return styles.warning;
+  if (level === "HIGH")     return styles.high;
   if (level === "CRITICAL") return styles.critical;
+  // legacy alias
+  if (level === "WARNING")  return styles.warning;
   return styles.muted;
 }
 function sevColor(sev?: string) {
@@ -153,7 +165,11 @@ function TechBadge({ label, icon }: { label: string; icon: string }) {
 // ── Score Gauge ───────────────────────────────────────────────────────────────
 
 function ScoreGauge({ score, risk }: { score: number; risk: string }) {
-  const color = risk === "SECURE" ? "var(--secure)" : risk === "WARNING" ? "var(--warning)" : "var(--critical)";
+  const color = risk === "SECURE" ? "var(--secure)"
+              : risk === "LOW"    ? "var(--info)"
+              : risk === "MEDIUM" ? "var(--warning)"
+              : risk === "HIGH"   ? "var(--high)"
+              : "var(--critical)";
   const r = 54; const circ = 2 * Math.PI * r;
   const offset = circ - (score / 100) * circ;
   return (
@@ -314,6 +330,10 @@ const MODULE_INFO: Record<string, { title: string; icon: string; what: string; d
   apidocs:   { title: "API Docs Exposure", icon: "◈", what: "Detecta documentação de APIs (Swagger, OpenAPI, ReDoc) exposta publicamente sem autenticação.", does: "Testa 18 paths comuns (/swagger-ui, /api-docs, /openapi.json, etc.) e confirma com marcadores de conteúdo específicos. Exibe tipo de doc, severidade e evidência. Specs JSON/YAML são HIGH pois expõem todos os endpoints, parâmetros e modelos da API.", tip: "Coloque autenticação básica (ou desative completamente) nos endpoints de documentação em produção. Nunca exponha a spec completa da API publicamente." },
   graphql:   { title: "GraphQL Introspection", icon: "◈", what: "Detecta endpoints GraphQL com introspection habilitada ou interface interativa (GraphiQL/Playground) acessível publicamente.", does: "Envia a query { __schema { types { name } } } para 11 paths comuns. Se aceita, conta os tipos retornados — quanto mais tipos, mais informação exposta. Verifica também se há UI interativa via GET.", tip: "Desabilite introspection em produção. Em frameworks como Apollo, use 'introspection: false'. Nunca exponha o Playground publicamente." },
   jwt:       { title: "JWT Security", icon: "◈", what: "Analisa tokens JWT presentes em cookies ou headers de resposta em busca de configurações inseguras.", does: "Decodifica o header do JWT sem fazer requests adicionais (passivo). Verifica: alg:none (sem assinatura), algoritmos simétricos fracos (HS256), ausência de exp (token que nunca expira), tokens expirados sendo servidos, e ausência de iss/aud.", tip: "Use RS256 ou ES256, sempre inclua exp (máx 1h para tokens de acesso), valide iss e aud no backend. Nunca aceite alg:none." },
+  crlf: { title: "CRLF Injection", icon: "◈", what: "Detecta HTTP Response Splitting via injeção de caracteres \\r\\n em parâmetros da query string. Permite ao atacante injetar headers HTTP arbitrários, set-cookies fraudulentos, XSS via header e cache poisoning.", does: "Injeta 4 variantes de CRLF (%0d%0a, %0a, %250d%250a, Unicode) em todos os parâmetros. Confirma vulnerabilidade se o header probe aparecer nos headers da resposta HTTP ou refletido no body.", tip: "Sanitize todos os parâmetros antes de usá-los em headers HTTP. Nunca reflita input do usuário em Location, Set-Cookie ou headers customizados sem remover caracteres de nova linha." },
+  sourcemap: { title: "Source Map / Debug", icon: "◈", what: "Detecta vazamento de código-fonte via arquivos .map e exposição de endpoints de debug/diagnóstico (Spring Boot Actuator, Symfony Profiler, Laravel Debugbar, phpinfo, .env, etc.).", does: "Extrai URLs de scripts do HTML e verifica headers SourceMap/X-SourceMap; tenta acessar arquivos .js.map diretamente. Proba endpoints Actuator de alta severidade (env, beans, heapdump) e debug paths de frameworks conhecidos. Exige conteúdo JSON específico para evitar FPs em 404 customizados.", tip: "Remova source maps de builds de produção ou sirva-os apenas para IPs internos. Proteja endpoints Actuator com Spring Security e exponha apenas /health para checks externos." },
+  hostheader: { title: "Host Header Injection", icon: "◈", what: "Detecta se o servidor reflete o valor do header Host (ou X-Forwarded-Host) na resposta, permitindo ataques de password-reset poisoning, cache poisoning e open redirect.", does: "Injeta um valor probe distinto nos headers Host, X-Forwarded-Host, X-Host, X-Forwarded-Server e X-Original-Host. Confirma vulnerabilidade se o valor aparecer no body HTML, no header Location ou no Set-Cookie.", tip: "Valide o Host header contra uma whitelist de domínios permitidos no servidor. Nunca use o Host header diretamente para gerar links em emails de reset de senha ou respostas HTTP." },
+  ssrf: { title: "SSRF", icon: "◈", what: "Detecta Server-Side Request Forgery: o servidor faz requests HTTP para URLs controladas pelo atacante, permitindo acesso a metadados de cloud (AWS/GCP), serviços internos ou máquinas na rede interna.", does: "Injeta payloads SSRF em 24 parâmetros URL-like (url, callback, webhook, redirect, etc.). Detecta via conteúdo de metadata AWS/GCP na resposta, error disclosure revelando IPs internos, banners SSH/SMTP, e redirecionamento para endereços RFC1918.", tip: "Nunca faça requests server-side para URLs arbitrárias vindas do usuário. Use whitelists de domínios permitidos, bloqueie IPs privados/loopback e metadata endpoints no nível de rede." },
   traversal: { title: "Path Traversal / LFI", icon: "◈", what: "Testa parâmetros que referenciam arquivos (file, page, path, template, etc.) com payloads de traversal para verificar se o servidor serve arquivos do sistema.", does: "Injeta payloads Unix e Windows (../../../etc/passwd, ..\..\windows\win.ini, variantes com %2F, %5C) em 12 parâmetros file-like. Confirma exploração com assinaturas de conteúdo — exige dupla evidência para evitar FPs.", tip: "Nunca passe nomes de arquivo diretamente de parâmetros de usuário ao filesystem. Use whitelists de páginas permitidas, nunca concatenação direta de path." },
   active:    { title: "Active Checks", icon: "▣", what: "Módulo avançado que executa probes ativos contra o servidor. Requer autorização explícita do proprietário do modulo contratante.", does: "Executa: detecção de WAF (Web Application Firewall), análise de política CORS, varredura de ~25 arquivos sensíveis (.env, backup.sql, etc.), probes de XSS refletido e injeção de DB error, e port scan em 21 portas comuns. Cada probe faz requests reais ao servidor.", tip: "Use APENAS em domínios que você é proprietário ou tem autorização explícita. Probes não autorizados podem ser ilegais." },
 };
@@ -789,6 +809,14 @@ export default function App() {
   const jwtColor       = jwtFindings.length === 0 ? "var(--secure)" : jwtFindings.some(f => f.severity === "CRITICAL") ? "var(--critical)" : jwtFindings.some(f => f.severity === "HIGH") ? "var(--high)" : "var(--warning)";
   const ptFindings     = r?.pathTraversal ?? [];
   const ptColor        = ptFindings.length === 0 ? "var(--secure)" : "var(--critical)";
+  const ssrfFindings   = r?.ssrfFindings ?? [];
+  const ssrfColor      = ssrfFindings.length === 0 ? "var(--secure)" : "var(--critical)";
+  const hhFindings     = r?.hostHeaderFindings ?? [];
+  const hhColor        = hhFindings.length === 0 ? "var(--secure)" : "var(--high)";
+  const smFindings     = r?.sourceMapFindings ?? [];
+  const smColor        = smFindings.length === 0 ? "var(--secure)" : smFindings.some(f => f.severity === "HIGH") ? "var(--high)" : "var(--warning)";
+  const crlfFindings   = r?.crlfFindings ?? [];
+  const crlfColor      = crlfFindings.length === 0 ? "var(--secure)" : "var(--high)";
   const tlsColor       = !(r?.sslInfo?.valid) ? "var(--critical)" : r?.tlsDetails?.weakProtocol ? "var(--warning)" : "var(--secure)";
 
   return (
@@ -854,7 +882,7 @@ export default function App() {
                     <div className={styles.sidebarTarget}>
                       <div
                         className={styles.sidebarTargetScore}
-                        style={{ color: risk === "SECURE" ? "var(--secure)" : risk === "WARNING" ? "var(--warning)" : "var(--critical)" }}
+                        style={{ color: risk === "SECURE" ? "var(--secure)" : risk === "LOW" ? "var(--info)" : risk === "MEDIUM" ? "var(--warning)" : risk === "HIGH" ? "var(--high)" : "var(--critical)" }}
                       >
                         {r.score?.score}<span className={styles.sidebarTargetScoreMax}>/100</span>
                       </div>
@@ -875,7 +903,7 @@ export default function App() {
                     <SidebarNavItem icon="⬡" title="Security Headers"
                       color={headerColor}
                       metric={missingH + weakH === 0 ? "✓" : missingH + weakH}
-                      label={missingH + weakH === 0 ? "SECURE" : missingH > 2 ? "CRITICAL" : "WARNING"}
+                      label={missingH + weakH === 0 ? "SECURE" : missingH > 2 ? "CRITICAL" : "MEDIUM"}
                       active={openModule === "headers"}
                       onClick={() => setOpenModule("headers")}/>
                     <SidebarNavItem icon="⬟" title="Transport Security"
@@ -960,6 +988,30 @@ export default function App() {
                       label={ptFindings.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "traversal"}
                       onClick={() => setOpenModule("traversal")}/>
+                    <SidebarNavItem icon="◈" title="SSRF"
+                      color={ssrfColor}
+                      metric={ssrfFindings.length === 0 ? "✓" : ssrfFindings.length}
+                      label={ssrfFindings.length === 0 ? "SECURE" : "VULNERABLE"}
+                      active={openModule === "ssrf"}
+                      onClick={() => setOpenModule("ssrf")}/>
+                    <SidebarNavItem icon="◈" title="CRLF Injection"
+                      color={crlfColor}
+                      metric={crlfFindings.length === 0 ? "✓" : crlfFindings.length}
+                      label={crlfFindings.length === 0 ? "SECURE" : "VULNERABLE"}
+                      active={openModule === "crlf"}
+                      onClick={() => setOpenModule("crlf")}/>
+                    <SidebarNavItem icon="◈" title="Source Map/Debug"
+                      color={smColor}
+                      metric={smFindings.length === 0 ? "✓" : smFindings.length}
+                      label={smFindings.length === 0 ? "SECURE" : smFindings.some(f => f.severity === "HIGH") ? "HIGH" : "MEDIUM"}
+                      active={openModule === "sourcemap"}
+                      onClick={() => setOpenModule("sourcemap")}/>
+                    <SidebarNavItem icon="◈" title="Host Header"
+                      color={hhColor}
+                      metric={hhFindings.length === 0 ? "✓" : hhFindings.length}
+                      label={hhFindings.length === 0 ? "SECURE" : "VULNERABLE"}
+                      active={openModule === "hostheader"}
+                      onClick={() => setOpenModule("hostheader")}/>
                     <SidebarNavItem icon="◈" title="CVE Correlation"
                       color={cveColor}
                       metric={cveCount === 0 ? "✓" : cveCount}
@@ -1436,7 +1488,104 @@ export default function App() {
                       </>
                     )}
 
-                    {openModule === "cert" && (
+                                      {openModule === "ssrf" && (
+                    <div>
+                      <div className={styles.moduleHeader}>
+                        <h2>SSRF — Server-Side Request Forgery</h2>
+                        <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("ssrf")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                      </div>
+                      {ssrfFindings.length > 0 ? (
+                        <div className={styles.findingList}>
+                          {ssrfFindings.map((ssrf, i) => (
+                            <div key={i} className={styles.findingCard}>
+                              <div className={styles.findingHeader}>
+                                <span className={`${styles.severityBadge} ${styles.critical}`}>CRITICAL</span>
+                                <span className={styles.findingTitle}>param: {ssrf.parameter}</span>
+                              </div>
+                              <div className={styles.findingMeta}>
+                                <span><strong>Indicator:</strong> {ssrf.indicator}</span>
+                                <span><strong>Payload:</strong> {ssrf.payload}</span>
+                                {ssrf.evidence && <span><strong>Evidence:</strong> {ssrf.evidence}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : <div className={styles.empty}>◈ Nenhum SSRF detectado</div>}
+                    </div>
+                  )}
+                                                                        {openModule === "crlf" && (
+                    <div>
+                      <div className={styles.moduleHeader}>
+                        <h2>CRLF Injection</h2>
+                        <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("crlf")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                      </div>
+                      {crlfFindings.length > 0 ? (
+                        <div className={styles.findingList}>
+                          {crlfFindings.map((crlf, i) => (
+                            <div key={i} className={styles.findingCard}>
+                              <div className={styles.findingHeader}>
+                                <span className={`${styles.severityBadge} ${styles.high}`}>HIGH</span>
+                                <span className={styles.findingTitle}>param: {crlf.parameter} [{crlf.injectionType}]</span>
+                              </div>
+                              <div className={styles.findingMeta}>
+                                <span><strong>Payload:</strong> {crlf.payload}</span>
+                                {crlf.evidence && <span><strong>Evidence:</strong> {crlf.evidence}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : <div className={styles.empty}>◈ Nenhuma injeção CRLF detectada</div>}
+                    </div>
+                  )}
+                  {openModule === "sourcemap" && (
+                    <div>
+                      <div className={styles.moduleHeader}>
+                        <h2>Source Map / Debug Exposure</h2>
+                        <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("sourcemap")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                      </div>
+                      {smFindings.length > 0 ? (
+                        <div className={styles.findingList}>
+                          {smFindings.map((sm, i) => (
+                            <div key={i} className={styles.findingCard}>
+                              <div className={styles.findingHeader}>
+                                <span className={`${styles.severityBadge} ${sm.severity === "HIGH" ? styles.high : styles.medium}`}>{sm.severity}</span>
+                                <span className={styles.findingTitle}>[{sm.type}]</span>
+                              </div>
+                              <div className={styles.findingMeta}>
+                                <span><strong>URL:</strong> {sm.url}</span>
+                                {sm.evidence && <span><strong>Evidence:</strong> {sm.evidence}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : <div className={styles.empty}>◈ Nenhum source map ou debug endpoint exposto</div>}
+                    </div>
+                  )}
+                  {openModule === "hostheader" && (
+                    <div>
+                      <div className={styles.moduleHeader}>
+                        <h2>Host Header Injection</h2>
+                        <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("hostheader")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                      </div>
+                      {hhFindings.length > 0 ? (
+                        <div className={styles.findingList}>
+                          {hhFindings.map((hh, i) => (
+                            <div key={i} className={styles.findingCard}>
+                              <div className={styles.findingHeader}>
+                                <span className={`${styles.severityBadge} ${styles.high}`}>HIGH</span>
+                                <span className={styles.findingTitle}>{hh.injectedHeader} → reflected in {hh.reflectionPoint}</span>
+                              </div>
+                              <div className={styles.findingMeta}>
+                                <span><strong>Injected value:</strong> {hh.injectedValue}</span>
+                                {hh.evidence && <span><strong>Evidence:</strong> {hh.evidence}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : <div className={styles.empty}>◈ Nenhuma reflexão de Host header detectada</div>}
+                    </div>
+                  )}
+                  {openModule === "cert" && (
                       <>
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": certColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◑</span>
