@@ -677,6 +677,7 @@ export default function App() {
   const [scanLoading, setScanLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [lastScanId, setLastScanId] = useState<string | null>(null);
+  const [notify, setNotify] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ownership, setOwnership] = useState<OwnershipState | null>(null);
@@ -710,7 +711,7 @@ export default function App() {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const res = await api.post("/scan/async", null, { params: { url, active, refresh: true }, signal: controller.signal });
+      const res = await api.post("/scan/async", null, { params: { url, active, refresh: true, notify: notify && !!user }, signal: controller.signal });
       const scanId = res.data.scanId as string;
       pollRef.current = setInterval(async () => {
         try {
@@ -868,6 +869,12 @@ export default function App() {
                     <input type="checkbox" checked={active} disabled={scanLoading} onChange={e => setActive(e.target.checked)} />
                     <span className={styles.toggleLabel}>ACTIVE</span>
                   </label>
+                  {user && (
+                    <label className={styles.toggle} title="Receber email ao concluir o scan">
+                      <input type="checkbox" checked={notify} disabled={scanLoading} onChange={e => setNotify(e.target.checked)} />
+                      <span className={styles.toggleLabel}>EMAIL</span>
+                    </label>
+                  )}
                 </div>
                 <div className={styles.actions}>
                   {scanLoading
