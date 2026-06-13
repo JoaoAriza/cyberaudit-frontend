@@ -2687,3 +2687,94 @@
   flex-shrink: 0;
   margin-top: 1px;
 }
+
+/* ── Finding Card Layout (SSRF, CRLF, SourceMap, HostHeader) ────────────── */
+
+.moduleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.moduleHeader h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: var(--sans);
+  margin: 0;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.findingList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.findingCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.15s;
+}
+
+.findingCard:hover {
+  border-color: var(--border2);
+}
+
+.findingHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.findingTitle {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.findingMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  word-break: break-all;
+}
+
+.findingMeta strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.severityBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+  border: 1px solid currentColor;
+  flex-shrink: 0;
+}
+
+.medium {
+  color: var(--warning);
+  border-color: var(--warning);
+}

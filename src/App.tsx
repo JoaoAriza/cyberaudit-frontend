@@ -676,6 +676,7 @@ export default function App() {
   const [active, setActive] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [lastScanId, setLastScanId] = useState<string | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ownership, setOwnership] = useState<OwnershipState | null>(null);
@@ -714,7 +715,7 @@ export default function App() {
       pollRef.current = setInterval(async () => {
         try {
           const status: AsyncStatus = (await api.get(`/scan/async/${scanId}`)).data;
-          if (status.state === "DONE") { stopPoll(); stopSlowTimer(); setResult(status.result); setOpenModule("issues"); setScanLoading(false); setGuestRefreshKey(k => k + 1); }
+          if (status.state === "DONE") { stopPoll(); stopSlowTimer(); setResult(status.result); setLastScanId(scanId); setOpenModule("issues"); setScanLoading(false); setGuestRefreshKey(k => k + 1); }
           else if (status.state === "ERROR") {
             stopPoll(); stopSlowTimer(); setScanLoading(false);
             const msg = status.errorMessage ?? "";
@@ -746,10 +747,18 @@ export default function App() {
 
   async function handlePdf() {
     setPdfLoading(true);
+    const ts = new Date().toISOString().slice(0, 10);
+    const filename = `cyberaudit-${url.replace(/[^a-z0-9]/gi, "-")}-${ts}.pdf`;
     try {
-      const res = await api.get("/scan/report/pdf", { params: { url, active }, responseType: "blob" });
-      const ts = new Date().toISOString().slice(0, 10);
-      downloadBlob(new Blob([res.data], { type: "application/pdf" }), `cyberaudit-${url.replace(/[^a-z0-9]/gi, "-")}-${ts}.pdf`);
+      let res;
+      if (lastScanId) {
+        // Fast path: use the result already in memory — no re-scan
+        res = await api.get(`/scan/report/pdf/${lastScanId}`, { responseType: "blob" });
+      } else {
+        // Fallback: full re-scan (used when page is refreshed or result not in memory)
+        res = await api.get("/scan/report/pdf", { params: { url, active }, responseType: "blob" });
+      }
+      downloadBlob(new Blob([res.data], { type: "application/pdf" }), filename);
     } catch (e: any) {
       if (e?.response?.data instanceof Blob) {
         const text = await e.response.data.text();
@@ -768,7 +777,7 @@ export default function App() {
   const risk = r?.score?.riskLevel;
   const tf = r?.techFingerprint;
   const badgeHost = (r?.finalUrl ?? r?.url ?? "").replace(/^https?:\/\//, "").split("/")[0];
-  const badgeUrl = `${import.meta.env.VITE_API_URL ?? "http://localhost:8081"}/badge/${badgeHost}?v=${r?.score?.score ?? 0}`;
+  const badgeUrl = `${import.meta.env.VITE_API_URL ?? "http://localhost:8081"}/badge/${badgeHost}?score=${r?.score?.score ?? 0}&risk=${r?.score?.riskLevel ?? "UNKNOWN"}`;
 
   // ── Module card computed values ──────────────────────────────────────────
   const headerEntries = Object.entries(r?.headers ?? {});
