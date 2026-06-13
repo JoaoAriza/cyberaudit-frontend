@@ -2778,3 +2778,17 @@
   color: var(--warning);
   border-color: var(--warning);
 }
+
+/* ── Schedule Form ───────────────────────────────────────────────────────── */
+
+.scheduleForm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}

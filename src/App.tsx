@@ -65,12 +65,24 @@ interface HostHeaderFinding { injectedHeader: string; injectedValue: string; ref
 interface SourceMapFinding { type: string; url: string; evidence: string | null; severity: string; }
 interface CrlfFinding { parameter: string; payload: string; injectionType: string; evidence: string | null; severity: string; }
 interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; }
+interface ScheduledScanDto {
+  id: string;
+  host: string;
+  active: boolean;
+  frequency: "DAILY" | "WEEKLY";
+  preferredHour: number;
+  nextRun: string | null;
+  lastRun: string | null;
+  enabled: boolean;
+  notifyEmail: boolean;
+  createdAt: string;
+}
 interface OwnershipState { message: string; host: string; token: string | null; passiveResult: ScanResult | null; }
 interface GuestStatus { used: number; remaining: number; dailyLimit: number; resetsAt: string; }
 interface UserManagementDto { id: string; name: string; email: string; role: string; jobTitle: string | null; active: boolean; createdAt: string; invitedByName: string; }
 interface InviteDto { id: string; name: string; email: string; role: string; jobTitle: string | null; invitedByName: string; accepted: boolean; expired: boolean; expiresAt: string; acceptLink: string | null; }
 
-type View = "scan" | "login" | "admin";
+type View = "scan" | "login" | "admin" | "schedules";
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -565,6 +577,149 @@ function InviteItemRow({ inv, onRevoke, roleBadge }: { inv: InviteDto; onRevoke:
   );
 }
 
+
+// ── Schedules Page ────────────────────────────────────────────────────────────
+
+function SchedulesPage() {
+  const [schedules, setSchedules] = useState<ScheduledScanDto[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [host, setHost]           = useState("");
+  const [frequency, setFrequency] = useState<"DAILY" | "WEEKLY">("DAILY");
+  const [hour, setHour]           = useState(8);
+  const [notifyEmail, setNotifyEmail] = useState(false);
+  const [creating, setCreating]   = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+
+  async function load() {
+    try {
+      const res = await api.get<ScheduledScanDto[]>("/scheduled-scans");
+      setSchedules(res.data);
+    } catch { setError("Erro ao carregar agendamentos."); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    if (!host.trim()) return;
+    setCreating(true); setError(null);
+    try {
+      await api.post("/scheduled-scans", { host: host.trim(), active: false, frequency, preferredHour: hour, notifyEmail });
+      setHost(""); await load();
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? "Erro ao criar agendamento.");
+    } finally { setCreating(false); }
+  }
+
+  async function toggle(id: string) {
+    try { await api.patch(`/scheduled-scans/${id}/toggle`); await load(); }
+    catch { setError("Erro ao atualizar agendamento."); }
+  }
+
+  async function remove(id: string) {
+    if (!confirm("Remover este agendamento?")) return;
+    try { await api.delete(`/scheduled-scans/${id}`); await load(); }
+    catch { setError("Erro ao remover agendamento."); }
+  }
+
+  function fmtDate(d: string | null) {
+    if (!d) return "—";
+    return new Date(d).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  return (
+    <div className={styles.adminWrap}>
+      <h2 className={styles.adminTitle}>Scans Agendados</h2>
+
+      {/* Formulário de criação */}
+      <form onSubmit={create} className={styles.scheduleForm}>
+        <input
+          className={styles.urlInput}
+          value={host}
+          onChange={e => setHost(e.target.value)}
+          placeholder="example.com"
+          disabled={creating}
+        />
+        <select
+          className={styles.roleSelect}
+          value={frequency}
+          onChange={e => setFrequency(e.target.value as "DAILY" | "WEEKLY")}
+          disabled={creating}
+        >
+          <option value="DAILY">Diário</option>
+          <option value="WEEKLY">Semanal</option>
+        </select>
+        <select
+          className={styles.roleSelect}
+          value={hour}
+          onChange={e => setHour(Number(e.target.value))}
+          disabled={creating}
+        >
+          {Array.from({ length: 24 }, (_, i) => (
+            <option key={i} value={i}>{String(i).padStart(2, "0")}:00 UTC</option>
+          ))}
+        </select>
+        <label className={styles.toggle} title="Receber email ao concluir">
+          <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} disabled={creating} />
+          <span className={styles.toggleLabel}>EMAIL</span>
+        </label>
+        <button className={`${styles.btn} ${styles.btnScan}`} type="submit" disabled={creating || !host.trim()}>
+          {creating ? "..." : "+ Agendar"}
+        </button>
+      </form>
+
+      {error && <div className={styles.errorBox}>{error}</div>}
+
+      {loading ? (
+        <div className={styles.empty}>Carregando...</div>
+      ) : schedules.length === 0 ? (
+        <div className={styles.empty}>◈ Nenhum scan agendado. Adicione um domínio acima.</div>
+      ) : (
+        <table className={styles.userTable}>
+          <thead>
+            <tr>
+              <th>Domínio</th>
+              <th>Frequência</th>
+              <th>Próximo scan</th>
+              <th>Último scan</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {schedules.map(s => (
+              <tr key={s.id}>
+                <td><code className={styles.code}>{s.host}</code></td>
+                <td>{s.frequency === "DAILY" ? "Diário" : "Semanal"} {String(s.preferredHour).padStart(2,"0")}:00 UTC</td>
+                <td className={styles.muted}>{fmtDate(s.nextRun)}</td>
+                <td className={styles.muted}>{fmtDate(s.lastRun)}</td>
+                <td>{s.notifyEmail ? <span className={styles.ok}>✓</span> : <span className={styles.muted}>—</span>}</td>
+                <td>
+                  {s.enabled
+                    ? <span className={styles.ok}>Ativo</span>
+                    : <span className={styles.muted}>Pausado</span>}
+                </td>
+                <td>
+                  <div className={styles.actionBtns}>
+                    <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => toggle(s.id)}>
+                      {s.enabled ? "Pausar" : "Retomar"}
+                    </button>
+                    <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => remove(s.id)}>
+                      Remover
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 // ── Admin Panel ───────────────────────────────────────────────────────────────
 
 function AdminPanel() {
@@ -838,6 +993,7 @@ export default function App() {
         <nav className={styles.headerNav}>
           <button className={`${styles.navBtn} ${view === "scan" ? styles.navBtnActive : ""}`} onClick={() => setView("scan")}>Scanner</button>
           {isAdmin() && (<button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`} onClick={() => setView("admin")}>Admin</button>)}
+          {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "schedules" ? styles.navBtnActive : ""}`} onClick={() => setView("schedules")}>Agendamentos</button>)}
         </nav>
         <div className={styles.headerRight}>
           {isAuthenticated() ? (
@@ -855,6 +1011,7 @@ export default function App() {
       <main className={styles.main}>
         {!isAuthenticated() && view === "scan" && <GuestBanner onLogin={() => setView("login")} refreshKey={guestRefreshKey} />}
         {view === "admin" && isAdmin() && <AdminPanel />}
+        {view === "schedules" && isAuthenticated() && <SchedulesPage />}
 
         {view === "scan" && (
           <>
