@@ -2792,3 +2792,19 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
+
+/* ── Score History Chart ─────────────────────────────────────────────────── */
+
+.historyChartWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.historyChartMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-family: var(--mono);
+}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./App.module.css";
 import { api } from "./api/client";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useAuth } from "./context/AuthContext";
 
 // ── Backend Types ─────────────────────────────────────────────────────────────
@@ -824,6 +825,94 @@ function AdminPanel() {
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 
+
+// ── Score History Chart ───────────────────────────────────────────────────────
+
+interface HistorySummary { id: string; scannedAt: string; score: number; riskLevel: string; }
+
+function ScoreHistoryChart({ host }: { host: string }) {
+  const [data, setData] = useState<HistorySummary[]>([]);
+
+  useEffect(() => {
+    if (!host) return;
+    api.get<HistorySummary[]>(`/history/${host}`)
+      .then(res => {
+        // Oldest first for the chart, max 30 points
+        const sorted = [...res.data].reverse().slice(-30);
+        setData(sorted);
+      })
+      .catch(() => {});
+  }, [host]);
+
+  if (data.length < 2) return null;
+
+  const points = data.map(d => ({
+    date: new Date(d.scannedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+    score: d.score,
+    risk: d.riskLevel,
+  }));
+
+  const latest = data[data.length - 1];
+  const prev   = data[data.length - 2];
+  const delta  = latest.score - prev.score;
+  const deltaStr = delta > 0 ? `+${delta}` : String(delta);
+  const deltaColor = delta > 0 ? "var(--secure)" : delta < 0 ? "var(--critical)" : "var(--text-dim)";
+
+  return (
+    <Card title="SCORE HISTÓRICO">
+      <div className={styles.historyChartWrap}>
+        <div className={styles.historyChartMeta}>
+          <span className={styles.muted}>{data.length} scans</span>
+          <span style={{ color: deltaColor, fontWeight: 600, fontFamily: "var(--mono)", fontSize: 13 }}>
+            {deltaStr} vs anterior
+          </span>
+        </div>
+        <ResponsiveContainer width="100%" height={140}>
+          <LineChart data={points} margin={{ top: 8, right: 8, left: -28, bottom: 0 }}>
+            <XAxis
+              dataKey="date"
+              tick={{ fill: "var(--text-muted)", fontSize: 10, fontFamily: "var(--mono)" }}
+              axisLine={false}
+              tickLine={false}
+              interval="preserveStartEnd"
+            />
+            <YAxis
+              domain={[0, 100]}
+              tick={{ fill: "var(--text-muted)", fontSize: 10, fontFamily: "var(--mono)" }}
+              axisLine={false}
+              tickLine={false}
+              ticks={[0, 25, 50, 75, 100]}
+            />
+            <Tooltip
+              contentStyle={{
+                background: "var(--bg-card, #0d1b2a)",
+                border: "1px solid var(--border)",
+                borderRadius: 4,
+                fontSize: 11,
+                fontFamily: "var(--mono)",
+                color: "var(--text)",
+              }}
+              formatter={(value: number) => [`${value}/100`, "Score"]}
+            />
+            <ReferenceLine y={85} stroke="var(--secure)"   strokeDasharray="3 3" strokeOpacity={0.3} />
+            <ReferenceLine y={70} stroke="var(--info)"     strokeDasharray="3 3" strokeOpacity={0.3} />
+            <ReferenceLine y={45} stroke="var(--warning)"  strokeDasharray="3 3" strokeOpacity={0.3} />
+            <ReferenceLine y={20} stroke="var(--critical)" strokeDasharray="3 3" strokeOpacity={0.3} />
+            <Line
+              type="monotone"
+              dataKey="score"
+              stroke="var(--accent)"
+              strokeWidth={2}
+              dot={{ r: 3, fill: "var(--accent)", strokeWidth: 0 }}
+              activeDot={{ r: 5, fill: "var(--accent)" }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+}
+
 export default function App() {
   const { user, loading, logout, isAdmin, isAuthenticated } = useAuth();
   const [view, setView] = useState<View>("scan");
@@ -1268,6 +1357,8 @@ export default function App() {
                         </div>
                       </Card>
                     </div>
+
+                    {badgeHost && <ScoreHistoryChart host={badgeHost} />}
 
                     <div className={styles.sidebarContent}>
 
