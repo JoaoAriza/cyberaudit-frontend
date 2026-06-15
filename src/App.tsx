@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./App.module.css";
-import { api } from "./api/client";
+import { api, setToken } from "./api/client";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useAuth } from "./context/AuthContext";
 
@@ -507,6 +507,319 @@ function LoginPage({ onBack }: { onBack: () => void }) {
   );
 }
 
+// ── Plans Modal ───────────────────────────────────────────────────────────────
+
+type PlanKey = "PESSOAL_FREE" | "PESSOAL_PRO" | "EMPRESA";
+
+interface PlanDef {
+  key:      PlanKey;
+  name:     string;
+  price:    string;
+  doc:      string;
+  features: { label: string; ok: boolean }[];
+}
+
+const PLAN_DEFS: PlanDef[] = [
+  {
+    key:   "PESSOAL_FREE",
+    name:  "Pessoal Free",
+    price: "Grátis",
+    doc:   "CPF opcional",
+    features: [
+      { label: "10 scans por dia",     ok: true  },
+      { label: "Exportar PDF",         ok: true  },
+      { label: "Módulo Changes",       ok: false },
+      { label: "Gráfico histórico",    ok: false },
+      { label: "Active Scan",          ok: false },
+      { label: "Multi-usuário",        ok: false },
+    ],
+  },
+  {
+    key:   "PESSOAL_PRO",
+    name:  "Pessoal Pro",
+    price: "Em breve",
+    doc:   "CPF opcional",
+    features: [
+      { label: "Scans ilimitados",     ok: true  },
+      { label: "Exportar PDF",         ok: true  },
+      { label: "Módulo Changes",       ok: true  },
+      { label: "Gráfico histórico",    ok: true  },
+      { label: "Active Scan",          ok: false },
+      { label: "Multi-usuário",        ok: false },
+    ],
+  },
+  {
+    key:   "EMPRESA",
+    name:  "Empresa",
+    price: "Em breve",
+    doc:   "CNPJ obrigatório",
+    features: [
+      { label: "Scans ilimitados",     ok: true },
+      { label: "Exportar PDF",         ok: true },
+      { label: "Módulo Changes",       ok: true },
+      { label: "Gráfico histórico",    ok: true },
+      { label: "Active Scan",          ok: true },
+      { label: "Multi-usuário",        ok: true },
+    ],
+  },
+];
+
+function PlansModal({ onClose }: { onClose: () => void }) {
+  const { user } = useAuth();
+
+  // Determina o plano atual do usuário logado
+  const currentPlan: PlanKey =
+    user?.account?.type === "COMPANY"      ? "EMPRESA"      :
+    user?.account?.plan  === "PRO"         ? "PESSOAL_PRO"  :
+                                             "PESSOAL_FREE";
+
+  return (
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={`${styles.modal} ${styles.plansModal}`} onClick={e => e.stopPropagation()}>
+        <div className={styles.plansModalHeader}>
+          <span className={styles.plansModalTitle}>◈ PLANOS & FUNCIONALIDADES</span>
+          <button className={styles.modalClose} onClick={onClose}>✕</button>
+        </div>
+        <div className={styles.plansGrid}>
+          {PLAN_DEFS.map(plan => {
+            const current = plan.key === currentPlan;
+            return (
+              <div key={plan.key} className={`${styles.planCard} ${current ? styles.planCardCurrent : ""}`}>
+                {current && <div className={styles.planCurrentBadge}>Seu plano atual</div>}
+                <div className={styles.planName}>{plan.name}</div>
+                <div className={styles.planPrice}>{plan.price}</div>
+                <div className={styles.planDoc}>{plan.doc}</div>
+                <ul className={styles.planFeatures}>
+                  {plan.features.map(f => (
+                    <li key={f.label} className={styles.planFeatureRow}>
+                      <span className={f.ok ? styles.ok : styles.bad}>{f.ok ? "✓" : "✗"}</span>
+                      <span className={f.ok ? styles.planFeatureOn : styles.planFeatureOff}>{f.label}</span>
+                    </li>
+                  ))}
+                </ul>
+                {!current && (
+                  <div className={styles.planCta}>
+                    {plan.key === "PESSOAL_FREE" ? "Plano atual" : "Em breve"}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Setup Wizard ──────────────────────────────────────────────────────────────
+
+function formatCnpj(raw: string): string {
+  const d = raw.replace(/\D/g, "").slice(0, 14);
+  if (d.length <=  2) return d;
+  if (d.length <=  5) return `${d.slice(0,2)}.${d.slice(2)}`;
+  if (d.length <=  8) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5)}`;
+  if (d.length <= 12) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8)}`;
+  return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+}
+
+function SetupPage() {
+  const [step, setStep]               = useState<1 | 2 | 3>(1);
+  const [accountType, setAccountType] = useState<"COMPANY" | "INDIVIDUAL" | null>(null);
+
+  // Empresa
+  const [companyName,   setCompanyName]   = useState("");
+  const [cnpj,          setCnpj]          = useState("");
+  const [companyDomain, setCompanyDomain] = useState("");
+  const [companySize,   setCompanySize]   = useState("1-10");
+
+  // Individual
+  const [profession, setProfession] = useState("");
+  const [website,    setWebsite]    = useState("");
+
+  // Comum (passo 2)
+  const [country, setCountry] = useState("BR");
+
+  // Pessoal (passo 3)
+  const [name,     setName]     = useState("");
+  const [email,    setEmail]    = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm,  setConfirm]  = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState<string | null>(null);
+
+  function goNext() { setError(null); setStep(s => (s + 1) as 1 | 2 | 3); }
+  function goBack() { setError(null); setStep(s => (s - 1) as 1 | 2 | 3); }
+
+  function step2Valid(): boolean {
+    if (accountType === "COMPANY") {
+      return companyName.trim().length > 0 && cnpj.replace(/\D/g, "").length === 14;
+    }
+    return true;
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (password !== confirm)  { setError("As senhas não coincidem."); return; }
+    if (password.length < 8)   { setError("Senha deve ter no mínimo 8 caracteres."); return; }
+    setLoading(true); setError(null);
+    try {
+      const payload: Record<string, unknown> = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        accountType,
+        country: country || undefined,
+      };
+      if (accountType === "COMPANY") {
+        payload.companyName   = companyName.trim();
+        payload.cnpj          = cnpj.replace(/\D/g, "");
+        payload.companyDomain = companyDomain.trim() || undefined;
+        payload.companySize   = companySize;
+      } else {
+        payload.profession = profession.trim() || undefined;
+        payload.website    = website.trim() || undefined;
+      }
+      const res = await api.post<{ token: string }>("/auth/setup", payload);
+      setToken(res.data.token);
+      window.location.href = "/";
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? "Erro ao configurar o sistema.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const stepLabels = ["Tipo de conta", "Detalhes", "Acesso"];
+
+  return (
+    <div className={styles.loginPage}>
+      <div className={`${styles.loginCard} ${styles.setupCard}`}>
+        <div className={styles.loginLogo}>
+          <span className={styles.logoIcon}>◈</span>
+          <span className={styles.logoText}>CyberAudit</span>
+        </div>
+
+        {/* Indicador de progresso */}
+        <div className={styles.setupProgress}>
+          {stepLabels.map((label, i) => {
+            const n    = i + 1;
+            const done = step > n;
+            const active = step === n;
+            return (
+              <div key={label} className={styles.setupProgressStep}>
+                <div className={`${styles.setupDot} ${active ? styles.setupDotActive : done ? styles.setupDotDone : ""}`}>
+                  {done ? "✓" : n}
+                </div>
+                <span className={`${styles.setupDotLabel} ${active ? styles.setupDotLabelActive : ""}`}>{label}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Passo 1: Tipo de conta */}
+        {step === 1 && (
+          <>
+            <div className={styles.loginTitle}>Configuração inicial</div>
+            <div className={styles.loginSub}>Escolha o tipo de conta para sua organização</div>
+            <div className={styles.setupTypeGrid}>
+              <button
+                type="button"
+                className={`${styles.setupTypeCard} ${accountType === "COMPANY" ? styles.setupTypeCardSelected : ""}`}
+                onClick={() => setAccountType("COMPANY")}
+              >
+                <div className={styles.setupTypeIcon}>🏢</div>
+                <div className={styles.setupTypeName}>Empresa</div>
+                <div className={styles.setupTypeDesc}>Multi-usuário, CNPJ, domínios corporativos</div>
+              </button>
+              <button
+                type="button"
+                className={`${styles.setupTypeCard} ${accountType === "INDIVIDUAL" ? styles.setupTypeCardSelected : ""}`}
+                onClick={() => setAccountType("INDIVIDUAL")}
+              >
+                <div className={styles.setupTypeIcon}>👤</div>
+                <div className={styles.setupTypeName}>Individual</div>
+                <div className={styles.setupTypeDesc}>Uso pessoal ou profissional solo</div>
+              </button>
+            </div>
+            <button
+              className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`}
+              disabled={!accountType}
+              onClick={goNext}
+            >
+              Continuar
+            </button>
+          </>
+        )}
+
+        {/* Passo 2: Detalhes da conta */}
+        {step === 2 && (
+          <form onSubmit={e => { e.preventDefault(); if (step2Valid()) goNext(); }}>
+            <div className={styles.loginTitle}>
+              {accountType === "COMPANY" ? "Dados da empresa" : "Dados profissionais"}
+            </div>
+            {accountType === "COMPANY" ? (
+              <>
+                <div className={styles.formGroup}><label className={styles.formLabel}>NOME DA EMPRESA *</label><input className={styles.formInput} value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Ex: Acme Security Ltda" required /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>CNPJ *</label><input className={styles.formInput} value={cnpj} onChange={e => setCnpj(formatCnpj(e.target.value))} placeholder="XX.XXX.XXX/XXXX-XX" maxLength={18} required /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>DOMÍNIO PRINCIPAL</label><input className={styles.formInput} value={companyDomain} onChange={e => setCompanyDomain(e.target.value)} placeholder="empresa.com.br" /></div>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>TAMANHO DA EMPRESA</label>
+                  <select className={styles.formInput} value={companySize} onChange={e => setCompanySize(e.target.value)}>
+                    <option value="1-10">1–10 funcionários</option>
+                    <option value="11-50">11–50 funcionários</option>
+                    <option value="51-200">51–200 funcionários</option>
+                    <option value="201+">201+ funcionários</option>
+                  </select>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={styles.formGroup}><label className={styles.formLabel}>PROFISSÃO</label><input className={styles.formInput} value={profession} onChange={e => setProfession(e.target.value)} placeholder="Ex: Security Researcher" /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>WEBSITE / PORTFÓLIO</label><input className={styles.formInput} value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://meusite.com.br" /></div>
+              </>
+            )}
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>PAÍS</label>
+              <select className={styles.formInput} value={country} onChange={e => setCountry(e.target.value)}>
+                <option value="BR">Brasil</option>
+                <option value="PT">Portugal</option>
+                <option value="US">United States</option>
+                <option value="OTHER">Outro</option>
+              </select>
+            </div>
+            {error && <div className={styles.errorBox}>{error}</div>}
+            <div className={styles.setupBtnRow}>
+              <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={goBack}>← Voltar</button>
+              <button type="submit" className={`${styles.btn} ${styles.btnScan}`} disabled={!step2Valid()}>Continuar →</button>
+            </div>
+          </form>
+        )}
+
+        {/* Passo 3: Dados de acesso */}
+        {step === 3 && (
+          <form className={styles.loginForm} onSubmit={handleSubmit}>
+            <div className={styles.loginTitle}>Dados de acesso</div>
+            <div className={styles.loginSub}>Credenciais do administrador principal (OWNER)</div>
+            <div className={styles.formGroup}><label className={styles.formLabel}>NOME COMPLETO *</label><input className={styles.formInput} value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome completo" required /></div>
+            <div className={styles.formGroup}><label className={styles.formLabel}>EMAIL *</label><input className={styles.formInput} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@empresa.com" required /></div>
+            <div className={styles.formGroup}><label className={styles.formLabel}>SENHA *</label><input className={styles.formInput} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" required /></div>
+            <div className={styles.formGroup}><label className={styles.formLabel}>CONFIRMAR SENHA *</label><input className={styles.formInput} type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repita a senha" required /></div>
+            {error && <div className={styles.errorBox}>{error}</div>}
+            <div className={styles.setupBtnRow}>
+              <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={goBack} disabled={loading}>← Voltar</button>
+              <button type="submit" className={`${styles.btn} ${styles.btnScan}`}
+                disabled={loading || !name.trim() || !email.trim() || !password || !confirm}>
+                {loading ? "Configurando..." : "Finalizar setup"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Accept Invite Page ────────────────────────────────────────────────────────
 
 function AcceptInvitePage({ token }: { token: string }) {
@@ -933,6 +1246,16 @@ export default function App() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [showPlans, setShowPlans] = useState(false);
+
+  // Verifica se o sistema já foi configurado (primeiro OWNER criado)
+  const [setupConfigured, setSetupConfigured] = useState<boolean | null>(null);
+  useEffect(() => {
+    api.get<{ configured: boolean }>("/auth/setup-status")
+      .then(res => setSetupConfigured(res.data.configured))
+      .catch(() => setSetupConfigured(true)); // fail-safe: se API cair, assume configurado
+  }, []);
+
   useEffect(() => { if (user && view === "login") setView("scan"); }, [user]);
   useEffect(() => () => { pollRef.current && clearInterval(pollRef.current); }, []);
 
@@ -1015,7 +1338,15 @@ export default function App() {
 
   const inviteToken = getInviteTokenFromUrl();
   if (inviteToken) return <div className={styles.app}><AcceptInvitePage token={inviteToken} /></div>;
-  if (loading) return (<div className={styles.app}><div className={styles.loadingScreen}><span className={styles.logoIcon}>◈</span> Carregando...</div></div>);
+
+  // Aguarda tanto a verificação de setup quanto a validação de auth
+  if (setupConfigured === null || loading)
+    return (<div className={styles.app}><div className={styles.loadingScreen}><span className={styles.logoIcon}>◈</span> Carregando...</div></div>);
+
+  // Wizard de configuração inicial (apenas quando não há usuários no sistema)
+  if (!setupConfigured)
+    return <div className={styles.app}><SetupPage /></div>;
+
   if (view === "login") return <div className={styles.app}><LoginPage onBack={() => setView("scan")} /></div>;
 
   const r = result;
@@ -1082,6 +1413,7 @@ export default function App() {
   return (
     <div className={styles.app}>
       <SlowScanToast visible={showSlowToast} />
+      {showPlans && <PlansModal onClose={() => setShowPlans(false)} />}
 
       <header className={styles.header}>
         <div className={styles.logo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
@@ -1094,10 +1426,16 @@ export default function App() {
           {isAuthenticated() ? (
             <div className={styles.userInfo}>
               {user?.account?.plan && (
-                <span className={`${styles.tag} ${
-                  user.account.plan === "ENTERPRISE" ? styles.secure :
-                  user.account.plan === "PRO"        ? styles.info   : styles.tagFree
-                }`}>{user.account.plan}</span>
+                <button
+                  className={`${styles.tag} ${styles.planBadgeBtn} ${
+                    user.account.plan === "ENTERPRISE" ? styles.secure :
+                    user.account.plan === "PRO"        ? styles.info   : styles.tagFree
+                  }`}
+                  onClick={() => setShowPlans(true)}
+                  title="Ver planos"
+                >
+                  {user.account.plan}
+                </button>
               )}
               {user?.dailyLimit != null && user?.remainingScans != null && (
                 <span className={styles.scanQuota} title="Scans restantes hoje">
