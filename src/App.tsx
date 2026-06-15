@@ -82,8 +82,9 @@ interface OwnershipState { message: string; host: string; token: string | null; 
 interface GuestStatus { used: number; remaining: number; dailyLimit: number; resetsAt: string; }
 interface UserManagementDto { id: string; name: string; email: string; role: string; jobTitle: string | null; active: boolean; createdAt: string; invitedByName: string; }
 interface InviteDto { id: string; name: string; email: string; role: string; jobTitle: string | null; invitedByName: string; accepted: boolean; expired: boolean; expiresAt: string; acceptLink: string | null; }
+interface DomainDto { id: string; host: string; verified: boolean; verifiedAt: string | null; createdAt: string; verificationToken: string; }
 
-type View = "scan" | "login" | "admin" | "schedules";
+type View = "scan" | "login" | "admin" | "schedules" | "domains";
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -1136,6 +1137,154 @@ function AdminPanel() {
   );
 }
 
+// ── Domains Page ─────────────────────────────────────────────────────────────
+
+function DomainsPage() {
+  const [domains, setDomains]   = useState<DomainDto[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [host, setHost]         = useState("");
+  const [adding, setAdding]     = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [verifying, setVerifying] = useState<string | null>(null);
+  const [copied, setCopied]     = useState<string | null>(null);
+
+  async function load() {
+    try { setDomains((await api.get<DomainDto[]>("/domains")).data); }
+    catch { setError("Erro ao carregar domínios."); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    if (!host.trim()) return;
+    setAdding(true); setError(null);
+    try { await api.post("/domains", { host: host.trim() }); setHost(""); await load(); }
+    catch (e: any) { setError(e?.response?.data?.message ?? "Erro ao cadastrar domínio."); }
+    finally { setAdding(false); }
+  }
+
+  async function remove(id: string, h: string) {
+    if (!confirm(`Remover domínio "${h}"?`)) return;
+    try { await api.delete(`/domains/${id}`); await load(); }
+    catch (e: any) { setError(e?.response?.data?.message ?? "Erro ao remover."); }
+  }
+
+  async function verify(id: string) {
+    setVerifying(id); setError(null);
+    try { await api.post(`/domains/${id}/verify`); await load(); }
+    catch (e: any) { setError(e?.response?.data?.message ?? "Verificação falhou. Publique o arquivo e tente novamente."); }
+    finally { setVerifying(null); }
+  }
+
+  function copyToken(token: string, id: string) {
+    navigator.clipboard.writeText(token);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  return (
+    <div className={styles.adminWrap}>
+      <h2 className={styles.adminTitle}>Domínios Verificados</h2>
+
+      <form onSubmit={add} className={styles.scheduleForm}>
+        <input
+          className={styles.urlInput}
+          value={host}
+          onChange={e => setHost(e.target.value)}
+          placeholder="example.com"
+          disabled={adding}
+        />
+        <button className={`${styles.btn} ${styles.btnScan}`} type="submit" disabled={adding || !host.trim()}>
+          {adding ? "..." : "+ Adicionar"}
+        </button>
+      </form>
+
+      {error && <div className={styles.errorBox}>{error}</div>}
+
+      {loading ? (
+        <div className={styles.empty}>Carregando...</div>
+      ) : domains.length === 0 ? (
+        <div className={styles.empty}>◈ Nenhum domínio cadastrado. Adicione o primeiro acima.</div>
+      ) : (
+        <div className={styles.domainList}>
+          {domains.map(d => (
+            <div key={d.id} className={styles.domainCard}>
+              <div className={styles.domainCardHeader}>
+                <div className={styles.domainCardLeft}>
+                  <span className={d.verified ? styles.ok : styles.bad}>
+                    {d.verified ? "✓" : "✗"}
+                  </span>
+                  <code className={styles.code}>{d.host}</code>
+                  <span className={d.verified ? `${styles.tag} ${styles.secure}` : `${styles.tag} ${styles.tagFree}`}>
+                    {d.verified ? "Verificado" : "Pendente"}
+                  </span>
+                  {d.verifiedAt && (
+                    <span className={styles.muted} style={{ fontSize: 11 }}>
+                      em {new Date(d.verifiedAt).toLocaleDateString("pt-BR")}
+                    </span>
+                  )}
+                </div>
+                <div className={styles.actionBtns}>
+                  {!d.verified && (
+                    <button
+                      className={`${styles.btn} ${styles.btnGhost}`}
+                      onClick={() => verify(d.id)}
+                      disabled={verifying === d.id}
+                    >
+                      {verifying === d.id ? "Verificando..." : "Verificar"}
+                    </button>
+                  )}
+                  <button
+                    className={`${styles.btn} ${styles.btnDanger}`}
+                    onClick={() => remove(d.id, d.host)}
+                  >
+                    Remover
+                  </button>
+                </div>
+              </div>
+
+              {!d.verified && (
+                <div className={styles.domainVerifyInstructions}>
+                  <div className={styles.domainVerifyStep}>
+                    <span className={styles.stepNum}>1</span>
+                    <div>
+                      <div className={styles.stepTitle}>Crie o arquivo de verificação</div>
+                      <code className={styles.stepCode}>https://{d.host}/.well-known/cyberaudit.txt</code>
+                    </div>
+                  </div>
+                  <div className={styles.domainVerifyStep}>
+                    <span className={styles.stepNum}>2</span>
+                    <div>
+                      <div className={styles.stepTitle}>Conteúdo do arquivo</div>
+                      <div className={styles.tokenRow}>
+                        <code className={styles.stepCode}>{d.verificationToken}</code>
+                        <button
+                          className={styles.copyBtn}
+                          onClick={() => copyToken(d.verificationToken, d.id)}
+                        >
+                          {copied === d.id ? "✓ Copiado" : "Copiar"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className={styles.domainVerifyStep}>
+                    <span className={styles.stepNum}>3</span>
+                    <div>
+                      <div className={styles.stepTitle}>Clique em "Verificar" acima após publicar o arquivo</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 
 
@@ -1421,6 +1570,7 @@ export default function App() {
           <button className={`${styles.navBtn} ${view === "scan" ? styles.navBtnActive : ""}`} onClick={() => setView("scan")}>Scanner</button>
           {canManageUsers && (<button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`} onClick={() => setView("admin")}>Admin</button>)}
           {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "schedules" ? styles.navBtnActive : ""}`} onClick={() => setView("schedules")}>Agendamentos</button>)}
+          {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "domains" ? styles.navBtnActive : ""}`} onClick={() => setView("domains")}>Domínios</button>)}
         </nav>
         <div className={styles.headerRight}>
           {isAuthenticated() ? (
@@ -1456,6 +1606,7 @@ export default function App() {
         {!isAuthenticated() && view === "scan" && <GuestBanner onLogin={() => setView("login")} refreshKey={guestRefreshKey} />}
         {view === "admin" && canManageUsers && <AdminPanel />}
         {view === "schedules" && isAuthenticated() && <SchedulesPage />}
+        {view === "domains" && isAuthenticated() && <DomainsPage />}
 
         {view === "scan" && (
           <>
