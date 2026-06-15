@@ -84,7 +84,7 @@ interface UserManagementDto { id: string; name: string; email: string; role: str
 interface InviteDto { id: string; name: string; email: string; role: string; jobTitle: string | null; invitedByName: string; accepted: boolean; expired: boolean; expiresAt: string; acceptLink: string | null; }
 interface DomainDto { id: string; host: string; verified: boolean; verifiedAt: string | null; createdAt: string; verificationToken: string; }
 
-type View = "scan" | "login" | "admin" | "schedules" | "domains";
+type View = "scan" | "login" | "admin" | "schedules" | "domains" | "changes";
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -1137,6 +1137,233 @@ function AdminPanel() {
   );
 }
 
+// ── Changes History Page ──────────────────────────────────────────────────────
+
+function ChangesPage() {
+  const [registeredDomains, setRegisteredDomains] = useState<DomainDto[]>([]);
+  const [searchHost, setSearchHost]               = useState("");
+  const [activeHost, setActiveHost]               = useState<string | null>(null);
+  const [summaries, setSummaries]                 = useState<HistorySummary[]>([]);
+  const [loadingSummaries, setLoadingSummaries]   = useState(false);
+  const [summaryError, setSummaryError]           = useState<string | null>(null);
+
+  // Per-scan lazy state: id → { loading, result, open }
+  const [scanDetails, setScanDetails] = useState<Record<string, {
+    open: boolean; loading: boolean; changes: ScanChange[] | null; error: string | null;
+  }>>({});
+
+  // Load registered domains for quick-select
+  useEffect(() => {
+    api.get<DomainDto[]>("/domains").then(r => setRegisteredDomains(r.data)).catch(() => {});
+  }, []);
+
+  async function search(host: string) {
+    const h = host.trim().replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
+    if (!h) return;
+    setActiveHost(h);
+    setLoadingSummaries(true);
+    setSummaryError(null);
+    setSummaries([]);
+    setScanDetails({});
+    try {
+      const res = await api.get<ScanSummaryItem[]>(`/history/${h}`);
+      // Newest first
+      setSummaries([...res.data].sort((a, b) =>
+        new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime()
+      ));
+    } catch {
+      setSummaryError("Nenhum scan encontrado para este domínio.");
+    } finally {
+      setLoadingSummaries(false);
+    }
+  }
+
+  async function toggleScan(id: string) {
+    setScanDetails(prev => {
+      const cur = prev[id];
+      // If already open or loading, just toggle visibility
+      if (cur?.changes !== null || cur?.loading) {
+        return { ...prev, [id]: { ...cur, open: !cur.open } };
+      }
+      // Need to fetch
+      return { ...prev, [id]: { open: true, loading: true, changes: null, error: null } };
+    });
+
+    // Fetch if not yet loaded
+    setScanDetails(prev => {
+      if (!prev[id]?.loading) return prev;
+      // Side-effect: kick off fetch
+      api.get<ScanResult>(`/history/${id}/result`)
+        .then(r => {
+          setScanDetails(p => ({
+            ...p,
+            [id]: { open: true, loading: false, changes: r.data.changes ?? [], error: null },
+          }));
+        })
+        .catch(() => {
+          setScanDetails(p => ({
+            ...p,
+            [id]: { open: true, loading: false, changes: [], error: "Erro ao carregar detalhes." },
+          }));
+        });
+      return prev;
+    });
+  }
+
+  function changeTypeBadge(type: string) {
+    if (type === "IMPROVED")  return <span className={`${styles.tag} ${styles.secure}`}>IMPROVED</span>;
+    if (type === "DEGRADED")  return <span className={`${styles.tag} ${styles.critical}`}>DEGRADED</span>;
+    return <span className={`${styles.tag} ${styles.info}`}>NEW</span>;
+  }
+
+  function sevBadge(sev: string) {
+    const cls = sev === "CRITICAL" ? styles.critical : sev === "HIGH" ? styles.high : sev === "MEDIUM" ? styles.warning : styles.low;
+    return <span className={`${styles.tag} ${cls}`}>{sev}</span>;
+  }
+
+  function riskBadgeStyle(risk: string) {
+    return risk === "SECURE" ? styles.secure : risk === "LOW" ? styles.low :
+           risk === "MEDIUM" ? styles.warning : risk === "HIGH" ? styles.high : styles.critical;
+  }
+
+  return (
+    <div className={styles.adminWrap}>
+      <h2 className={styles.adminTitle}>Histórico de Mudanças</h2>
+
+      {/* Quick-select de domínios registrados */}
+      {registeredDomains.length > 0 && (
+        <div className={styles.changesQuickSelect}>
+          <span className={styles.muted} style={{ fontSize: 11, letterSpacing: ".5px" }}>DOMÍNIOS CADASTRADOS</span>
+          <div className={styles.changesChips}>
+            {registeredDomains.map(d => (
+              <button
+                key={d.id}
+                className={`${styles.changesChip} ${activeHost === d.host ? styles.changesChipActive : ""}`}
+                onClick={() => { setSearchHost(d.host); search(d.host); }}
+              >
+                {d.verified && <span className={styles.ok} style={{ fontSize: 10 }}>✓ </span>}
+                {d.host}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Busca livre */}
+      <form onSubmit={e => { e.preventDefault(); search(searchHost); }} className={styles.scheduleForm}>
+        <input
+          className={styles.urlInput}
+          value={searchHost}
+          onChange={e => setSearchHost(e.target.value)}
+          placeholder="example.com"
+        />
+        <button className={`${styles.btn} ${styles.btnScan}`} type="submit" disabled={loadingSummaries || !searchHost.trim()}>
+          {loadingSummaries ? "..." : "Buscar"}
+        </button>
+      </form>
+
+      {summaryError && <div className={styles.errorBox}>{summaryError}</div>}
+
+      {/* Timeline */}
+      {summaries.length > 0 && (
+        <div className={styles.changesTimeline}>
+          <div className={styles.changesMeta}>
+            <code className={styles.code}>{activeHost}</code>
+            <span className={styles.muted}>{summaries.length} scans registrados</span>
+          </div>
+
+          {summaries.map((s, idx) => {
+            const detail = scanDetails[s.id];
+            const isOpen = detail?.open ?? false;
+            const changes = detail?.changes ?? null;
+            const changeCount = changes?.length ?? null;
+            const hasDegraded = changes?.some(c => c.changeType === "DEGRADED");
+            const isFirst = idx === 0;
+
+            return (
+              <div key={s.id} className={`${styles.changesScanRow} ${isFirst ? styles.changesScanRowLatest : ""}`}>
+                <div className={styles.changesScanHeader} onClick={() => toggleScan(s.id)}>
+                  <div className={styles.changesScanLeft}>
+                    <div className={styles.changesTimelineDot} style={{
+                      background: hasDegraded ? "var(--critical)" :
+                                  changeCount === 0 ? "var(--secure)" :
+                                  changeCount === null ? "var(--border2)" : "var(--warning)",
+                    }} />
+                    <div className={styles.changesScanInfo}>
+                      <span className={styles.changesScanDate}>
+                        {new Date(s.scannedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                        {isFirst && <span className={styles.changesLatestBadge}>MAIS RECENTE</span>}
+                      </span>
+                      <div className={styles.changesScanBadges}>
+                        <span className={`${styles.tag} ${riskBadgeStyle(s.riskLevel)}`}>{s.riskLevel}</span>
+                        <span className={styles.changesScanScore}>{s.score}<span className={styles.muted}>/100</span></span>
+                        {changeCount !== null && (
+                          <span className={styles.muted} style={{ fontSize: 11 }}>
+                            {changeCount === 0 ? "sem mudanças" : `${changeCount} mudança${changeCount !== 1 ? "s" : ""}`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={styles.changesScanRight}>
+                    {detail?.loading && <span className={styles.muted} style={{ fontSize: 11 }}>carregando...</span>}
+                    <span className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ""}`}>›</span>
+                  </div>
+                </div>
+
+                {isOpen && (
+                  <div className={styles.changesScanBody}>
+                    {detail?.error && <div className={styles.errorBox}>{detail.error}</div>}
+                    {detail?.loading && <div className={styles.empty}>Carregando detalhes...</div>}
+                    {changes !== null && changes.length === 0 && (
+                      <div className={styles.empty} style={{ padding: "12px 0" }}>
+                        ✓ Nenhuma mudança detectada em relação ao scan anterior.
+                      </div>
+                    )}
+                    {changes !== null && changes.length > 0 && (
+                      <table className={styles.changesTable}>
+                        <thead>
+                          <tr>
+                            <th>Tipo</th>
+                            <th>Categoria</th>
+                            <th>Campo</th>
+                            <th>Severidade</th>
+                            <th>Antes</th>
+                            <th>Depois</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {changes.map((c, i) => (
+                            <tr key={i} className={
+                              c.changeType === "DEGRADED" ? styles.changeDegraded :
+                              c.changeType === "IMPROVED" ? styles.changeImproved : ""
+                            }>
+                              <td>{changeTypeBadge(c.changeType)}</td>
+                              <td className={styles.muted}>{c.category}</td>
+                              <td><code className={styles.code} style={{ fontSize: 11 }}>{c.field}</code></td>
+                              <td>{sevBadge(c.severity)}</td>
+                              <td className={styles.changeOld}>{c.oldValue || "—"}</td>
+                              <td className={styles.changeNew}>{c.newValue || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {!loadingSummaries && !summaryError && summaries.length === 0 && activeHost && (
+        <div className={styles.empty}>◈ Nenhum scan encontrado para <code>{activeHost}</code>.</div>
+      )}
+    </div>
+  );
+}
+
 // ── Domains Page ─────────────────────────────────────────────────────────────
 
 function DomainsPage() {
@@ -1571,6 +1798,7 @@ export default function App() {
           {canManageUsers && (<button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`} onClick={() => setView("admin")}>Admin</button>)}
           {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "schedules" ? styles.navBtnActive : ""}`} onClick={() => setView("schedules")}>Agendamentos</button>)}
           {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "domains" ? styles.navBtnActive : ""}`} onClick={() => setView("domains")}>Domínios</button>)}
+          {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "changes" ? styles.navBtnActive : ""}`} onClick={() => setView("changes")}>Histórico</button>)}
         </nav>
         <div className={styles.headerRight}>
           {isAuthenticated() ? (
@@ -1607,6 +1835,7 @@ export default function App() {
         {view === "admin" && canManageUsers && <AdminPanel />}
         {view === "schedules" && isAuthenticated() && <SchedulesPage />}
         {view === "domains" && isAuthenticated() && <DomainsPage />}
+        {view === "changes" && isAuthenticated() && <ChangesPage />}
 
         {view === "scan" && (
           <>
