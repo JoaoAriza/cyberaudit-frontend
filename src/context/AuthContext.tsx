@@ -12,6 +12,7 @@ export interface AccountDto {
   displayName: string;
   companyName: string | null;
   country: string | null;
+  cnpj: string | null;
   plan: Plan;
   dailyScanLimit: number;       // -1 = ilimitado
   scheduledScanLimit: number;   // -1 = ilimitado

@@ -1058,6 +1058,8 @@ export default function App() {
   const canChanges    = user?.account?.changesModuleAllowed === true;
   const canHistory    = user?.account?.historyChartAllowed  === true;
   const canActiveScan = user?.account?.activeScanAllowed    === true;
+  // Gestão de usuários: exclusivo para contas COMPANY com role OWNER ou ADMIN
+  const canManageUsers = isAdmin() && user?.account?.type === "COMPANY";
   const techFirst     = tf?.webServer ?? tf?.framework ?? tf?.cms ?? tf?.language ?? "—";
   const apiDocsCount   = r?.apiDocsExposure?.length ?? 0;
   const apiDocsColor   = apiDocsCount === 0 ? "var(--secure)" : (r?.apiDocsExposure ?? []).some(f => f.severity === "HIGH") ? "var(--high)" : "var(--warning)";
@@ -1085,7 +1087,7 @@ export default function App() {
         <div className={styles.logo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
         <nav className={styles.headerNav}>
           <button className={`${styles.navBtn} ${view === "scan" ? styles.navBtnActive : ""}`} onClick={() => setView("scan")}>Scanner</button>
-          {isAdmin() && (<button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`} onClick={() => setView("admin")}>Admin</button>)}
+          {canManageUsers && (<button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`} onClick={() => setView("admin")}>Admin</button>)}
           {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "schedules" ? styles.navBtnActive : ""}`} onClick={() => setView("schedules")}>Agendamentos</button>)}
         </nav>
         <div className={styles.headerRight}>
@@ -1114,7 +1116,7 @@ export default function App() {
 
       <main className={styles.main}>
         {!isAuthenticated() && view === "scan" && <GuestBanner onLogin={() => setView("login")} refreshKey={guestRefreshKey} />}
-        {view === "admin" && isAdmin() && <AdminPanel />}
+        {view === "admin" && canManageUsers && <AdminPanel />}
         {view === "schedules" && isAuthenticated() && <SchedulesPage />}
 
         {view === "scan" && (
