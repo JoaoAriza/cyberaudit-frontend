@@ -1175,6 +1175,32 @@
   color: var(--text-dim);
 }
 
+/* Plano FREE — destaque neutro/muted */
+.tagFree {
+  color: var(--text-dim);
+  border-color: var(--text-dim);
+}
+
+/* Role OWNER — igual .secure mas renomeado para legibilidade */
+.tagOwner {
+  color: var(--secure);
+  border-color: var(--secure);
+}
+
+/* Contador de scans restantes ex: "3/5" */
+.scanQuota {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--warning);
+  letter-spacing: 0.5px;
+}
+
+/* Label de toggle bloqueada por plano */
+.disabledLabel {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* ── Guest banner ──────────────────────────────────────────────────────── */
 .guestBanner {
   display: flex;

@@ -4,9 +4,21 @@ import { api, getToken, setToken, clearToken } from "../api/client";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+export type Plan = "FREE" | "PRO" | "ENTERPRISE";
+
 export interface AccountDto {
-  id: string; type: string; displayName: string;
-  companyName: string | null; country: string | null;
+  id: string;
+  type: string;
+  displayName: string;
+  companyName: string | null;
+  country: string | null;
+  plan: Plan;
+  dailyScanLimit: number;       // -1 = ilimitado
+  scheduledScanLimit: number;   // -1 = ilimitado
+  activeScanAllowed: boolean;
+  pdfExportAllowed: boolean;
+  changesModuleAllowed: boolean;
+  historyChartAllowed: boolean;
 }
 export interface UserDto {
   id: string; name: string; email: string;

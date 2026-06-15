@@ -1054,6 +1054,10 @@ export default function App() {
   const reconColor    = reconProbs >= 2 ? "var(--critical)" : reconProbs >= 1 ? "var(--warning)" : "var(--secure)";
   const changeCount   = r?.changes?.length ?? 0;
   const changesColor  = (r?.changes ?? []).some(c => c.changeType === "DEGRADED") ? "var(--critical)" : changeCount > 0 ? "var(--warning)" : "var(--secure)";
+  // Permissões de plano (OWNER/ADMIN já recebem tudo pelo backend; guest = sem user)
+  const canChanges    = user?.account?.changesModuleAllowed === true;
+  const canHistory    = user?.account?.historyChartAllowed  === true;
+  const canActiveScan = user?.account?.activeScanAllowed    === true;
   const techFirst     = tf?.webServer ?? tf?.framework ?? tf?.cms ?? tf?.language ?? "—";
   const apiDocsCount   = r?.apiDocsExposure?.length ?? 0;
   const apiDocsColor   = apiDocsCount === 0 ? "var(--secure)" : (r?.apiDocsExposure ?? []).some(f => f.severity === "HIGH") ? "var(--high)" : "var(--warning)";
@@ -1087,6 +1091,17 @@ export default function App() {
         <div className={styles.headerRight}>
           {isAuthenticated() ? (
             <div className={styles.userInfo}>
+              {user?.account?.plan && (
+                <span className={`${styles.tag} ${
+                  user.account.plan === "ENTERPRISE" ? styles.secure :
+                  user.account.plan === "PRO"        ? styles.info   : styles.tagFree
+                }`}>{user.account.plan}</span>
+              )}
+              {user?.dailyLimit != null && user?.remainingScans != null && (
+                <span className={styles.scanQuota} title="Scans restantes hoje">
+                  {user.remainingScans}/{user.dailyLimit}
+                </span>
+              )}
               <span className={`${styles.tag} ${user?.role === "OWNER" ? styles.secure : styles.info}`}>{user?.role}</span>
               <span className={styles.userName}>{user?.name}</span>
               <button className={`${styles.btn} ${styles.btnGhost}`} onClick={logout}>Sair</button>
@@ -1111,9 +1126,15 @@ export default function App() {
                   <input className={styles.urlInput} value={url} onChange={e => setUrl(e.target.value)} placeholder="example.com" onKeyDown={e => e.key === "Enter" && !scanLoading && handleScan()} />
                 </div>
                 <div className={styles.toggles}>
-                  <label className={styles.toggle} title="Apenas em domínios autorizados.">
-                    <input type="checkbox" checked={active} disabled={scanLoading} onChange={e => setActive(e.target.checked)} />
-                    <span className={styles.toggleLabel}>ACTIVE</span>
+                  <label className={styles.toggle} title={
+                    user && !canActiveScan
+                      ? "Scan ativo requer plano ENTERPRISE"
+                      : "Apenas em domínios autorizados."
+                  }>
+                    <input type="checkbox" checked={active}
+                      disabled={scanLoading || (!!user && !canActiveScan)}
+                      onChange={e => setActive(e.target.checked)} />
+                    <span className={`${styles.toggleLabel} ${user && !canActiveScan ? styles.disabledLabel : ""}`}>ACTIVE{user && !canActiveScan ? " ⛔" : ""}</span>
                   </label>
                   {user && (
                     <label className={styles.toggle} title="Receber email ao concluir o scan">
@@ -1126,7 +1147,12 @@ export default function App() {
                   {scanLoading
                     ? <button className={`${styles.btn} ${styles.btnCancel}`} onClick={() => { abortRef.current?.abort(); stopPoll(); stopSlowTimer(); setScanLoading(false); }}>✕ Cancel</button>
                     : <button className={`${styles.btn} ${styles.btnScan}`} onClick={handleScan}>◈ Scan</button>}
-                  <button className={`${styles.btn} ${styles.btnGhost}`} onClick={handlePdf} disabled={pdfLoading || scanLoading}>{pdfLoading ? "..." : "PDF"}</button>
+                  <button
+                    className={`${styles.btn} ${styles.btnGhost}`}
+                    onClick={handlePdf}
+                    disabled={pdfLoading || scanLoading || (!!user && user.account?.pdfExportAllowed === false)}
+                    title={user && user.account?.pdfExportAllowed === false ? "PDF requer plano PRO ou superior" : ""}
+                  >{pdfLoading ? "..." : "PDF"}</button>
                 </div>
               </div>
               {active && <div className={styles.activeWarning}>⚠ Modo ativo: Use apenas em domínios autorizados.</div>}
@@ -1281,7 +1307,7 @@ export default function App() {
                       active={openModule === "cve"}
                       onClick={() => setOpenModule("cve")}/>
 
-                    {changeCount > 0 && (<>
+                    {changeCount > 0 && canChanges && (<>
                       <div className={styles.sidebarNavGroup}>Monitoramento</div>
                       <SidebarNavItem icon="△" title="Changes"
                         color={changesColor}
@@ -1358,7 +1384,7 @@ export default function App() {
                       </Card>
                     </div>
 
-                    {badgeHost && <ScoreHistoryChart host={badgeHost} />}
+                    {badgeHost && canHistory && <ScoreHistoryChart host={badgeHost} />}
 
                     <div className={styles.sidebarContent}>
 
