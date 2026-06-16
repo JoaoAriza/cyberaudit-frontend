@@ -3,6 +3,7 @@ import styles from "./App.module.css";
 import { api, setToken } from "./api/client";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useAuth } from "./context/AuthContext";
+import type { TwoFactorPending } from "./context/AuthContext";
 
 // ── Backend Types ─────────────────────────────────────────────────────────────
 
@@ -84,7 +85,7 @@ interface UserManagementDto { id: string; name: string; email: string; role: str
 interface InviteDto { id: string; name: string; email: string; role: string; jobTitle: string | null; invitedByName: string; accepted: boolean; expired: boolean; expiresAt: string; acceptLink: string | null; }
 interface DomainDto { id: string; host: string; verified: boolean; verifiedAt: string | null; createdAt: string; verificationToken: string; }
 
-type View = "scan" | "login" | "admin" | "schedules" | "domains" | "changes";
+type View = "scan" | "login" | "admin" | "schedules" | "domains" | "changes" | "settings";
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -478,18 +479,102 @@ function OwnershipCard({ state, onDismiss }: { state: OwnershipState; onDismiss:
 // ── Login Page ────────────────────────────────────────────────────────────────
 
 function LoginPage({ onBack }: { onBack: () => void }) {
-  const { login } = useAuth();
+  const { login, verify2fa, resendEmailOtp } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 2FA step
+  const [pending2fa, setPending2fa] = useState<TwoFactorPending | null>(null);
+  const [twoFaMethod, setTwoFaMethod] = useState<string>("TOTP");
+  const [twoFaCode, setTwoFaCode] = useState("");
+  const [resendInfo, setResendInfo] = useState<string | null>(null);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true); setError(null);
-    try { await login(email, password); onBack(); }
+    try {
+      const result = await login(email, password);
+      if (result?.requires2fa) {
+        setPending2fa(result);
+        setTwoFaMethod(result.twoFactorMethods[0] ?? "TOTP");
+      } else {
+        onBack();
+      }
+    }
     catch (err: any) { setError(err?.response?.data?.message ?? err?.response?.data?.error ?? "Credenciais inválidas."); }
     finally { setLoading(false); }
   }
+
+  async function handle2faSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true); setError(null);
+    try {
+      await verify2fa(twoFaCode.replace(/\s/g, ""), twoFaMethod);
+      onBack();
+    }
+    catch (err: any) { setError(err?.response?.data?.message ?? "Código inválido ou expirado."); }
+    finally { setLoading(false); }
+  }
+
+  async function handleResend() {
+    setResendInfo(null); setError(null);
+    try { await resendEmailOtp(); setResendInfo("Código reenviado para seu email."); }
+    catch (err: any) { setError("Falha ao reenviar código."); }
+  }
+
+  if (pending2fa) {
+    const hasBoth = pending2fa.twoFactorMethods.length > 1;
+    return (
+      <div className={styles.loginPage}>
+        <div className={styles.loginCard}>
+          <div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
+          <div className={styles.loginTitle}>Verificação em 2 etapas</div>
+          <div className={styles.loginSub}>
+            {twoFaMethod === "EMAIL"
+              ? "Insira o código enviado para seu email."
+              : "Insira o código do seu app autenticador."}
+          </div>
+          {hasBoth && (
+            <div className={styles.tfMethodRow}>
+              {pending2fa.twoFactorMethods.map(m => (
+                <button key={m}
+                  className={`${styles.tfMethodBtn} ${twoFaMethod === m ? styles.tfMethodBtnActive : ""}`}
+                  onClick={() => { setTwoFaMethod(m); setError(null); }}>
+                  {m === "TOTP" ? "📱 Autenticador" : "📧 Email"}
+                </button>
+              ))}
+            </div>
+          )}
+          <form className={styles.loginForm} onSubmit={handle2faSubmit}>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>CÓDIGO</label>
+              <input className={`${styles.formInput} ${styles.tfCodeInput}`}
+                type="text" inputMode="numeric" pattern="[\d ]{6,7}"
+                value={twoFaCode} onChange={e => setTwoFaCode(e.target.value)}
+                placeholder={twoFaMethod === "TOTP" ? "000000" : "000 000"}
+                maxLength={7} autoFocus required />
+            </div>
+            {error && <div className={styles.errorBox}>{error}</div>}
+            {resendInfo && <div className={styles.infoBox}>{resendInfo}</div>}
+            <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading}>
+              {loading ? "Verificando..." : "Confirmar"}
+            </button>
+            {twoFaMethod === "EMAIL" && (
+              <button type="button" className={styles.backLink} onClick={handleResend}>
+                Reenviar código por email
+              </button>
+            )}
+          </form>
+          <button className={styles.backLink} onClick={() => { setPending2fa(null); setTwoFaCode(""); setError(null); }}>
+            ← Voltar ao login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.loginPage}>
       <div className={styles.loginCard}>
@@ -1650,6 +1735,195 @@ function ScoreHistoryChart({ host }: { host: string }) {
   );
 }
 
+// ── Settings Page (2FA + conta) ───────────────────────────────────────────────
+
+function SettingsPage() {
+  const { user, isOwner } = useAuth();
+
+  // TOTP state
+  const [totpEnabled, setTotpEnabled]     = useState(false);
+  const [emailEnabled, setEmailEnabled]   = useState(false);
+  const [require2fa, setRequire2fa]       = useState(false);
+  const [loadedSettings, setLoadedSettings] = useState(false);
+
+  // TOTP setup flow
+  const [totpSetup, setTotpSetup]         = useState<{ secret: string; qrUri: string } | null>(null);
+  const [totpConfirmCode, setTotpConfirmCode] = useState("");
+
+  const [msg, setMsg]   = useState<string | null>(null);
+  const [err, setErr]   = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Load current 2FA status from /auth/me (UserDto includes totpEnabled, emailOtpEnabled, account.require2fa)
+  useEffect(() => {
+    api.get<{ totpEnabled: boolean; emailOtpEnabled: boolean; account: { require2fa: boolean } | null }>("/auth/me")
+      .then(res => {
+        setTotpEnabled(res.data.totpEnabled   ?? false);
+        setEmailEnabled(res.data.emailOtpEnabled ?? false);
+        setRequire2fa(res.data.account?.require2fa ?? false);
+        setLoadedSettings(true);
+      }).catch(() => setLoadedSettings(true));
+  }, []);
+
+  function flash(m: string, isErr = false) {
+    if (isErr) { setErr(m); setMsg(null); } else { setMsg(m); setErr(null); }
+    setTimeout(() => { setMsg(null); setErr(null); }, 4000);
+  }
+
+  async function startTotp() {
+    setBusy(true);
+    try {
+      const res = await api.post<{ secret: string; qrUri: string }>("/auth/2fa/setup/totp");
+      setTotpSetup(res.data);
+    } catch { flash("Erro ao iniciar configuração TOTP.", true); }
+    finally { setBusy(false); }
+  }
+
+  async function confirmTotp() {
+    if (!totpConfirmCode) return;
+    setBusy(true);
+    try {
+      await api.post("/auth/2fa/setup/totp/confirm", { code: totpConfirmCode });
+      setTotpEnabled(true); setTotpSetup(null); setTotpConfirmCode("");
+      flash("TOTP ativado com sucesso!");
+    } catch { flash("Código inválido. Tente novamente.", true); }
+    finally { setBusy(false); }
+  }
+
+  async function disableTotp() {
+    setBusy(true);
+    try {
+      await api.delete("/auth/2fa/totp");
+      setTotpEnabled(false); flash("TOTP desativado.");
+    } catch { flash("Erro ao desativar TOTP.", true); }
+    finally { setBusy(false); }
+  }
+
+  async function toggleEmailOtp() {
+    setBusy(true);
+    try {
+      if (emailEnabled) {
+        await api.delete("/auth/2fa/email");
+        setEmailEnabled(false); flash("Email OTP desativado.");
+      } else {
+        await api.post("/auth/2fa/email");
+        setEmailEnabled(true); flash("Email OTP ativado.");
+      }
+    } catch { flash("Erro ao alterar Email OTP.", true); }
+    finally { setBusy(false); }
+  }
+
+  async function toggleRequire2fa() {
+    setBusy(true);
+    const next = !require2fa;
+    try {
+      await api.put("/admin/account/require2fa", { require2fa: next });
+      setRequire2fa(next); flash(next ? "2FA obrigatório para todos os usuários da conta." : "2FA voltou a ser opcional.");
+    } catch { flash("Erro ao alterar configuração.", true); }
+    finally { setBusy(false); }
+  }
+
+  if (!loadedSettings) return <div className={styles.settingsPage}><p className={styles.muted}>Carregando...</p></div>;
+
+  const qrImageUrl = totpSetup
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(totpSetup.qrUri)}`
+    : null;
+
+  return (
+    <div className={styles.settingsPage}>
+      <h2 className={styles.settingsTitle}>Configurações de segurança</h2>
+
+      {msg && <div className={styles.infoBox}>{msg}</div>}
+      {err && <div className={styles.errorBox}>{err}</div>}
+
+      {/* ── TOTP ── */}
+      <div className={styles.settingsCard}>
+        <div className={styles.settingsCardHeader}>
+          <div>
+            <div className={styles.settingsCardTitle}>Autenticador TOTP <span className={styles.settingsBadge2fa}>Google Authenticator / Authy</span></div>
+            <div className={styles.settingsCardSub}>Código rotativo gerado no seu smartphone. Mais seguro que email OTP.</div>
+          </div>
+          <span className={totpEnabled ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{totpEnabled ? "ATIVO" : "INATIVO"}</span>
+        </div>
+
+        {!totpEnabled && !totpSetup && (
+          <button className={`${styles.btn} ${styles.btnScan}`} disabled={busy} onClick={startTotp}>
+            Ativar TOTP
+          </button>
+        )}
+
+        {totpSetup && (
+          <div className={styles.totpSetupBox}>
+            <p className={styles.settingsCardSub}>
+              1. Escaneie o QR code com seu app autenticador, ou insira a chave manualmente.
+            </p>
+            {qrImageUrl && <img src={qrImageUrl} alt="QR TOTP" className={styles.totpQr} />}
+            <div className={styles.totpSecretBox}>
+              <span className={styles.formLabel}>CHAVE MANUAL</span>
+              <code className={styles.totpSecret}>{totpSetup.secret}</code>
+            </div>
+            <p className={styles.settingsCardSub}>2. Digite o código de 6 dígitos exibido no app para confirmar:</p>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+              <input className={`${styles.formInput} ${styles.tfCodeInput}`}
+                type="text" inputMode="numeric" maxLength={6}
+                value={totpConfirmCode} onChange={e => setTotpConfirmCode(e.target.value)}
+                placeholder="000000" />
+              <button className={`${styles.btn} ${styles.btnScan}`} disabled={busy} onClick={confirmTotp}>
+                Confirmar
+              </button>
+              <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => { setTotpSetup(null); setTotpConfirmCode(""); }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {totpEnabled && (
+          <button className={`${styles.btn} ${styles.btnDanger}`} disabled={busy} onClick={disableTotp}>
+            Desativar TOTP
+          </button>
+        )}
+      </div>
+
+      {/* ── Email OTP ── */}
+      <div className={styles.settingsCard}>
+        <div className={styles.settingsCardHeader}>
+          <div>
+            <div className={styles.settingsCardTitle}>Email OTP</div>
+            <div className={styles.settingsCardSub}>Código de 6 dígitos enviado para {user?.email} a cada login.</div>
+          </div>
+          <span className={emailEnabled ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{emailEnabled ? "ATIVO" : "INATIVO"}</span>
+        </div>
+        <button
+          className={`${styles.btn} ${emailEnabled ? styles.btnDanger : styles.btnScan}`}
+          disabled={busy}
+          onClick={toggleEmailOtp}>
+          {emailEnabled ? "Desativar Email OTP" : "Ativar Email OTP"}
+        </button>
+      </div>
+
+      {/* ── Conta: require2fa (só OWNER) ── */}
+      {isOwner() && (
+        <div className={styles.settingsCard}>
+          <div className={styles.settingsCardHeader}>
+            <div>
+              <div className={styles.settingsCardTitle}>2FA obrigatório para a conta <span className={styles.settingsBadge2fa}>OWNER</span></div>
+              <div className={styles.settingsCardSub}>Quando ativo, todos os usuários desta conta precisarão configurar 2FA para fazer login.</div>
+            </div>
+            <span className={require2fa ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{require2fa ? "OBRIGATÓRIO" : "OPCIONAL"}</span>
+          </div>
+          <button
+            className={`${styles.btn} ${require2fa ? styles.btnDanger : styles.btnScan}`}
+            disabled={busy}
+            onClick={toggleRequire2fa}>
+            {require2fa ? "Tornar 2FA opcional" : "Tornar 2FA obrigatório"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const { user, loading, logout, isAdmin, isAuthenticated } = useAuth();
   const [view, setView] = useState<View>("scan");
@@ -1847,6 +2121,7 @@ export default function App() {
           {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "schedules" ? styles.navBtnActive : ""}`} onClick={() => setView("schedules")}>Agendamentos</button>)}
           {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "domains" ? styles.navBtnActive : ""}`} onClick={() => setView("domains")}>Domínios</button>)}
           {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "changes" ? styles.navBtnActive : ""}`} onClick={() => setView("changes")}>Histórico</button>)}
+          {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "settings" ? styles.navBtnActive : ""}`} onClick={() => setView("settings")}>⚙ Segurança</button>)}
         </nav>
         <div className={styles.headerRight}>
           {isAuthenticated() ? (
@@ -1884,6 +2159,7 @@ export default function App() {
         {view === "schedules" && isAuthenticated() && <SchedulesPage />}
         {view === "domains" && isAuthenticated() && <DomainsPage />}
         {view === "changes" && isAuthenticated() && <ChangesPage />}
+        {view === "settings" && isAuthenticated() && <SettingsPage />}
 
         {view === "scan" && (
           <>

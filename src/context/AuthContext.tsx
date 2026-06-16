@@ -28,10 +28,17 @@ export interface UserDto {
   remainingScans: number | null; dailyLimit: number | null;
   account: AccountDto | null;
 }
+export interface TwoFactorPending {
+  requires2fa: true;
+  twoFactorMethods: string[];
+}
+
 interface AuthContextValue {
   user: UserDto | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<TwoFactorPending | null>;
+  verify2fa: (code: string, method: string) => Promise<void>;
+  resendEmailOtp: () => Promise<void>;
   logout: () => void;
   isOwner: () => boolean;
   isAdmin: () => boolean;
@@ -64,12 +71,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("auth:logout", handler);
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<TwoFactorPending | null> => {
+    const res = await api.post<{
+      token: string;
+      user: UserDto | null;
+      requires2fa: boolean;
+      twoFactorMethods: string[] | null;
+    }>("/auth/login", { email, password });
+
+    setToken(res.data.token); // pode ser pre-auth ou token completo
+
+    if (res.data.requires2fa) {
+      // Não seta user — login incompleto
+      return { requires2fa: true, twoFactorMethods: res.data.twoFactorMethods ?? [] };
+    }
+    setUser(res.data.user!);
+    return null;
+  };
+
+  const verify2fa = async (code: string, method: string): Promise<void> => {
     const res = await api.post<{ token: string; user: UserDto }>(
-      "/auth/login", { email, password }
+      "/auth/2fa/verify", { code, method }
     );
     setToken(res.data.token);
     setUser(res.data.user);
+  };
+
+  const resendEmailOtp = async (): Promise<void> => {
+    await api.post("/auth/2fa/send-email-otp");
   };
 
   const logout = () => {
@@ -79,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, loading, login, logout,
+      user, loading, login, verify2fa, resendEmailOtp, logout,
       isOwner:         () => user?.role === "OWNER",
       isAdmin:         () => user?.role === "OWNER" || user?.role === "ADMIN",
       isAuthenticated: () => user !== null,
