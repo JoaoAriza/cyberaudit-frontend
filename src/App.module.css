@@ -3012,6 +3012,70 @@
   padding: 10px 14px;
 }
 
+/* ── LGPD / Privacy ──────────────────────────────────────────────────────── */
+
+.termsCheck {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1.5;
+  margin: 4px 0;
+}
+
+.termsCheck input[type="checkbox"] {
+  margin-top: 2px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.termsCheck strong {
+  color: var(--text);
+}
+
+.dangerZoneRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.dangerZoneBorder {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 4px;
+}
+
+.dangerZoneLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.dangerZoneLabelRed {
+  color: var(--critical);
+}
+
+.deleteConfirmBox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.deleteConfirmText {
+  font-size: 12px;
+  color: var(--critical);
+  font-weight: 600;
+  text-align: right;
+}
+
 /* ── Domains Page ──────────────────────────────────────────────────────────── */
 
 .domainList {

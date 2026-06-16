@@ -731,6 +731,8 @@ function SetupPage() {
   const [password, setPassword] = useState("");
   const [confirm,  setConfirm]  = useState("");
 
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
 
@@ -766,6 +768,7 @@ function SetupPage() {
         payload.profession = profession.trim() || undefined;
         payload.website    = website.trim() || undefined;
       }
+      payload.termsAccepted = termsAccepted;
       const res = await api.post<{ token: string }>("/auth/setup", payload);
       setToken(res.data.token);
       window.location.href = "/";
@@ -891,11 +894,15 @@ function SetupPage() {
             <div className={styles.formGroup}><label className={styles.formLabel}>EMAIL *</label><input className={styles.formInput} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@empresa.com" required /></div>
             <div className={styles.formGroup}><label className={styles.formLabel}>SENHA *</label><input className={styles.formInput} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" required /></div>
             <div className={styles.formGroup}><label className={styles.formLabel}>CONFIRMAR SENHA *</label><input className={styles.formInput} type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repita a senha" required /></div>
+            <label className={styles.termsCheck}>
+              <input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)} required />
+              <span>Li e aceito os <strong>Termos de Uso</strong> e a <strong>Política de Privacidade</strong> (LGPD)</span>
+            </label>
             {error && <div className={styles.errorBox}>{error}</div>}
             <div className={styles.setupBtnRow}>
               <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={goBack} disabled={loading}>← Voltar</button>
               <button type="submit" className={`${styles.btn} ${styles.btnScan}`}
-                disabled={loading || !name.trim() || !email.trim() || !password || !confirm}>
+                disabled={loading || !name.trim() || !email.trim() || !password || !confirm || !termsAccepted}>
                 {loading ? "Configurando..." : "Finalizar setup"}
               </button>
             </div>
@@ -912,6 +919,7 @@ function AcceptInvitePage({ token }: { token: string }) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -919,8 +927,9 @@ function AcceptInvitePage({ token }: { token: string }) {
     e.preventDefault();
     if (password !== confirm) { setError("As senhas não coincidem."); return; }
     if (password.length < 6) { setError("Senha deve ter no mínimo 6 caracteres."); return; }
+    if (!termsAccepted) { setError("É necessário aceitar os Termos de Uso."); return; }
     setLoading(true); setError(null);
-    try { await api.post(`/auth/accept-invite/${token}`, { name, password }); setSuccess(true); setTimeout(() => { window.location.href = "/"; }, 2000); }
+    try { await api.post(`/auth/accept-invite/${token}`, { name, password, termsAccepted }); setSuccess(true); setTimeout(() => { window.location.href = "/"; }, 2000); }
     catch (err: any) { setError(err?.response?.data?.message ?? "Convite inválido ou expirado."); }
     finally { setLoading(false); }
   }
@@ -934,8 +943,12 @@ function AcceptInvitePage({ token }: { token: string }) {
         <div className={styles.formGroup}><label className={styles.formLabel}>NOME COMPLETO</label><input className={styles.formInput} value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></div>
         <div className={styles.formGroup}><label className={styles.formLabel}>SENHA *</label><input className={styles.formInput} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" required /></div>
         <div className={styles.formGroup}><label className={styles.formLabel}>CONFIRMAR SENHA *</label><input className={styles.formInput} type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repita a senha" required /></div>
+        <label className={styles.termsCheck}>
+          <input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)} required />
+          <span>Li e aceito os <strong>Termos de Uso</strong> e a <strong>Política de Privacidade</strong> (LGPD)</span>
+        </label>
         {error && <div className={styles.errorBox}>{error}</div>}
-        <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading}>{loading ? "Criando conta..." : "Criar conta e entrar"}</button>
+        <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading || !termsAccepted}>{loading ? "Criando conta..." : "Criar conta e entrar"}</button>
       </form>
     </div></div>
   );
@@ -1920,6 +1933,92 @@ function SettingsPage() {
           </button>
         </div>
       )}
+
+      {/* ── Privacidade e Dados (LGPD) ── */}
+      <div className={styles.settingsCard}>
+        <div className={styles.settingsCardHeader}>
+          <div>
+            <div className={styles.settingsCardTitle}>Privacidade e Dados <span className={styles.settingsBadge2fa}>LGPD</span></div>
+            <div className={styles.settingsCardSub}>Seus direitos conforme a Lei Geral de Proteção de Dados (Lei 13.709/2018).</div>
+          </div>
+        </div>
+
+        {/* Exportar dados */}
+        <div className={styles.dangerZoneRow}>
+          <div>
+            <div className={styles.dangerZoneLabel}>Exportar meus dados</div>
+            <div className={styles.settingsCardSub}>Baixa um arquivo JSON com todos os seus dados pessoais armazenados (portabilidade — Art. 18).</div>
+          </div>
+          <button className={`${styles.btn} ${styles.btnGhost}`} disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const res = await api.get<object>("/user/data-export");
+                const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: "application/json" });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = "cyberaudit-meus-dados.json";
+                document.body.appendChild(a); a.click(); a.remove();
+                window.URL.revokeObjectURL(url);
+              } catch { flash("Erro ao exportar dados.", true); }
+              finally { setBusy(false); }
+            }}>
+            ↓ Exportar JSON
+          </button>
+        </div>
+
+        {/* Excluir conta */}
+        <div className={`${styles.dangerZoneRow} ${styles.dangerZoneBorder}`}>
+          <div>
+            <div className={`${styles.dangerZoneLabel} ${styles.dangerZoneLabelRed}`}>Excluir minha conta</div>
+            <div className={styles.settingsCardSub}>Remove permanentemente seus dados pessoais (direito ao esquecimento — Art. 18). Esta ação é irreversível.</div>
+          </div>
+          <DeleteAccountButton onDelete={() => { flash("Conta excluída."); window.location.href = "/"; }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteAccountButton({ onDelete }: { onDelete: () => void }) {
+  const { logout } = useAuth();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function doDelete() {
+    setBusy(true);
+    try {
+      await api.delete("/user/account");
+      logout();
+      onDelete();
+    } catch (e: any) {
+      setErr(e?.response?.data?.message ?? "Erro ao excluir conta.");
+      setBusy(false);
+      setConfirming(false);
+    }
+  }
+
+  if (!confirming) {
+    return (
+      <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => setConfirming(true)}>
+        Excluir conta
+      </button>
+    );
+  }
+
+  return (
+    <div className={styles.deleteConfirmBox}>
+      <div className={styles.deleteConfirmText}>Tem certeza? Esta ação não pode ser desfeita.</div>
+      {err && <div className={styles.errorBox} style={{ fontSize: 11, padding: "6px 10px" }}>{err}</div>}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button className={`${styles.btn} ${styles.btnDanger}`} disabled={busy} onClick={doDelete}>
+          {busy ? "Excluindo..." : "Sim, excluir"}
+        </button>
+        <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => { setConfirming(false); setErr(null); }}>
+          Cancelar
+        </button>
+      </div>
     </div>
   );
 }
