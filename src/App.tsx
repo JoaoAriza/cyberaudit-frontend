@@ -1135,9 +1135,139 @@ function SchedulesPage() {
 
 // ── Admin Panel ───────────────────────────────────────────────────────────────
 
+// ── Audit Logs types ─────────────────────────────────────────────────────────
+
+interface AuditLogEntry {
+  id: string;
+  userId: string | null;
+  userEmail: string | null;
+  userName: string | null;
+  action: string;
+  details: string | null;
+  ipAddress: string | null;
+  timestamp: string;
+  success: boolean;
+}
+
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  LOGIN_SUCCESS:       "Login",
+  LOGIN_FAILED:        "Falha no login",
+  LOGIN_2FA_VERIFIED:  "2FA verificado",
+  SCAN_STARTED:        "Scan iniciado",
+  SCAN_COMPLETED:      "Scan concluído",
+  DOMAIN_ADDED:        "Domínio adicionado",
+  DOMAIN_VERIFIED:     "Domínio verificado",
+  DOMAIN_REMOVED:      "Domínio removido",
+  USER_INVITED:        "Convite criado",
+  USER_ROLE_CHANGED:   "Role alterado",
+  USER_DEACTIVATED:    "Usuário desativado",
+  USER_REACTIVATED:    "Usuário reativado",
+  TOTP_ENABLED:        "TOTP ativado",
+  TOTP_DISABLED:       "TOTP desativado",
+  EMAIL_OTP_ENABLED:   "Email OTP ativado",
+  EMAIL_OTP_DISABLED:  "Email OTP desativado",
+  REQUIRE_2FA_CHANGED: "2FA obrigatório alterado",
+  DATA_EXPORTED:       "Dados exportados",
+  ACCOUNT_DELETED:     "Conta excluída",
+};
+
+function AuditLogsTab() {
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { loadLogs(0); }, []);
+
+  async function loadLogs(p: number) {
+    setLoading(true);
+    try {
+      const r = await api.get<{ logs: AuditLogEntry[]; totalPages: number; totalElements: number }>(
+        `/admin/audit-logs?page=${p}&size=50`
+      );
+      setLogs(r.data.logs);
+      setTotalPages(r.data.totalPages);
+      setTotalElements(r.data.totalElements);
+      setPage(p);
+    } catch {}
+    finally { setLoading(false); }
+  }
+
+  function actionBadge(action: string, success: boolean) {
+    const label = AUDIT_ACTION_LABELS[action] ?? action;
+    const isFailure = action === "LOGIN_FAILED" || !success;
+    const isAuth = action.startsWith("LOGIN") || action.includes("2FA") || action.includes("TOTP") || action.includes("OTP");
+    const isScan = action.startsWith("SCAN");
+    const isDomain = action.startsWith("DOMAIN");
+    const isUser = action.startsWith("USER") || action === "REQUIRE_2FA_CHANGED";
+    const isData = action === "DATA_EXPORTED" || action === "ACCOUNT_DELETED";
+    const cls = isFailure ? styles.critical : isScan ? styles.info : isDomain ? styles.secure : isUser ? styles.warning : isData ? styles.critical : isAuth ? styles.ok : styles.muted;
+    return <span className={`${styles.tag} ${cls}`}>{label}</span>;
+  }
+
+  return (
+    <div className={styles.adminContent}>
+      <Card title={`AUDIT LOG — ${totalElements} evento${totalElements !== 1 ? "s" : ""}`}>
+        {loading ? (
+          <div className={styles.empty}>Carregando logs...</div>
+        ) : logs.length === 0 ? (
+          <div className={styles.empty}>Nenhum evento registrado.</div>
+        ) : (
+          <>
+            <div className={styles.auditTableWrap}>
+              <table className={styles.adminTable}>
+                <thead>
+                  <tr>
+                    <th>Data/Hora</th>
+                    <th>Usuário</th>
+                    <th>Ação</th>
+                    <th>Detalhes</th>
+                    <th>IP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map(log => (
+                    <tr key={log.id} className={log.success ? "" : styles.inactiveRow}>
+                      <td className={styles.muted} style={{ whiteSpace: "nowrap", fontSize: 11 }}>
+                        {new Date(log.timestamp).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "medium" })}
+                      </td>
+                      <td>
+                        <div style={{ lineHeight: 1.3 }}>
+                          <span style={{ fontSize: 12 }}>{log.userName ?? "—"}</span>
+                          {log.userEmail && <div className={styles.muted} style={{ fontSize: 10 }}>{log.userEmail}</div>}
+                        </div>
+                      </td>
+                      <td>{actionBadge(log.action, log.success)}</td>
+                      <td className={styles.muted} style={{ fontSize: 11, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {log.details ?? "—"}
+                      </td>
+                      <td><code className={styles.code} style={{ fontSize: 10 }}>{log.ipAddress ?? "—"}</code></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {totalPages > 1 && (
+              <div className={styles.auditPagination}>
+                <button className={`${styles.btn} ${styles.btnGhost}`} disabled={page === 0} onClick={() => loadLogs(page - 1)}>← Anterior</button>
+                <span className={styles.muted}>Página {page + 1} de {totalPages}</span>
+                <button className={`${styles.btn} ${styles.btnGhost}`} disabled={page >= totalPages - 1} onClick={() => loadLogs(page + 1)}>Próxima →</button>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function AdminPanel() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<"users" | "invites">(user?.role === "OWNER" ? "users" : "invites");
+  const isCompany = user?.account?.type === "COMPANY";
+  const [tab, setTab] = useState<"users" | "invites" | "audit">(
+    isCompany && user?.role === "OWNER" ? "users" : isCompany ? "invites" : "audit"
+  );
   const [users, setUsers] = useState<UserManagementDto[]>([]);
   const [invites, setInvites] = useState<InviteDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1149,6 +1279,7 @@ function AdminPanel() {
   const [newInvite, setNewInvite] = useState<InviteDto | null>(null);
   const [invError, setInvError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => { loadUsers(); loadInvites(); }, []);
   useEffect(() => { if (user?.role === "ADMIN") setInvRole("FREE_EMPLOYEE"); }, [user]);
@@ -1166,6 +1297,24 @@ function AdminPanel() {
     finally { setInviting(false); }
   }
   function copyLink() { if (!newInvite?.acceptLink) return; navigator.clipboard.writeText(window.location.origin + newInvite.acceptLink); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+  async function downloadExecutivePdf() {
+    setDownloadingPdf(true);
+    try {
+      const response = await api.get("/admin/report/executive-pdf", { responseType: "blob" });
+      const url = URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `cyberaudit-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert("Erro ao gerar relatório PDF.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
   function roleBadge(role: string) {
     const cls = role === "OWNER" ? styles.secure : role === "ADMIN" ? styles.warning : styles.info;
     return <Tag label={role} cls={cls} />;
@@ -1174,11 +1323,24 @@ function AdminPanel() {
   return (
     <div className={styles.adminPage}>
       <div className={styles.adminHeader}>
-        <div className={styles.adminTitle}>◈ PAINEL ADMIN</div>
-        <div className={styles.adminTabs}>
-          {user?.role === "OWNER" && (<button className={`${styles.adminTab} ${tab === "users" ? styles.adminTabActive : ""}`} onClick={() => setTab("users")}>Usuários ({users.length})</button>)}
-          <button className={`${styles.adminTab} ${tab === "invites" ? styles.adminTabActive : ""}`} onClick={() => setTab("invites")}>Convites ({invites.length})</button>
+        <div className={styles.adminHeaderLeft}>
+          <div className={styles.adminTitle}>◈ PAINEL ADMIN</div>
+          <button
+            className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
+            onClick={downloadExecutivePdf}
+            disabled={downloadingPdf}
+            title="Baixar relatório executivo em PDF"
+          >
+            {downloadingPdf ? "Gerando..." : "↓ Relatório PDF"}
+          </button>
         </div>
+        {isCompany && (
+          <div className={styles.adminTabs}>
+            {user?.role === "OWNER" && (<button className={`${styles.adminTab} ${tab === "users" ? styles.adminTabActive : ""}`} onClick={() => setTab("users")}>Usuários ({users.length})</button>)}
+            <button className={`${styles.adminTab} ${tab === "invites" ? styles.adminTabActive : ""}`} onClick={() => setTab("invites")}>Convites ({invites.length})</button>
+            {(user?.role === "OWNER" || user?.role === "ADMIN") && (<button className={`${styles.adminTab} ${tab === "audit" ? styles.adminTabActive : ""}`} onClick={() => setTab("audit")}>Auditoria</button>)}
+          </div>
+        )}
       </div>
       {tab === "users" && (
         <div className={styles.adminContent}>
@@ -1231,6 +1393,7 @@ function AdminPanel() {
           </div>
         </div>
       )}
+      {tab === "audit" && <AuditLogsTab />}
     </div>
   );
 }
@@ -2188,6 +2351,8 @@ export default function App() {
   const canActiveScan = user?.account?.activeScanAllowed    === true;
   // Gestão de usuários: exclusivo para contas COMPANY com role OWNER ou ADMIN
   const canManageUsers = isAdmin() && user?.account?.type === "COMPANY";
+  // Painel Admin visível para qualquer OWNER/ADMIN (audit logs disponíveis independente do tipo de conta)
+  const canViewAdmin = isAdmin();
   const techFirst     = tf?.webServer ?? tf?.framework ?? tf?.cms ?? tf?.language ?? "—";
   const apiDocsCount   = r?.apiDocsExposure?.length ?? 0;
   const apiDocsColor   = apiDocsCount === 0 ? "var(--secure)" : (r?.apiDocsExposure ?? []).some(f => f.severity === "HIGH") ? "var(--high)" : "var(--warning)";
@@ -2216,7 +2381,7 @@ export default function App() {
         <div className={styles.logo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
         <nav className={styles.headerNav}>
           <button className={`${styles.navBtn} ${view === "scan" ? styles.navBtnActive : ""}`} onClick={() => setView("scan")}>Scanner</button>
-          {canManageUsers && (<button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`} onClick={() => setView("admin")}>Admin</button>)}
+          {canViewAdmin && (<button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`} onClick={() => setView("admin")}>Admin</button>)}
           {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "schedules" ? styles.navBtnActive : ""}`} onClick={() => setView("schedules")}>Agendamentos</button>)}
           {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "domains" ? styles.navBtnActive : ""}`} onClick={() => setView("domains")}>Domínios</button>)}
           {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "changes" ? styles.navBtnActive : ""}`} onClick={() => setView("changes")}>Histórico</button>)}
@@ -2254,7 +2419,7 @@ export default function App() {
 
       <main className={styles.main}>
         {!isAuthenticated() && view === "scan" && <GuestBanner onLogin={() => setView("login")} refreshKey={guestRefreshKey} />}
-        {view === "admin" && canManageUsers && <AdminPanel />}
+        {view === "admin" && canViewAdmin && <AdminPanel />}
         {view === "schedules" && isAuthenticated() && <SchedulesPage />}
         {view === "domains" && isAuthenticated() && <DomainsPage />}
         {view === "changes" && isAuthenticated() && <ChangesPage />}

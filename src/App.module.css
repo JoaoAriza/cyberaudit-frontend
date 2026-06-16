@@ -1632,6 +1632,18 @@
   gap: 12px;
 }
 
+.adminHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btnSm {
+  padding: 4px 10px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
 .adminTitle {
   font-size: 13px;
   font-weight: 700;
@@ -3074,6 +3086,22 @@
   color: var(--critical);
   font-weight: 600;
   text-align: right;
+}
+
+/* ── Audit Logs ────────────────────────────────────────────────────────────── */
+
+.auditTableWrap {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.auditPagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px 0 4px;
+  font-size: 12px;
 }
 
 /* ── Domains Page ──────────────────────────────────────────────────────────── */
