@@ -1566,7 +1566,8 @@ function ChangesPage() {
   function toggleScan(id: string) {
     setScanDetails(prev => {
       const cur = prev[id];
-      if (cur?.changes !== null || cur?.loading) {
+      // `cur` is undefined on first click — undefined !== null is true, so guard explicitly
+      if (cur && (cur.changes !== null || cur.loading)) {
         return { ...prev, [id]: { ...cur, open: !cur.open } };
       }
       // First open — kick off fetch
