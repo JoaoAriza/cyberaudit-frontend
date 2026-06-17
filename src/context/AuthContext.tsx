@@ -20,6 +20,7 @@ export interface AccountDto {
   pdfExportAllowed: boolean;
   changesModuleAllowed: boolean;
   historyChartAllowed: boolean;
+  publicStatusToken: string | null;
 }
 export interface UserDto {
   id: string; name: string; email: string;

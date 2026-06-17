@@ -94,6 +94,11 @@ function getInviteTokenFromUrl(): string | null {
   const match = path.match(/\/auth\/accept-invite\/([a-f0-9-]+)/);
   return match ? match[1] : null;
 }
+function getStatusTokenFromUrl(): string | null {
+  const path = window.location.pathname;
+  const match = path.match(/\/status\/([a-f0-9]{32,64})/);
+  return match ? match[1] : null;
+}
 function riskColor(level?: string) {
   if (level === "SECURE")   return styles.secure;
   if (level === "LOW")      return styles.low;
@@ -1277,6 +1282,9 @@ function AdminPanel() {
   const [invJob, setInvJob] = useState("");
   const [inviting, setInviting] = useState(false);
   const [newInvite, setNewInvite] = useState<InviteDto | null>(null);
+  const [statusToken, setStatusToken] = useState<string | null>(user?.account?.publicStatusToken ?? null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [copiedStatus, setCopiedStatus] = useState(false);
   const [invError, setInvError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -1314,6 +1322,23 @@ function AdminPanel() {
     } finally {
       setDownloadingPdf(false);
     }
+  }
+  async function toggleStatusPage(enable: boolean) {
+    setStatusLoading(true);
+    try {
+      const res = await api.post<{ enabled: boolean; token: string }>("/admin/account/status-page", { enabled: enable });
+      setStatusToken(enable ? res.data.token : null);
+    } catch (e: any) {
+      alert(e?.response?.data?.message ?? "Erro ao configurar página de status.");
+    } finally {
+      setStatusLoading(false);
+    }
+  }
+  function copyStatusLink() {
+    if (!statusToken) return;
+    navigator.clipboard.writeText(`${window.location.origin}/status/${statusToken}`);
+    setCopiedStatus(true);
+    setTimeout(() => setCopiedStatus(false), 2000);
   }
   function roleBadge(role: string) {
     const cls = role === "OWNER" ? styles.secure : role === "ADMIN" ? styles.warning : styles.info;
@@ -1394,6 +1419,39 @@ function AdminPanel() {
         </div>
       )}
       {tab === "audit" && <AuditLogsTab />}
+
+      {/* Status Page toggle — visible for OWNER only */}
+      {user?.role === "OWNER" && (
+        <div className={styles.adminContent} style={{ marginTop: 20 }}>
+          <Card title="PÁGINA DE STATUS PÚBLICA">
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>
+              Gera um link público (sem login) com o status de segurança dos seus domínios. Compartilhe com clientes ou equipe.
+            </div>
+            {statusToken ? (
+              <div>
+                <div className={styles.tokenRow} style={{ marginBottom: 10 }}>
+                  <code className={styles.stepCode} style={{ fontSize: 10, wordBreak: "break-all" }}>
+                    {window.location.origin}/status/{statusToken}
+                  </code>
+                  <button className={styles.copyBtn} onClick={copyStatusLink}>{copiedStatus ? "✓" : "Copiar link"}</button>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`} onClick={() => toggleStatusPage(true)} disabled={statusLoading}>
+                    {statusLoading ? "..." : "↺ Regenerar token"}
+                  </button>
+                  <button className={`${styles.btn} ${styles.btnDanger} ${styles.btnSm}`} onClick={() => toggleStatusPage(false)} disabled={statusLoading}>
+                    {statusLoading ? "..." : "Desativar"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button className={`${styles.btn} ${styles.btnScan}`} onClick={() => toggleStatusPage(true)} disabled={statusLoading}>
+                {statusLoading ? "Ativando..." : "Ativar página de status"}
+              </button>
+            )}
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
@@ -2186,6 +2244,155 @@ function DeleteAccountButton({ onDelete }: { onDelete: () => void }) {
   );
 }
 
+// ── Public Status Page ────────────────────────────────────────────────────────
+
+interface PublicDomainStatus {
+  host: string;
+  verified: boolean;
+  score: number | null;
+  riskLevel: string | null;
+  lastScanAt: string | null;
+  activeMode: boolean;
+  topIssues: { severity: string; title: string; recommendation: string }[];
+}
+interface PublicStatus {
+  accountName: string;
+  plan: string;
+  generatedAt: string;
+  overallScore: number;
+  overallRisk: string;
+  domains: PublicDomainStatus[];
+}
+
+function PublicStatusPage({ token }: { token: string }) {
+  const [data, setData] = useState<PublicStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const baseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8081";
+    fetch(`${baseUrl}/public/status/${token}`)
+      .then(res => {
+        if (!res.ok) throw new Error("not_found");
+        return res.json();
+      })
+      .then(setData)
+      .catch(() => setError("Página de status não encontrada ou desativada."))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  const riskBadgeCls = (risk?: string | null) => {
+    switch (risk) {
+      case "CRITICAL": return styles.critical;
+      case "HIGH":     return styles.high;
+      case "MEDIUM":   return styles.warning;
+      case "LOW":      return styles.low;
+      case "MINIMAL":  return styles.secure;
+      default:         return styles.muted;
+    }
+  };
+  const severityCls = (s: string) => {
+    if (s === "CRITICAL") return styles.critical;
+    if (s === "HIGH")     return styles.high;
+    if (s === "MEDIUM")   return styles.warning;
+    if (s === "LOW")      return styles.low;
+    return styles.muted;
+  };
+
+  if (loading) return (
+    <div className={styles.app}>
+      <div className={styles.loadingScreen}><span className={styles.logoIcon}>◈</span> Carregando...</div>
+    </div>
+  );
+
+  if (error || !data) return (
+    <div className={styles.app}>
+      <div className={styles.loginPage}>
+        <div className={styles.loginCard}>
+          <div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
+          <div className={styles.loginTitle} style={{ color: "var(--critical)" }}>Página não encontrada</div>
+          <div className={styles.loginSub}>{error ?? "Esta página de status não existe ou foi desativada."}</div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={styles.app}>
+      <header className={styles.header}>
+        <div className={styles.logo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
+        <div className={styles.headerRight}>
+          <span className={styles.muted} style={{ fontSize: 11 }}>Página de status pública</span>
+        </div>
+      </header>
+      <div className={styles.mainContent} style={{ maxWidth: 860, margin: "0 auto", padding: "32px 20px" }}>
+        {/* Account header */}
+        <div className={styles.card} style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "var(--accent)", letterSpacing: 1 }}>{data.accountName}</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>Atualizado em {data.generatedAt}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 36, fontWeight: 700, color: data.overallScore >= 75 ? "var(--secure)" : data.overallScore >= 50 ? "var(--warning)" : "var(--critical)" }}>
+                {data.overallScore >= 0 ? data.overallScore : "—"}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Score geral</div>
+              <span className={`${styles.tag} ${riskBadgeCls(data.overallRisk)}`} style={{ marginTop: 4 }}>{data.overallRisk}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Domain list */}
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: "var(--accent)", marginBottom: 12 }}>
+          DOMÍNIOS ({data.domains.length})
+        </div>
+        {data.domains.map(d => (
+          <div key={d.host} className={styles.card} style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}>
+                  {d.host}
+                  {d.verified && <span className={`${styles.tag} ${styles.secure}`} style={{ marginLeft: 8, fontSize: 9 }}>✓ VERIFICADO</span>}
+                </div>
+                {d.lastScanAt && (
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>
+                    Último scan: {d.lastScanAt} {d.activeMode ? "(ativo)" : "(passivo)"}
+                  </div>
+                )}
+              </div>
+              {d.score != null ? (
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: d.score >= 75 ? "var(--secure)" : d.score >= 50 ? "var(--warning)" : "var(--critical)" }}>
+                    {d.score}
+                  </div>
+                  {d.riskLevel && <span className={`${styles.tag} ${riskBadgeCls(d.riskLevel)}`} style={{ fontSize: 9 }}>{d.riskLevel}</span>}
+                </div>
+              ) : (
+                <span className={styles.muted} style={{ fontSize: 11 }}>Sem scan</span>
+              )}
+            </div>
+            {d.topIssues.length > 0 && (
+              <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+                {d.topIssues.map((issue, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+                    <span className={`${styles.tag} ${severityCls(issue.severity)}`} style={{ fontSize: 8, whiteSpace: "nowrap", marginTop: 1 }}>{issue.severity}</span>
+                    <span style={{ fontSize: 11, color: "var(--text)" }}>{issue.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        <div style={{ textAlign: "center", marginTop: 32, fontSize: 10, color: "var(--text-muted)" }}>
+          Relatório gerado por <strong style={{ color: "var(--accent)" }}>CyberAudit</strong> · Esta página é pública e pode ser compartilhada.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const { user, loading, logout, isAdmin, isAuthenticated } = useAuth();
   const [view, setView] = useState<View>("scan");
@@ -2298,6 +2505,9 @@ export default function App() {
 
   const inviteToken = getInviteTokenFromUrl();
   if (inviteToken) return <div className={styles.app}><AcceptInvitePage token={inviteToken} /></div>;
+
+  const statusToken = getStatusTokenFromUrl();
+  if (statusToken) return <PublicStatusPage token={statusToken} />;
 
   // Aguarda tanto a verificação de setup quanto a validação de auth
   if (setupConfigured === null || loading)
