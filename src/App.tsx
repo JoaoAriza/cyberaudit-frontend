@@ -1982,7 +1982,10 @@ function ScanTimelineRow({
 }
 
 function ChangesPage() {
-  const [tab, setTab] = useState<"recent" | "domain">("recent");
+  const [tab, setTab] = useState<"recent" | "domain" | "analysis">("recent");
+  // ── Análise tab state ──────────────────────────────────────────────────────
+  const [analysisHost, setAnalysisHost]     = useState<string | null>(null);
+  const [analysisSearch, setAnalysisSearch] = useState("");
 
   // ── Shared lazy-load state ─────────────────────────────────────────────────
   const [scanDetails, setScanDetails] = useState<Record<string, {
@@ -2079,6 +2082,10 @@ function ChangesPage() {
           className={`${styles.adminTab} ${tab === "domain" ? styles.adminTabActive : ""}`}
           onClick={() => setTab("domain")}
         >Por domínio</button>
+        <button
+          className={`${styles.adminTab} ${tab === "analysis" ? styles.adminTabActive : ""}`}
+          onClick={() => setTab("analysis")}
+        >Análise de Score</button>
       </div>
 
       {/* ── Aba: Recentes ── */}
@@ -2151,6 +2158,66 @@ function ChangesPage() {
 
           {!domainLoading && !domainError && domainList.length === 0 && activeHost && (
             <div className={styles.empty}>◈ Nenhum scan encontrado para <code>{activeHost}</code>.</div>
+          )}
+        </>
+      )}
+
+      {/* ── Aba: Análise de Score ── */}
+      {tab === "analysis" && (
+        <>
+          {/* Domain selector */}
+          {registeredDomains.length > 0 && (
+            <div className={styles.changesQuickSelect}>
+              <span className={styles.muted} style={{ fontSize: 11, letterSpacing: ".5px" }}>DOMÍNIOS CADASTRADOS</span>
+              <div className={styles.changesChips}>
+                {registeredDomains.map(d => (
+                  <button
+                    key={d.id}
+                    className={`${styles.changesChip} ${analysisHost === d.host ? styles.changesChipActive : ""}`}
+                    onClick={() => setAnalysisHost(d.host)}
+                  >
+                    {d.verified && <span className={styles.ok} style={{ fontSize: 10 }}>✓ </span>}
+                    {d.host}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              const h = analysisSearch.trim().replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
+              if (h) setAnalysisHost(h);
+            }}
+            className={styles.scheduleForm}
+          >
+            <input
+              className={styles.urlInput}
+              value={analysisSearch}
+              onChange={e => setAnalysisSearch(e.target.value)}
+              placeholder="example.com"
+            />
+            <button
+              className={`${styles.btn} ${styles.btnScan}`}
+              type="submit"
+              disabled={!analysisSearch.trim()}
+            >
+              Buscar
+            </button>
+          </form>
+
+          {analysisHost && (
+            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className={styles.muted} style={{ fontFamily: "var(--mono)", fontSize: 11 }}>
+                ◈ Analisando: <code style={{ color: "var(--accent)" }}>{analysisHost}</code>
+              </div>
+              <ScoreHistoryChart host={analysisHost} />
+              <IntradayChart host={analysisHost} />
+            </div>
+          )}
+
+          {!analysisHost && (
+            <div className={styles.empty}>◈ Selecione ou busque um domínio para ver a análise de score.</div>
           )}
         </>
       )}
@@ -2308,6 +2375,139 @@ function DomainsPage() {
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 
+
+
+// ── Intraday Score Chart ──────────────────────────────────────────────────────
+
+function IntradayChart({ host }: { host: string }) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [scans, setScans]   = useState<HistorySummary[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!host || !selectedDate) return;
+    setLoading(true);
+    setScans([]);
+    api.get<HistorySummary[]>(`/history/${host}?from=${selectedDate}&to=${selectedDate}`)
+      .then(res => setScans([...res.data].sort((a, b) =>
+        new Date(a.scannedAt).getTime() - new Date(b.scannedAt).getTime()
+      )))
+      .catch(() => setScans([]))
+      .finally(() => setLoading(false));
+  }, [host, selectedDate]);
+
+  const points = scans.map(s => {
+    const dt = new Date(s.scannedAt);
+    return {
+      ts:    dt.getTime(),
+      score: s.score,
+      risk:  s.riskLevel,
+      label: dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    };
+  });
+
+  const dateLabel = selectedDate
+    ? new Date(selectedDate + "T12:00:00").toLocaleDateString("pt-BR", {
+        weekday: "short", day: "2-digit", month: "2-digit", year: "numeric",
+      })
+    : "";
+
+  return (
+    <Card title="SCORE INTRADAY">
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+        <input
+          type="date"
+          value={selectedDate}
+          max={todayStr}
+          onChange={e => setSelectedDate(e.target.value)}
+          style={{
+            background: "var(--surface)", border: "1px solid var(--border2)",
+            borderRadius: "var(--radius-sm)", color: "var(--text)",
+            fontFamily: "var(--mono)", fontSize: 11, padding: "3px 8px",
+            cursor: "pointer", outline: "none",
+          }}
+        />
+        <span className={styles.muted} style={{ fontSize: 11 }}>{dateLabel}</span>
+        {loading && <span className={styles.muted} style={{ fontSize: 11 }}>carregando...</span>}
+      </div>
+
+      {!loading && points.length === 0 && (
+        <div className={styles.empty} style={{ fontSize: 12, padding: "10px 0" }}>
+          ◈ Nenhum scan registrado neste dia.
+        </div>
+      )}
+
+      {!loading && points.length === 1 && (
+        <div style={{ fontFamily: "var(--mono)", fontSize: 12, padding: "8px 0", color: "var(--text)" }}>
+          1 scan · {points[0].label} · Score{" "}
+          <strong style={{ color: "var(--info)" }}>{points[0].score}/100</strong>
+        </div>
+      )}
+
+      {points.length >= 2 && (
+        <>
+          <div onMouseDown={e => e.preventDefault()} style={{ cursor: "default" }}>
+            <ResponsiveContainer width="100%" height={140}>
+              <LineChart data={points} margin={{ top: 8, right: 8, left: -28, bottom: 0 }}>
+                <XAxis
+                  dataKey="ts"
+                  type="number"
+                  scale="time"
+                  domain={["dataMin", "dataMax"]}
+                  tickCount={Math.min(points.length, 6)}
+                  tickFormatter={(v: number) =>
+                    new Date(v).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                  }
+                  tick={{ fill: "var(--text-muted)", fontSize: 10, fontFamily: "var(--mono)" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fill: "var(--text-muted)", fontSize: 10, fontFamily: "var(--mono)" }}
+                  axisLine={false}
+                  tickLine={false}
+                  ticks={[0, 25, 50, 75, 100]}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--bg-card, #0d1b2a)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontFamily: "var(--mono)",
+                    color: "var(--text)",
+                  }}
+                  formatter={(value: number) => [`${value}/100`, "Score"]}
+                  labelFormatter={(_: unknown, payload: any[]) =>
+                    payload?.length ? payload[0]?.payload?.label ?? "" : ""
+                  }
+                  trigger="hover"
+                />
+                <ReferenceLine y={85} stroke="var(--secure)"   strokeDasharray="3 3" strokeOpacity={0.3} />
+                <ReferenceLine y={70} stroke="var(--info)"     strokeDasharray="3 3" strokeOpacity={0.3} />
+                <ReferenceLine y={45} stroke="var(--warning)"  strokeDasharray="3 3" strokeOpacity={0.3} />
+                <ReferenceLine y={20} stroke="var(--critical)" strokeDasharray="3 3" strokeOpacity={0.3} />
+                <Line
+                  type="monotone"
+                  dataKey="score"
+                  stroke="var(--info)"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: "var(--info)", strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: "var(--info)", strokeWidth: 0 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className={styles.muted} style={{ fontSize: 10, marginTop: 2 }}>
+            {points.length} scan(s) neste dia
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
 
 // ── Score History Chart ───────────────────────────────────────────────────────
 
