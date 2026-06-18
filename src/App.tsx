@@ -1919,6 +1919,7 @@ function ScanTimelineRow({
               {new Date(s.scannedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
               {isFirst && <span className={styles.changesLatestBadge}>MAIS RECENTE</span>}
               {s.activeMode && <span className={`${styles.tag} ${styles.info}`} style={{ fontSize: 9 }}>ACTIVE</span>}
+              {s.origin === "SCHEDULED" && <span className={`${styles.tag} ${styles.warning}`} style={{ fontSize: 9 }}>AGENDADO</span>}
             </span>
             <div className={styles.changesScanBadges}>
               <span className={`${styles.tag} ${riskBadgeStyle(s.riskLevel)}`}>{s.riskLevel}</span>
@@ -1982,10 +1983,14 @@ function ScanTimelineRow({
 }
 
 function ChangesPage() {
-  const [tab, setTab] = useState<"recent" | "domain" | "analysis">("recent");
+  const [tab, setTab] = useState<"overview" | "domain" | "analysis">("overview");
   // ── Análise tab state ──────────────────────────────────────────────────────
   const [analysisHost, setAnalysisHost]     = useState<string | null>(null);
   const [analysisSearch, setAnalysisSearch] = useState("");
+  // ── Overview tab state ────────────────────────────────────────────────────
+  const [overviewList, setOverviewList]       = useState<HistorySummary[]>([]);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewFilter, setOverviewFilter]   = useState<"all" | "active" | "passive">("all");
 
   // ── Shared lazy-load state ─────────────────────────────────────────────────
   const [scanDetails, setScanDetails] = useState<Record<string, {
@@ -2032,12 +2037,12 @@ function ChangesPage() {
   const [recentError, setRecentError]     = useState<string | null>(null);
 
   useEffect(() => {
-    if (tab !== "recent") return;
-    setRecentLoading(true); setRecentError(null);
-    api.get<HistorySummary[]>("/history/recent?origin=MANUAL")
-      .then(r => setRecentList(r.data))
-      .catch(() => setRecentError("Erro ao carregar scans recentes."))
-      .finally(() => setRecentLoading(false));
+    if (tab !== "overview") return;
+    setOverviewLoading(true);
+    api.get<HistorySummary[]>("/history/overview")
+      .then(r => setOverviewList(r.data))
+      .catch(() => setOverviewList([]))
+      .finally(() => setOverviewLoading(false));
   }, [tab]);
 
   // ── Tab: Por domínio ───────────────────────────────────────────────────────
@@ -2047,6 +2052,7 @@ function ChangesPage() {
   const [domainList, setDomainList]               = useState<HistorySummary[]>([]);
   const [domainLoading, setDomainLoading]         = useState(false);
   const [domainError, setDomainError]             = useState<string | null>(null);
+  const [domainFilter, setDomainFilter]           = useState<"all" | "manual" | "scheduled" | "active" | "passive">("all");
 
   useEffect(() => {
     api.get<DomainDto[]>("/domains").then(r => setRegisteredDomains(r.data)).catch(() => {});
@@ -2056,9 +2062,10 @@ function ChangesPage() {
     const h = host.trim().replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
     if (!h) return;
     setActiveHost(h);
+    setDomainFilter("all");
     setDomainLoading(true); setDomainError(null); setDomainList([]);
     try {
-      const res = await api.get<HistorySummary[]>(`/history/${h}?origin=MANUAL`);
+      const res = await api.get<HistorySummary[]>(`/history/${h}`);
       setDomainList([...res.data].sort((a, b) =>
         new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime()
       ));
@@ -2075,9 +2082,9 @@ function ChangesPage() {
       {/* Tabs */}
       <div className={styles.adminTabs} style={{ marginBottom: 16 }}>
         <button
-          className={`${styles.adminTab} ${tab === "recent" ? styles.adminTabActive : ""}`}
-          onClick={() => setTab("recent")}
-        >Recentes (todos os domínios)</button>
+          className={`${styles.adminTab} ${tab === "overview" ? styles.adminTabActive : ""}`}
+          onClick={() => setTab("overview")}
+        >Visão Geral</button>
         <button
           className={`${styles.adminTab} ${tab === "domain" ? styles.adminTabActive : ""}`}
           onClick={() => setTab("domain")}
@@ -2089,21 +2096,110 @@ function ChangesPage() {
       </div>
 
       {/* ── Aba: Recentes ── */}
-      {tab === "recent" && (
+      {/* ── Aba: Visão Geral ── */}
+      {tab === "overview" && (
         <>
-          {recentLoading && <div className={styles.empty}>Carregando...</div>}
-          {recentError && <div className={styles.errorBox}>{recentError}</div>}
-          {!recentLoading && recentList.length === 0 && !recentError && (
-            <div className={styles.empty}>◈ Nenhum scan registrado ainda.</div>
+          {overviewLoading && <div className={styles.empty}>Carregando...</div>}
+          {!overviewLoading && overviewList.length === 0 && (
+            <div className={styles.empty}>◈ Nenhum scan registrado ainda. Escaneie um domínio para começar.</div>
           )}
-          {recentList.length > 0 && (
-            <div className={styles.changesTimeline}>
-              <div className={styles.changesMeta}>
-                <span className={styles.muted}>Últimos {recentList.length} scans · clique para ver mudanças</span>
+          {!overviewLoading && overviewList.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+              {/* Filter toggle */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                {(["all", "active", "passive"] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setOverviewFilter(f)}
+                    className={`${styles.btn} ${overviewFilter === f ? styles.btnScan : styles.btnGhost}`}
+                    style={{ fontSize: 11, padding: "3px 10px" }}
+                  >
+                    {f === "all" ? "Todos" : f === "active" ? "Ativo" : "Passivo"}
+                  </button>
+                ))}
+                <span className={styles.muted} style={{ fontSize: 11, marginLeft: 6 }}>
+                  {overviewList.filter(s =>
+                    overviewFilter === "all" ? true :
+                    overviewFilter === "active" ? s.activeMode : !s.activeMode
+                  ).length} domínio(s) · último scan por domínio
+                </span>
               </div>
-              {recentList.map((s, idx) => (
-                <ScanTimelineRow key={s.id} s={s} idx={idx} isFirst={idx === 0} showHost {...rowProps} />
-              ))}
+              {overviewList.filter(s =>
+                overviewFilter === "all" ? true :
+                overviewFilter === "active" ? s.activeMode : !s.activeMode
+              ).length === 0 && (
+                <div className={styles.empty}>
+                  ◈ Nenhum domínio com scan {overviewFilter === "active" ? "ativo" : "passivo"} registrado.
+                </div>
+              )}
+              {overviewList.filter(s =>
+                overviewFilter === "all" ? true :
+                overviewFilter === "active" ? s.activeMode : !s.activeMode
+              ).map(s => {
+                const riskCls = s.riskLevel === "SECURE" ? styles.secure
+                  : s.riskLevel === "LOW"      ? styles.low
+                  : s.riskLevel === "MEDIUM"   ? styles.warning
+                  : s.riskLevel === "HIGH"     ? styles.high
+                  : styles.critical;
+                const scoreColor = s.score >= 85 ? "var(--secure)"
+                  : s.score >= 70 ? "var(--info)"
+                  : s.score >= 45 ? "var(--warning)"
+                  : s.score >= 20 ? "var(--high)"
+                  : "var(--critical)";
+                const pct = Math.max(2, s.score);
+                const dt  = new Date(s.scannedAt);
+                const dateStr = dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+                const timeStr = dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => { setTab("domain"); setSearchHost(s.host); searchByHost(s.host); }}
+                    style={{
+                      background: "var(--surface)", border: "1px solid var(--border)",
+                      borderRadius: "var(--radius)", padding: "14px 18px",
+                      textAlign: "left", cursor: "pointer", width: "100%",
+                      transition: "border-color .15s",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
+                  >
+                    {/* Row 1: host + score badge */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <code style={{ color: "var(--accent)", fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700 }}>
+                          {s.host}
+                        </code>
+                        <span className={`${styles.tag} ${riskCls}`}>{s.riskLevel}</span>
+                        {s.activeMode && (
+                          <span className={`${styles.tag} ${styles.info}`} style={{ fontSize: "0.65rem" }}>ACTIVE</span>
+                        )}
+                      </div>
+                      <span style={{ fontFamily: "var(--mono)", fontWeight: 700, fontSize: 18, color: scoreColor }}>
+                        {s.score}<span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>/100</span>
+                      </span>
+                    </div>
+                    {/* Row 2: progress bar */}
+                    <div style={{
+                      height: 4, background: "var(--bg)", borderRadius: 2, overflow: "hidden", marginBottom: 8,
+                    }}>
+                      <div style={{
+                        width: `${pct}%`, height: "100%",
+                        background: scoreColor, borderRadius: 2,
+                        transition: "width .4s ease",
+                      }} />
+                    </div>
+                    {/* Row 3: date + hint */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span className={styles.muted} style={{ fontSize: 11 }}>
+                        Último scan: {dateStr} {timeStr}
+                      </span>
+                      <span className={styles.muted} style={{ fontSize: 10 }}>
+                        clique para ver histórico →
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </>
@@ -2144,17 +2240,52 @@ function ChangesPage() {
 
           {domainError && <div className={styles.errorBox}>{domainError}</div>}
 
-          {domainList.length > 0 && (
-            <div className={styles.changesTimeline}>
-              <div className={styles.changesMeta}>
-                <code className={styles.code}>{activeHost}</code>
-                <span className={styles.muted}>{domainList.length} scans registrados</span>
+          {domainList.length > 0 && (() => {
+            const filteredDomain = domainList.filter(s => {
+              if (domainFilter === "manual")    return s.origin !== "SCHEDULED";
+              if (domainFilter === "scheduled") return s.origin === "SCHEDULED";
+              if (domainFilter === "active")    return s.activeMode === true;
+              if (domainFilter === "passive")   return s.activeMode === false;
+              return true;
+            });
+            return (
+              <div className={styles.changesTimeline}>
+                <div className={styles.changesMeta}>
+                  <code className={styles.code}>{activeHost}</code>
+                  <span className={styles.muted}>{domainList.length} scans registrados</span>
+                </div>
+                {/* Filter bar */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                  {([
+                    { key: "all",       label: "Todos" },
+                    { key: "manual",    label: "Manual" },
+                    { key: "scheduled", label: "Agendado" },
+                    { key: "active",    label: "Ativo" },
+                    { key: "passive",   label: "Passivo" },
+                  ] as const).map(f => (
+                    <button
+                      key={f.key}
+                      onClick={() => setDomainFilter(f.key)}
+                      className={`${styles.btn} ${domainFilter === f.key ? styles.btnScan : styles.btnGhost}`}
+                      style={{ fontSize: 11, padding: "3px 10px" }}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                  <span className={styles.muted} style={{ fontSize: 11, marginLeft: 4 }}>
+                    {filteredDomain.length} resultado(s)
+                  </span>
+                </div>
+                {filteredDomain.length === 0 ? (
+                  <div className={styles.empty}>◈ Nenhum scan com esse filtro.</div>
+                ) : (
+                  filteredDomain.map((s, idx) => (
+                    <ScanTimelineRow key={s.id} s={s} idx={idx} isFirst={idx === 0} showHost={false} {...rowProps} />
+                  ))
+                )}
               </div>
-              {domainList.map((s, idx) => (
-                <ScanTimelineRow key={s.id} s={s} idx={idx} isFirst={idx === 0} showHost={false} {...rowProps} />
-              ))}
-            </div>
-          )}
+            );
+          })()}
 
           {!domainLoading && !domainError && domainList.length === 0 && activeHost && (
             <div className={styles.empty}>◈ Nenhum scan encontrado para <code>{activeHost}</code>.</div>
@@ -2511,7 +2642,7 @@ function IntradayChart({ host }: { host: string }) {
 
 // ── Score History Chart ───────────────────────────────────────────────────────
 
-interface HistorySummary { id: string; url: string; host: string; scannedAt: string; activeMode: boolean; score: number; riskLevel: string; }
+interface HistorySummary { id: string; url: string; host: string; scannedAt: string; activeMode: boolean; score: number; riskLevel: string; origin?: string; }
 
 function ScoreHistoryChart({ host }: { host: string }) {
   const [data, setData] = useState<HistorySummary[]>([]);
