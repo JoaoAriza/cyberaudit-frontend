@@ -996,17 +996,214 @@ function InviteItemRow({ inv, onRevoke, roleBadge }: { inv: InviteDto; onRevoke:
 }
 
 
+
+// ── Schedule Scan Detail Modal ────────────────────────────────────────────────
+
+function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const [result, setResult] = useState<ScanResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [sec, setSec]         = useState("issues");
+
+  useEffect(() => {
+    api.get<ScanResult>(`/history/${id}/result`)
+      .then(r => { setResult(r.data); setLoading(false); })
+      .catch(() => { setError("Erro ao carregar resultado."); setLoading(false); });
+  }, [id]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function handleBackdrop(e: React.MouseEvent) {
+    if ((e.target as HTMLElement).dataset.overlay) onClose();
+  }
+
+  const TABS: [string, string][] = [
+    ["issues",    "⚠ Issues"],
+    ["transport", "⬟ TLS/SSL"],
+    ["headers",   "⬡ Headers"],
+    ["dns",       "◎ DNS"],
+    ["tech",      "⟨⟩ Tech"],
+    ["cookies",   "⬥ Cookies"],
+    ["ports",     "◉ Portas"],
+  ];
+
+  return (
+    <div className={styles.modalOverlay} data-overlay="1" onClick={handleBackdrop}>
+      <div className={styles.modal} style={{ maxWidth: 720 }}>
+        <div className={styles.modalHeader}>
+          <div className={styles.modalTitleRow}>
+            <span className={styles.modalIconLg}>◈</span>
+            <span className={styles.modalTitleText}>Resultado do Scan</span>
+          </div>
+          <button className={styles.modalClose} onClick={onClose}>✕</button>
+        </div>
+
+        {loading && <div className={styles.empty} style={{ padding: "2rem" }}>Carregando...</div>}
+        {error   && <div className={styles.errorBox} style={{ margin: "1rem" }}>{error}</div>}
+
+        {result && (() => {
+          const r  = result;
+          const sc = r.score;
+          return (
+            <div style={{ padding: "1.25rem" }}>
+
+              {/* ── Score header ── */}
+              <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", marginBottom: "1.25rem" }}>
+                <ScoreGauge score={sc.score} risk={sc.riskLevel} />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 6 }}>{r.url}</div>
+                  <span className={`${styles.tag} ${riskColor(sc.riskLevel)}`}>{sc.riskLevel}</span>
+                  {r.activeMode && <span className={`${styles.tag} ${styles.info}`} style={{ marginLeft: 6 }}>ATIVO</span>}
+                  {sc.notes?.map((n, i) => (
+                    <div key={i} className={styles.note} style={{ marginTop: 4 }}>{n}</div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Section tabs ── */}
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: "1rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.75rem" }}>
+                {TABS.map(([key, label]) => (
+                  <button key={key} onClick={() => setSec(key)}
+                    className={`${styles.btn} ${sec === key ? styles.btnScan : styles.btnGhost}`}
+                    style={{ fontSize: "0.72rem", padding: "3px 10px" }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* ── Issues ── */}
+              {sec === "issues" && (
+                sc.issues?.length
+                  ? <div className={styles.issuesList}>{sc.issues.map(i => <IssueItem key={i.id} issue={i} />)}</div>
+                  : <div className={styles.empty}>◈ Nenhuma issue detectada</div>
+              )}
+
+              {/* ── TLS / SSL ── */}
+              {sec === "transport" && (
+                <Section title="SSL / TLS" defaultOpen={true}>
+                  <KV label="Redireciona HTTPS" value={boolIcon(r.redirectsToHttps)} />
+                  <KV label="Certificado válido" value={boolIcon(r.sslInfo?.valid)} />
+                  <KV label="Expira em" value={r.sslInfo?.expirationDate ?? "—"} />
+                  <KV label="Dias restantes" value={
+                    <span className={(r.sslInfo?.daysRemaining ?? 0) < 30 ? styles.bad : (r.sslInfo?.daysRemaining ?? 0) < 90 ? styles.warn : styles.ok}>
+                      {r.sslInfo?.daysRemaining ?? "—"}d
+                    </span>
+                  } />
+                  <KV label="Protocolo" value={
+                    <span className={r.tlsDetails?.weakProtocol ? styles.bad : styles.ok}>
+                      {r.tlsDetails?.negotiatedProtocol ?? "—"}
+                    </span>
+                  } />
+                  <KV label="Cipher" value={<code className={styles.code}>{r.tlsDetails?.cipherSuite ?? "—"}</code>} />
+                  {r.tlsDetails?.message && <div className={styles.note}>{r.tlsDetails.message}</div>}
+                </Section>
+              )}
+
+              {/* ── Headers ── */}
+              {sec === "headers" && (
+                <Section title="Security Headers" defaultOpen={true}>
+                  {Object.entries(r.headers ?? {}).map(([k, v]) => (
+                    <KV key={k} label={k} value={headerStatus(v)} />
+                  ))}
+                </Section>
+              )}
+
+              {/* ── DNS ── */}
+              {sec === "dns" && (r.dnsSecurityResult ? (
+                <Section title="DNS Security" defaultOpen={true}>
+                  <KV label="SPF"    value={boolIcon(r.dnsSecurityResult.spfPresent)} />
+                  <KV label="DMARC"  value={boolIcon(r.dnsSecurityResult.dmarcPresent)} />
+                  <KV label="DKIM"   value={boolIcon(r.dnsSecurityResult.dkimHintFound)} />
+                  <KV label="CAA"    value={boolIcon(r.dnsSecurityResult.caaPresent)} />
+                  <KV label="Risco email spoofing" value={
+                    <span className={riskColor(r.dnsSecurityResult.emailSpoofingRisk)}>
+                      {r.dnsSecurityResult.emailSpoofingRisk ?? "—"}
+                    </span>
+                  } />
+                  {r.dnsSecurityResult.summary && <div className={styles.note}>{r.dnsSecurityResult.summary}</div>}
+                </Section>
+              ) : <div className={styles.empty}>Dados DNS não disponíveis</div>)}
+
+              {/* ── Tech ── */}
+              {sec === "tech" && (r.techFingerprint ? (
+                <Section title="Technology Fingerprint" defaultOpen={true}>
+                  {r.techFingerprint.webServer  && <KV label="Web Server" value={r.techFingerprint.webServer} />}
+                  {r.techFingerprint.language   && <KV label="Language"   value={r.techFingerprint.language} />}
+                  {r.techFingerprint.backend    && <KV label="Backend"    value={r.techFingerprint.backend} />}
+                  {r.techFingerprint.framework  && <KV label="Framework"  value={r.techFingerprint.framework} />}
+                  {r.techFingerprint.cms        && <KV label="CMS"        value={r.techFingerprint.cms} />}
+                  {r.techFingerprint.cdn        && <KV label="CDN"        value={r.techFingerprint.cdn} />}
+                  {(r.techFingerprint.libraries?.length ?? 0) > 0 && (
+                    <KV label="Libraries" value={r.techFingerprint.libraries!.join(", ")} />
+                  )}
+                </Section>
+              ) : <div className={styles.empty}>Tech fingerprint não disponível</div>)}
+
+              {/* ── Cookies ── */}
+              {sec === "cookies" && (
+                r.cookieIssues?.length
+                  ? r.cookieIssues.map((c, i) => (
+                      <div key={i} className={styles.card} style={{ marginBottom: 8 }}>
+                        <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                          <code className={styles.code}>{c.name}</code>
+                          <span className={`${styles.tag} ${riskColor(c.risk)}`} style={{ marginLeft: 8 }}>{c.risk}</span>
+                        </div>
+                        <KV label="HttpOnly" value={boolIcon(c.httpOnly)} />
+                        <KV label="Secure"   value={boolIcon(c.secure)} />
+                        <KV label="SameSite" value={c.sameSite ?? "—"} />
+                        {c.issues && <div className={styles.note}>{c.issues}</div>}
+                      </div>
+                    ))
+                  : <div className={styles.empty}>Nenhum cookie com issue detectado</div>
+              )}
+
+              {/* ── Ports ── */}
+              {sec === "ports" && (
+                r.openPorts?.length
+                  ? r.openPorts.map((p, i) => (
+                      <div key={i} className={styles.kv}>
+                        <span className={styles.kvLabel}><code className={styles.code}>{p.port}</code></span>
+                        <span className={styles.kvValue}>
+                          <span className={`${styles.tag} ${sevColor(p.severity)}`}>{p.severity}</span>
+                          {" "}{p.service ?? ""}
+                        </span>
+                      </div>
+                    ))
+                  : <div className={styles.empty}>Nenhuma porta aberta detectada</div>
+              )}
+
+            </div>
+          );
+        })()}
+      </div>
+    </div>
+  );
+}
+
 // ── Schedules Page ────────────────────────────────────────────────────────────
 
 function SchedulesPage() {
-  const [schedules, setSchedules] = useState<ScheduledScanDto[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [host, setHost]           = useState("");
-  const [frequency, setFrequency] = useState<"DAILY" | "WEEKLY">("DAILY");
-  const [hour, setHour]           = useState(8);
+  const [schedules, setSchedules]   = useState<ScheduledScanDto[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [host, setHost]             = useState("");
+  const [frequency, setFrequency]   = useState<"DAILY" | "WEEKLY">("DAILY");
+  const [hour, setHour]             = useState(8);
   const [notifyEmail, setNotifyEmail] = useState(false);
-  const [creating, setCreating]   = useState(false);
-  const [error, setError]         = useState<string | null>(null);
+  const [activeMode, setActiveMode] = useState(false);
+  const [creating, setCreating]     = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+
+  // history per host
+  const [expandedHost, setExpandedHost]     = useState<string | null>(null);
+  const [hostHistory, setHostHistory]       = useState<Record<string, HistorySummary[]>>({});
+  const [historyLoading, setHistoryLoading] = useState<Record<string, boolean>>({});
+
+  // detail modal
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -1023,7 +1220,10 @@ function SchedulesPage() {
     if (!host.trim()) return;
     setCreating(true); setError(null);
     try {
-      await api.post("/scheduled-scans", { host: host.trim(), active: false, frequency, preferredHour: hour, notifyEmail });
+      await api.post("/scheduled-scans", {
+        host: host.trim(), active: activeMode, frequency,
+        preferredHour: hour, notifyEmail,
+      });
       setHost(""); await load();
     } catch (e: any) {
       setError(e?.response?.data?.message ?? "Erro ao criar agendamento.");
@@ -1041,9 +1241,32 @@ function SchedulesPage() {
     catch { setError("Erro ao remover agendamento."); }
   }
 
+  async function toggleHistory(h: string) {
+    if (expandedHost === h) { setExpandedHost(null); return; }
+    setExpandedHost(h);
+    if (hostHistory[h]) return; // already loaded
+    setHistoryLoading(p => ({ ...p, [h]: true }));
+    try {
+      const res = await api.get<HistorySummary[]>(`/history/${h}?origin=SCHEDULED`);
+      setHostHistory(p => ({ ...p, [h]: res.data.slice(0, 10) }));
+    } catch {
+      setHostHistory(p => ({ ...p, [h]: [] }));
+    } finally {
+      setHistoryLoading(p => ({ ...p, [h]: false }));
+    }
+  }
+
   function fmtDate(d: string | null) {
     if (!d) return "—";
     return new Date(d).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  function scoreBadgeCls(score: number) {
+    if (score >= 80) return styles.secure;
+    if (score >= 60) return styles.low;
+    if (score >= 40) return styles.warning;
+    if (score >= 20) return styles.high;
+    return styles.critical;
   }
 
   return (
@@ -1082,6 +1305,10 @@ function SchedulesPage() {
           <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} disabled={creating} />
           <span className={styles.toggleLabel}>EMAIL</span>
         </label>
+        <label className={styles.toggle} title="Modo ativo: executa probes adicionais (XSS, SSRF, etc). Use apenas em domínios autorizados.">
+          <input type="checkbox" checked={activeMode} onChange={e => setActiveMode(e.target.checked)} disabled={creating} />
+          <span className={styles.toggleLabel} style={{ color: activeMode ? "var(--warning)" : undefined }}>ACTIVE</span>
+        </label>
         <button className={`${styles.btn} ${styles.btnScan}`} type="submit" disabled={creating || !host.trim()}>
           {creating ? "..." : "+ Agendar"}
         </button>
@@ -1108,31 +1335,107 @@ function SchedulesPage() {
           </thead>
           <tbody>
             {schedules.map(s => (
-              <tr key={s.id}>
-                <td><code className={styles.code}>{s.host}</code></td>
-                <td>{s.frequency === "DAILY" ? "Diário" : "Semanal"} {String(s.preferredHour).padStart(2,"0")}:00 UTC</td>
-                <td className={styles.muted}>{fmtDate(s.nextRun)}</td>
-                <td className={styles.muted}>{fmtDate(s.lastRun)}</td>
-                <td>{s.notifyEmail ? <span className={styles.ok}>✓</span> : <span className={styles.muted}>—</span>}</td>
-                <td>
-                  {s.enabled
-                    ? <span className={styles.ok}>Ativo</span>
-                    : <span className={styles.muted}>Pausado</span>}
-                </td>
-                <td>
-                  <div className={styles.actionBtns}>
-                    <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => toggle(s.id)}>
-                      {s.enabled ? "Pausar" : "Retomar"}
+              <>
+                <tr key={s.id}>
+                  <td>
+                    <button
+                      className={`${styles.btn} ${styles.btnGhost}`}
+                      style={{ fontFamily: "var(--mono)", fontSize: "0.78rem", padding: "2px 8px" }}
+                      onClick={() => toggleHistory(s.host)}
+                      title="Ver histórico de scans"
+                    >
+                      {expandedHost === s.host ? "▾" : "▸"} {s.host}
                     </button>
-                    <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => remove(s.id)}>
-                      Remover
-                    </button>
-                  </div>
-                </td>
-              </tr>
+                  </td>
+                  <td>
+                    {s.frequency === "DAILY" ? "Diário" : "Semanal"} {String(s.preferredHour).padStart(2, "0")}:00 UTC
+                    {s.active && <span className={`${styles.tag} ${styles.warning}`} style={{ marginLeft: 6, fontSize: "0.65rem" }}>ACTIVE</span>}
+                  </td>
+                  <td className={styles.muted}>{fmtDate(s.nextRun)}</td>
+                  <td className={styles.muted}>{fmtDate(s.lastRun)}</td>
+                  <td>{s.notifyEmail ? <span className={styles.ok}>✓</span> : <span className={styles.muted}>—</span>}</td>
+                  <td>
+                    {s.enabled
+                      ? <span className={styles.ok}>Ativo</span>
+                      : <span className={styles.muted}>Pausado</span>}
+                  </td>
+                  <td>
+                    <div className={styles.actionBtns}>
+                      <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => toggle(s.id)}>
+                        {s.enabled ? "Pausar" : "Retomar"}
+                      </button>
+                      <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => remove(s.id)}>
+                        Remover
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                {/* ── Histórico expandido ── */}
+                {expandedHost === s.host && (
+                  <tr key={`${s.id}-history`}>
+                    <td colSpan={7} style={{ padding: "0 0 0 1rem", background: "var(--bg)" }}>
+                      <div style={{ borderLeft: "2px solid var(--border2)", padding: "0.75rem 1rem", margin: "0.25rem 0 0.5rem" }}>
+                        {historyLoading[s.host] ? (
+                          <div className={styles.muted} style={{ fontSize: "0.8rem" }}>Carregando scans...</div>
+                        ) : !hostHistory[s.host]?.length ? (
+                          <div style={{ fontSize: "0.8rem", display: "flex", alignItems: "center", gap: 8 }}><span className={`${styles.tag} ${styles.warning}`}>PENDENTE</span><span className={styles.muted}>Nenhum scan agendado executado ainda. Próximo: {fmtDate(s.nextRun)}</span></div>
+                        ) : (
+                          <>
+                            <div style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "1.5px", color: "var(--text-muted)", marginBottom: "0.5rem", textTransform: "uppercase" }}>
+                              Últimos {hostHistory[s.host].length} scans
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              {hostHistory[s.host].map(h => (
+                                <button
+                                  key={h.id}
+                                  onClick={() => setDetailId(h.id)}
+                                  style={{
+                                    display: "flex", alignItems: "center", gap: 10,
+                                    background: "var(--surface)", border: "1px solid var(--border)",
+                                    borderRadius: "var(--radius-sm)", padding: "6px 10px",
+                                    cursor: "pointer", textAlign: "left", width: "100%",
+                                    transition: "border-color .15s",
+                                  }}
+                                  onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--accent)")}
+                                  onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
+                                >
+                                  {/* Score badge */}
+                                  <span className={`${styles.tag} ${scoreBadgeCls(h.score)}`} style={{ minWidth: 38, textAlign: "center", fontWeight: 700 }}>
+                                    {h.score}
+                                  </span>
+                                  {/* Risk */}
+                                  <span className={`${styles.tag} ${riskColor(h.riskLevel)}`} style={{ minWidth: 60, textAlign: "center" }}>
+                                    {h.riskLevel}
+                                  </span>
+                                  {/* Date */}
+                                  <span className={styles.muted} style={{ fontSize: "0.78rem", flex: 1 }}>
+                                    {fmtDate(h.scannedAt)}
+                                  </span>
+                                  {/* Active mode badge */}
+                                  {h.activeMode && (
+                                    <span className={`${styles.tag} ${styles.info}`} style={{ fontSize: "0.65rem" }}>ATIVO</span>
+                                  )}
+                                  {/* Open icon */}
+                                  <span className={styles.muted} style={{ fontSize: "0.75rem" }}>Ver detalhes →</span>
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </>
             ))}
           </tbody>
         </table>
+      )}
+
+      {/* Modal de detalhe do scan */}
+      {detailId && (
+        <ScheduleScanDetailModal id={detailId} onClose={() => setDetailId(null)} />
       )}
     </div>
   );
@@ -1182,14 +1485,19 @@ function AuditLogsTab() {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo,   setFilterTo]   = useState("");
 
   useEffect(() => { loadLogs(0); }, []);
 
-  async function loadLogs(p: number) {
+  async function loadLogs(p: number, from?: string, to?: string) {
     setLoading(true);
     try {
+      const params: Record<string, string> = { page: String(p), size: "50" };
+      if (from) params.from = from;
+      if (to)   params.to   = to;
       const r = await api.get<{ logs: AuditLogEntry[]; totalPages: number; totalElements: number }>(
-        `/admin/audit-logs?page=${p}&size=50`
+        `/admin/audit-logs?${new URLSearchParams(params).toString()}`
       );
       setLogs(r.data.logs);
       setTotalPages(r.data.totalPages);
@@ -1198,6 +1506,9 @@ function AuditLogsTab() {
     } catch {}
     finally { setLoading(false); }
   }
+
+  function applyFilter() { loadLogs(0, filterFrom || undefined, filterTo || undefined); }
+  function clearFilter() { setFilterFrom(""); setFilterTo(""); loadLogs(0); }
 
   function actionBadge(action: string, success: boolean) {
     const label = AUDIT_ACTION_LABELS[action] ?? action;
@@ -1211,13 +1522,45 @@ function AuditLogsTab() {
     return <span className={`${styles.tag} ${cls}`}>{label}</span>;
   }
 
+  const hasFilter = !!filterFrom || !!filterTo;
+
   return (
     <div className={styles.adminContent}>
-      <Card title={`AUDIT LOG — ${totalElements} evento${totalElements !== 1 ? "s" : ""}`}>
+      <Card title={`AUDIT LOG — ${totalElements} evento${totalElements !== 1 ? "s" : ""}${hasFilter ? " (filtrado)" : ""}`}>
+        {/* Filtro de datas */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Filtrar por período:</span>
+          <input
+            type="date"
+            value={filterFrom}
+            onChange={e => setFilterFrom(e.target.value)}
+            className={styles.formInput}
+            style={{ padding: "4px 8px", fontSize: 12, width: 140 }}
+            placeholder="De"
+          />
+          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>até</span>
+          <input
+            type="date"
+            value={filterTo}
+            onChange={e => setFilterTo(e.target.value)}
+            className={styles.formInput}
+            style={{ padding: "4px 8px", fontSize: 12, width: 140 }}
+            placeholder="Até"
+          />
+          <button className={`${styles.btn} ${styles.btnScan} ${styles.btnSm}`} onClick={applyFilter}>
+            Filtrar
+          </button>
+          {hasFilter && (
+            <button className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`} onClick={clearFilter}>
+              Limpar
+            </button>
+          )}
+        </div>
+
         {loading ? (
           <div className={styles.empty}>Carregando logs...</div>
         ) : logs.length === 0 ? (
-          <div className={styles.empty}>Nenhum evento registrado.</div>
+          <div className={styles.empty}>Nenhum evento{hasFilter ? " no período selecionado" : " registrado"}.</div>
         ) : (
           <>
             <div className={styles.auditTableWrap}>
@@ -1255,9 +1598,9 @@ function AuditLogsTab() {
             </div>
             {totalPages > 1 && (
               <div className={styles.auditPagination}>
-                <button className={`${styles.btn} ${styles.btnGhost}`} disabled={page === 0} onClick={() => loadLogs(page - 1)}>← Anterior</button>
+                <button className={`${styles.btn} ${styles.btnGhost}`} disabled={page === 0} onClick={() => loadLogs(page - 1, filterFrom || undefined, filterTo || undefined)}>← Anterior</button>
                 <span className={styles.muted}>Página {page + 1} de {totalPages}</span>
-                <button className={`${styles.btn} ${styles.btnGhost}`} disabled={page >= totalPages - 1} onClick={() => loadLogs(page + 1)}>Próxima →</button>
+                <button className={`${styles.btn} ${styles.btnGhost}`} disabled={page >= totalPages - 1} onClick={() => loadLogs(page + 1, filterFrom || undefined, filterTo || undefined)}>Próxima →</button>
               </div>
             )}
           </>
@@ -1288,6 +1631,10 @@ function AdminPanel() {
   const [invError, setInvError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [showPdfModal,  setShowPdfModal]  = useState(false);
+  const [pdfScope,      setPdfScope]      = useState<"DOMAINS" | "TEAM_SCANS" | "BOTH">("DOMAINS");
+  const [pdfFrom,       setPdfFrom]       = useState("");
+  const [pdfTo,         setPdfTo]         = useState("");
 
   useEffect(() => { loadUsers(); loadInvites(); }, []);
   useEffect(() => { if (user?.role === "ADMIN") setInvRole("FREE_EMPLOYEE"); }, [user]);
@@ -1306,13 +1653,21 @@ function AdminPanel() {
   }
   function copyLink() { if (!newInvite?.acceptLink) return; navigator.clipboard.writeText(window.location.origin + newInvite.acceptLink); setCopied(true); setTimeout(() => setCopied(false), 2000); }
   async function downloadExecutivePdf() {
+    setShowPdfModal(false);
     setDownloadingPdf(true);
     try {
-      const response = await api.get("/admin/report/executive-pdf", { responseType: "blob" });
+      const params: Record<string, string> = { scope: pdfScope };
+      if (pdfFrom) params.from = pdfFrom;
+      if (pdfTo)   params.to   = pdfTo;
+      const response = await api.get("/admin/report/executive-pdf", {
+        responseType: "blob",
+        params,
+      });
       const url = URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
       const link = document.createElement("a");
       link.href = url;
-      link.download = `cyberaudit-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const today = new Date().toISOString().slice(0, 10);
+      link.download = `cyberaudit-report-${pdfScope.toLowerCase()}-${today}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1352,13 +1707,84 @@ function AdminPanel() {
           <div className={styles.adminTitle}>◈ PAINEL ADMIN</div>
           <button
             className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
-            onClick={downloadExecutivePdf}
+            onClick={() => setShowPdfModal(true)}
             disabled={downloadingPdf}
-            title="Baixar relatório executivo em PDF"
+            title="Gerar relatório executivo em PDF"
           >
             {downloadingPdf ? "Gerando..." : "↓ Relatório PDF"}
           </button>
         </div>
+
+        {/* Modal de configuração do PDF executivo */}
+        {showPdfModal && (
+          <div className={styles.modalOverlay} onClick={() => setShowPdfModal(false)}>
+            <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+              <div className={styles.modalHeader}>
+                <span className={styles.modalTitle}>Relatório Executivo PDF</span>
+                <button className={styles.modalClose} onClick={() => setShowPdfModal(false)}>✕</button>
+              </div>
+              <div className={styles.modalBody}>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>ESCOPO DO RELATÓRIO</label>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
+                    {([
+                      ["DOMAINS",    "Domínios cadastrados",  "Apenas os domínios registrados e verificados na conta"],
+                      ["TEAM_SCANS", "Scans da equipe",       "Todos os scans realizados pela equipe (sem domínio registrado)"],
+                      ["BOTH",       "Ambos",                 "Domínios cadastrados + scans extras da equipe"],
+                    ] as const).map(([val, label, desc]) => (
+                      <label key={val} className={styles.roleOption} style={{ cursor: "pointer" }}>
+                        <input
+                          type="radio"
+                          name="pdfScope"
+                          value={val}
+                          checked={pdfScope === val}
+                          onChange={() => setPdfScope(val)}
+                        />
+                        <div>
+                          <strong style={{ fontSize: 13 }}>{label}</strong>
+                          <div className={styles.roleDesc}>{desc}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={styles.formGroup} style={{ marginTop: 16 }}>
+                  <label className={styles.formLabel}>FILTRO DE PERÍODO (opcional)</label>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
+                    <input
+                      type="date"
+                      value={pdfFrom}
+                      onChange={e => setPdfFrom(e.target.value)}
+                      className={styles.formInput}
+                      style={{ flex: 1 }}
+                    />
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>até</span>
+                    <input
+                      type="date"
+                      value={pdfTo}
+                      onChange={e => setPdfTo(e.target.value)}
+                      className={styles.formInput}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                  <div className={styles.roleDesc} style={{ marginTop: 4 }}>
+                    Sem filtro: inclui todos os scans disponíveis.
+                  </div>
+                </div>
+
+                <button
+                  className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`}
+                  style={{ marginTop: 20 }}
+                  onClick={downloadExecutivePdf}
+                  disabled={downloadingPdf}
+                >
+                  {downloadingPdf ? "Gerando PDF..." : "↓ Gerar e baixar PDF"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {isCompany && (
           <div className={styles.adminTabs}>
             {user?.role === "OWNER" && (<button className={`${styles.adminTab} ${tab === "users" ? styles.adminTabActive : ""}`} onClick={() => setTab("users")}>Usuários ({users.length})</button>)}
@@ -1605,7 +2031,7 @@ function ChangesPage() {
   useEffect(() => {
     if (tab !== "recent") return;
     setRecentLoading(true); setRecentError(null);
-    api.get<HistorySummary[]>("/history/recent")
+    api.get<HistorySummary[]>("/history/recent?origin=MANUAL")
       .then(r => setRecentList(r.data))
       .catch(() => setRecentError("Erro ao carregar scans recentes."))
       .finally(() => setRecentLoading(false));
@@ -1629,7 +2055,7 @@ function ChangesPage() {
     setActiveHost(h);
     setDomainLoading(true); setDomainError(null); setDomainList([]);
     try {
-      const res = await api.get<HistorySummary[]>(`/history/${h}`);
+      const res = await api.get<HistorySummary[]>(`/history/${h}?origin=MANUAL`);
       setDomainList([...res.data].sort((a, b) =>
         new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime()
       ));
@@ -1903,11 +2329,22 @@ function ScoreHistoryChart({ host }: { host: string }) {
 
   if (data.length < 2) return null;
 
-  const points = data.map(d => ({
-    date: new Date(d.scannedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
-    score: d.score,
-    risk: d.riskLevel,
-  }));
+  // Um ponto por dia — último scan do dia (data já está ordenada do mais antigo para o mais recente)
+  const pointsMap = new Map<string, typeof data[0]>();
+  for (const d of data) {
+    const day = new Date(d.scannedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+    pointsMap.set(day, d); // sobrescreve com o mais recente (data já é oldest-first, o último wins)
+  }
+  const points = Array.from(pointsMap.values()).map(d => {
+    const dt = new Date(d.scannedAt);
+    return {
+      ts: dt.getTime(),
+      score: d.score,
+      risk: d.riskLevel,
+      fullLabel: dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " " +
+                 dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    };
+  });
 
   const latest = data[data.length - 1];
   const prev   = data[data.length - 2];
@@ -1919,19 +2356,26 @@ function ScoreHistoryChart({ host }: { host: string }) {
     <Card title="SCORE HISTÓRICO">
       <div className={styles.historyChartWrap}>
         <div className={styles.historyChartMeta}>
-          <span className={styles.muted}>{data.length} scans</span>
+          <span className={styles.muted}>{points.length} dias · {data.length} scans</span>
           <span style={{ color: deltaColor, fontWeight: 600, fontFamily: "var(--mono)", fontSize: 13 }}>
             {deltaStr} vs anterior
           </span>
         </div>
+        <div onMouseDown={e => e.preventDefault()} style={{ cursor: "default" }}>
         <ResponsiveContainer width="100%" height={140}>
           <LineChart data={points} margin={{ top: 8, right: 8, left: -28, bottom: 0 }}>
             <XAxis
-              dataKey="date"
+              dataKey="ts"
+              type="number"
+              scale="time"
+              domain={["dataMin", "dataMax"]}
+              tickCount={Math.min(points.length, 6)}
+              tickFormatter={(v: number) =>
+                new Date(v).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+              }
               tick={{ fill: "var(--text-muted)", fontSize: 10, fontFamily: "var(--mono)" }}
               axisLine={false}
               tickLine={false}
-              interval="preserveStartEnd"
             />
             <YAxis
               domain={[0, 100]}
@@ -1950,6 +2394,10 @@ function ScoreHistoryChart({ host }: { host: string }) {
                 color: "var(--text)",
               }}
               formatter={(value: number) => [`${value}/100`, "Score"]}
+              labelFormatter={(_: unknown, payload: any[]) =>
+                payload?.length ? payload[0]?.payload?.fullLabel ?? "" : ""
+              }
+              trigger="hover"
             />
             <ReferenceLine y={85} stroke="var(--secure)"   strokeDasharray="3 3" strokeOpacity={0.3} />
             <ReferenceLine y={70} stroke="var(--info)"     strokeDasharray="3 3" strokeOpacity={0.3} />
@@ -1961,10 +2409,11 @@ function ScoreHistoryChart({ host }: { host: string }) {
               stroke="var(--accent)"
               strokeWidth={2}
               dot={{ r: 3, fill: "var(--accent)", strokeWidth: 0 }}
-              activeDot={{ r: 5, fill: "var(--accent)" }}
+              activeDot={{ r: 5, fill: "var(--accent)", strokeWidth: 0 }}
             />
           </LineChart>
         </ResponsiveContainer>
+        </div>
       </div>
     </Card>
   );
