@@ -2342,7 +2342,7 @@ function ChangesPage() {
               <div className={styles.muted} style={{ fontFamily: "var(--mono)", fontSize: 11 }}>
                 ◈ Analisando: <code style={{ color: "var(--accent)" }}>{analysisHost}</code>
               </div>
-              <ScoreHistoryChart host={analysisHost} />
+              <ScoreHistoryChart host={analysisHost} showFilter />
               <IntradayChart host={analysisHost} />
             </div>
           )}
@@ -2644,27 +2644,41 @@ function IntradayChart({ host }: { host: string }) {
 
 interface HistorySummary { id: string; url: string; host: string; scannedAt: string; activeMode: boolean; score: number; riskLevel: string; origin?: string; }
 
-function ScoreHistoryChart({ host }: { host: string }) {
-  const [data, setData] = useState<HistorySummary[]>([]);
+function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFilter?: boolean }) {
+  const [allData, setAllData] = useState<HistorySummary[]>([]);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate,   setToDate]   = useState("");
 
   useEffect(() => {
     if (!host) return;
+    setAllData([]);
+    setFromDate("");
+    setToDate("");
     api.get<HistorySummary[]>(`/history/${host}`)
       .then(res => {
-        // Oldest first for the chart, max 30 points
-        const sorted = [...res.data].reverse().slice(-30);
-        setData(sorted);
+        // Oldest first for the chart
+        setAllData([...res.data].reverse());
       })
       .catch(() => {});
   }, [host]);
 
-  if (data.length < 2) return null;
+  // Without filter (Scanner sidebar): last 30 records. With filter: apply date range.
+  const data = showFilter
+    ? allData.filter(d => {
+        const day = d.scannedAt.slice(0, 10);
+        if (fromDate && day < fromDate) return false;
+        if (toDate   && day > toDate)   return false;
+        return true;
+      })
+    : allData.slice(-30);
 
-  // Um ponto por dia — último scan do dia (data já está ordenada do mais antigo para o mais recente)
+  if (allData.length < 2) return null;
+
+  // Um ponto por dia — último scan do dia
   const pointsMap = new Map<string, typeof data[0]>();
   for (const d of data) {
     const day = new Date(d.scannedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-    pointsMap.set(day, d); // sobrescreve com o mais recente (data já é oldest-first, o último wins)
+    pointsMap.set(day, d);
   }
   const points = Array.from(pointsMap.values()).map(d => {
     const dt = new Date(d.scannedAt);
@@ -2679,72 +2693,126 @@ function ScoreHistoryChart({ host }: { host: string }) {
 
   const latest = data[data.length - 1];
   const prev   = data[data.length - 2];
-  const delta  = latest.score - prev.score;
+  const delta  = latest && prev ? latest.score - prev.score : 0;
   const deltaStr = delta > 0 ? `+${delta}` : String(delta);
   const deltaColor = delta > 0 ? "var(--secure)" : delta < 0 ? "var(--critical)" : "var(--text-dim)";
+
+  const hasFilter = !!fromDate || !!toDate;
 
   return (
     <Card title="SCORE HISTÓRICO">
       <div className={styles.historyChartWrap}>
-        <div className={styles.historyChartMeta}>
-          <span className={styles.muted}>{points.length} dias · {data.length} scans</span>
-          <span style={{ color: deltaColor, fontWeight: 600, fontFamily: "var(--mono)", fontSize: 13 }}>
-            {deltaStr} vs anterior
-          </span>
-        </div>
-        <div onMouseDown={e => e.preventDefault()} style={{ cursor: "default" }}>
-        <ResponsiveContainer width="100%" height={140}>
-          <LineChart data={points} margin={{ top: 8, right: 8, left: -28, bottom: 0 }}>
-            <XAxis
-              dataKey="ts"
-              type="number"
-              scale="time"
-              domain={["dataMin", "dataMax"]}
-              tickCount={Math.min(points.length, 6)}
-              tickFormatter={(v: number) =>
-                new Date(v).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
-              }
-              tick={{ fill: "var(--text-muted)", fontSize: 10, fontFamily: "var(--mono)" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              domain={[0, 100]}
-              tick={{ fill: "var(--text-muted)", fontSize: 10, fontFamily: "var(--mono)" }}
-              axisLine={false}
-              tickLine={false}
-              ticks={[0, 25, 50, 75, 100]}
-            />
-            <Tooltip
-              contentStyle={{
-                background: "var(--bg-card, #0d1b2a)",
-                border: "1px solid var(--border)",
-                borderRadius: 4,
-                fontSize: 11,
-                fontFamily: "var(--mono)",
-                color: "var(--text)",
-              }}
-              formatter={(value: number) => [`${value}/100`, "Score"]}
-              labelFormatter={(_: unknown, payload: any[]) =>
-                payload?.length ? payload[0]?.payload?.fullLabel ?? "" : ""
-              }
-              trigger="hover"
-            />
-            <ReferenceLine y={85} stroke="var(--secure)"   strokeDasharray="3 3" strokeOpacity={0.3} />
-            <ReferenceLine y={70} stroke="var(--info)"     strokeDasharray="3 3" strokeOpacity={0.3} />
-            <ReferenceLine y={45} stroke="var(--warning)"  strokeDasharray="3 3" strokeOpacity={0.3} />
-            <ReferenceLine y={20} stroke="var(--critical)" strokeDasharray="3 3" strokeOpacity={0.3} />
-            <Line
-              type="monotone"
-              dataKey="score"
-              stroke="var(--accent)"
-              strokeWidth={2}
-              dot={{ r: 3, fill: "var(--accent)", strokeWidth: 0 }}
-              activeDot={{ r: 5, fill: "var(--accent)", strokeWidth: 0 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-        </div>
+        {/* Period filter — only in Histórico tab */}
+        {showFilter && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+          <span className={styles.muted} style={{ fontSize: 11 }}>Período:</span>
+          <input
+            type="date"
+            value={fromDate}
+            max={toDate || undefined}
+            onChange={e => setFromDate(e.target.value)}
+            style={{
+              background: "var(--surface)", border: "1px solid var(--border2)",
+              borderRadius: "var(--radius-sm)", color: "var(--text)",
+              fontFamily: "var(--mono)", fontSize: 11, padding: "3px 8px",
+              cursor: "pointer", outline: "none",
+            }}
+          />
+          <span className={styles.muted} style={{ fontSize: 11 }}>até</span>
+          <input
+            type="date"
+            value={toDate}
+            min={fromDate || undefined}
+            onChange={e => setToDate(e.target.value)}
+            style={{
+              background: "var(--surface)", border: "1px solid var(--border2)",
+              borderRadius: "var(--radius-sm)", color: "var(--text)",
+              fontFamily: "var(--mono)", fontSize: 11, padding: "3px 8px",
+              cursor: "pointer", outline: "none",
+            }}
+          />
+          {hasFilter && (
+            <button
+              className={`${styles.btn} ${styles.btnGhost}`}
+              style={{ fontSize: 11, padding: "3px 10px" }}
+              onClick={() => { setFromDate(""); setToDate(""); }}
+            >
+              Limpar
+            </button>
+          )}
+        </div>}
+
+        {points.length < 2 ? (
+          <div className={styles.empty} style={{ fontSize: 12, padding: "12px 0" }}>
+            ◈ {data.length === 0
+              ? "Nenhum scan no período selecionado."
+              : "São necessários pelo menos 2 dias com scan para exibir o gráfico."}
+          </div>
+        ) : (
+          <>
+            <div className={styles.historyChartMeta}>
+              <span className={styles.muted}>
+                {points.length} dias · {data.length} scan{data.length !== 1 ? "s" : ""}
+                {hasFilter ? " (filtrado)" : " · todo o período"}
+              </span>
+              <span style={{ color: deltaColor, fontWeight: 600, fontFamily: "var(--mono)", fontSize: 13 }}>
+                {deltaStr} vs anterior
+              </span>
+            </div>
+            <div onMouseDown={e => e.preventDefault()} style={{ cursor: "default" }}>
+              <ResponsiveContainer width="100%" height={140}>
+                <LineChart data={points} margin={{ top: 8, right: 8, left: -28, bottom: 0 }}>
+                  <XAxis
+                    dataKey="ts"
+                    type="number"
+                    scale="time"
+                    domain={["dataMin", "dataMax"]}
+                    tickCount={Math.min(points.length, 6)}
+                    tickFormatter={(v: number) =>
+                      new Date(v).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+                    }
+                    tick={{ fill: "var(--text-muted)", fontSize: 10, fontFamily: "var(--mono)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    tick={{ fill: "var(--text-muted)", fontSize: 10, fontFamily: "var(--mono)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    ticks={[0, 25, 50, 75, 100]}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--bg-card, #0d1b2a)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontFamily: "var(--mono)",
+                      color: "var(--text)",
+                    }}
+                    formatter={(value: number) => [`${value}/100`, "Score"]}
+                    labelFormatter={(_: unknown, payload: any[]) =>
+                      payload?.length ? payload[0]?.payload?.fullLabel ?? "" : ""
+                    }
+                    trigger="hover"
+                  />
+                  <ReferenceLine y={85} stroke="var(--secure)"   strokeDasharray="3 3" strokeOpacity={0.3} />
+                  <ReferenceLine y={70} stroke="var(--info)"     strokeDasharray="3 3" strokeOpacity={0.3} />
+                  <ReferenceLine y={45} stroke="var(--warning)"  strokeDasharray="3 3" strokeOpacity={0.3} />
+                  <ReferenceLine y={20} stroke="var(--critical)" strokeDasharray="3 3" strokeOpacity={0.3} />
+                  <Line
+                    type="monotone"
+                    dataKey="score"
+                    stroke="var(--accent)"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: "var(--accent)", strokeWidth: 0 }}
+                    activeDot={{ r: 5, fill: "var(--accent)", strokeWidth: 0 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        )}
       </div>
     </Card>
   );
