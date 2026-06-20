@@ -57,6 +57,7 @@ interface ScanResult {
   hostHeaderFindings: HostHeaderFinding[];
   sourceMapFindings: SourceMapFinding[];
   crlfFindings: CrlfFinding[];
+  compliance?: ComplianceReport;
 }
 interface ApiDocsExposureFinding { path: string; type: string; severity: string; evidence: string | null; description: string; }
 interface GraphQlIntrospectionFinding { endpoint: string; introspectionEnabled: boolean; playgroundExposed: boolean; typeCount: number; severity: string; evidence: string | null; }
@@ -2293,6 +2294,181 @@ function ChangesPage() {
 
 // ── Domains Page ─────────────────────────────────────────────────────────────
 
+// ── Compliance ─────────────────────────────────────────────────────────────────
+
+interface ComplianceItem {
+  reference: string;
+  title: string;
+  requirement: string;
+  status: "PASS" | "FAIL" | "WARN" | "NA";
+  findings: string[];
+  recommendation: string;
+}
+
+interface ComplianceReport {
+  overallScore: number;
+  riskLevel: string;
+  lgpdItems: ComplianceItem[];
+  isoItems: ComplianceItem[];
+  lgpdPassed: number;
+  lgpdFailed: number;
+  isoPassed: number;
+  isoFailed: number;
+}
+
+function CompliancePanel({ compliance }: { compliance: ComplianceReport }) {
+  const [tab, setTab] = useState<"lgpd" | "iso">("lgpd");
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const scoreColor =
+    compliance.overallScore >= 80 ? "var(--secure)" :
+    compliance.overallScore >= 60 ? "var(--info)" :
+    compliance.overallScore >= 40 ? "var(--warning)" : "var(--critical)";
+
+  const riskColor =
+    compliance.riskLevel === "COMPLIANT" ? "var(--secure)" :
+    compliance.riskLevel === "LOW"       ? "var(--info)"   :
+    compliance.riskLevel === "MEDIUM"    ? "var(--warning)":
+    "var(--critical)";
+
+  const items = tab === "lgpd" ? compliance.lgpdItems : compliance.isoItems;
+  const passed = tab === "lgpd" ? compliance.lgpdPassed : compliance.isoPassed;
+  const failed = tab === "lgpd" ? compliance.lgpdFailed : compliance.isoFailed;
+
+  function statusColor(s: string) {
+    return s === "PASS" ? "var(--secure)" : s === "FAIL" ? "var(--critical)" : "var(--warning)";
+  }
+  function statusIcon(s: string) {
+    return s === "PASS" ? "✓" : s === "FAIL" ? "✗" : "⚠";
+  }
+
+  return (
+    <div>
+      {/* Header de score */}
+      <div style={{ display: "flex", gap: 16, marginBottom: 16, alignItems: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 32, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>
+            {compliance.overallScore}%
+          </div>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--text-muted)", letterSpacing: ".5px", marginTop: 2 }}>
+            COMPLIANCE SCORE
+          </div>
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)" }}>RISCO GERAL</span>
+            <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700, color: riskColor }}>{compliance.riskLevel}</span>
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <span style={{ fontFamily: "var(--mono)", fontSize: 10 }}>
+              LGPD: <span style={{ color: "var(--secure)" }}>{compliance.lgpdPassed}✓</span>{" "}
+              <span style={{ color: "var(--critical)" }}>{compliance.lgpdFailed}✗</span>
+            </span>
+            <span style={{ fontFamily: "var(--mono)", fontSize: 10 }}>
+              ISO: <span style={{ color: "var(--secure)" }}>{compliance.isoPassed}✓</span>{" "}
+              <span style={{ color: "var(--critical)" }}>{compliance.isoFailed}✗</span>
+            </span>
+          </div>
+          {/* Progress bar */}
+          <div style={{ height: 4, background: "var(--border2)", borderRadius: 2, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${compliance.overallScore}%`, background: scoreColor, transition: "width .4s" }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs LGPD / ISO */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+        {(["lgpd", "iso"] as const).map(t => (
+          <button key={t} onClick={() => { setTab(t); setExpanded(null); }}
+            style={{
+              fontFamily: "var(--mono)", fontSize: 10, fontWeight: 700, letterSpacing: ".5px",
+              padding: "4px 12px", border: "1px solid",
+              borderColor: tab === t ? "var(--accent)" : "var(--border2)",
+              background: tab === t ? "var(--accent)" : "transparent",
+              color: tab === t ? "var(--bg)" : "var(--text-muted)",
+              cursor: "pointer", borderRadius: 2
+            }}>
+            {t === "lgpd" ? "LGPD" : "ISO 27001"}
+            <span style={{ marginLeft: 6, opacity: .7 }}>
+              ({t === "lgpd" ? compliance.lgpdFailed : compliance.isoFailed} issues)
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Summary row */}
+      <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--text-muted)", letterSpacing: ".5px", marginBottom: 8 }}>
+        {passed} CONFORMES / {failed} NÃO CONFORMES — {tab === "lgpd" ? "LEI 13.709/2018" : "ISO/IEC 27001:2022 ANEXO A"}
+      </div>
+
+      {/* Items */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {items.map(item => {
+          const key = item.reference;
+          const isOpen = expanded === key;
+          return (
+            <div key={key}
+              style={{
+                border: "1px solid",
+                borderColor: item.status === "PASS" ? "var(--border2)" : "var(--critical)30",
+                borderRadius: 4,
+                background: item.status === "FAIL" ? "var(--critical)08" : "var(--surface)",
+                overflow: "hidden"
+              }}>
+              <div onClick={() => setExpanded(isOpen ? null : key)}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", cursor: "pointer", userSelect: "none" }}>
+                <span style={{ fontFamily: "var(--mono)", fontSize: 13, color: statusColor(item.status), minWidth: 16 }}>
+                  {statusIcon(item.status)}
+                </span>
+                <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--accent)", minWidth: 60, fontWeight: 700 }}>
+                  {item.reference}
+                </span>
+                <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text)", flex: 1 }}>
+                  {item.title}
+                </span>
+                {item.status === "FAIL" && (
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--critical)", background: "var(--critical)20", padding: "1px 6px", borderRadius: 2 }}>
+                    {item.findings.length} issue{item.findings.length !== 1 ? "s" : ""}
+                  </span>
+                )}
+                <span style={{ color: "var(--text-muted)", fontSize: 10 }}>{isOpen ? "▲" : "▼"}</span>
+              </div>
+              {isOpen && (
+                <div style={{ borderTop: "1px solid var(--border2)", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8, userSelect: "text" }}
+                     onClick={e => e.stopPropagation()}>
+                  <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                    {item.requirement}
+                  </div>
+                  {item.findings.length > 0 && (
+                    <div>
+                      <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--critical)", letterSpacing: ".5px", marginBottom: 4 }}>
+                        NÃO CONFORMIDADES
+                      </div>
+                      {item.findings.map((f, i) => (
+                        <div key={i} style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text)", padding: "2px 0 2px 8px", borderLeft: "2px solid var(--critical)" }}>
+                          {f}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ background: "var(--accent)10", borderRadius: 3, padding: "6px 10px" }}>
+                    <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--accent)", letterSpacing: ".5px", marginBottom: 3 }}>
+                      RECOMENDAÇÃO
+                    </div>
+                    <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text)", lineHeight: 1.5 }}>
+                      {item.recommendation}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface SubdomainInfo {
   host: string;
   alive: boolean;
@@ -4342,6 +4518,11 @@ export default function App() {
   const canHistory              = user?.account?.historyChartAllowed     === true;
   const canActiveScan           = user?.account?.activeScanAllowed       === true;
   const activeScanVerifiedOnly  = user?.account?.activeScanOnVerifiedOnly === true;
+  // Compliance: EMPRESA (qualquer plano) + PRO PESSOAL (incentivo de upsell) + OWNER/ADMIN
+  const canCompliance = isAdmin()
+      || user?.account?.type === "COMPANY"
+      || user?.account?.plan === "PRO"
+      || user?.account?.plan === "ENTERPRISE";
   // Gestão de usuários: exclusivo para contas COMPANY com role OWNER ou ADMIN
   const canManageUsers = isAdmin() && user?.account?.type === "COMPANY";
   // Painel Admin visível para qualquer OWNER/ADMIN (audit logs disponíveis independente do tipo de conta)
@@ -4618,6 +4799,22 @@ export default function App() {
                       active={openModule === "cve"}
                       onClick={() => setOpenModule("cve")}/>
 
+                    {/* ── Compliance ── */}
+                    {canCompliance && r.compliance && (<>
+                      <div className={styles.sidebarNavGroup}>Compliance</div>
+                      <SidebarNavItem icon="⊕" title="LGPD / ISO 27001"
+                        color={
+                          r.compliance.riskLevel === "COMPLIANT" ? "var(--secure)" :
+                          r.compliance.riskLevel === "LOW"       ? "var(--info)"   :
+                          r.compliance.riskLevel === "MEDIUM"    ? "var(--warning)":
+                          "var(--critical)"
+                        }
+                        metric={`${r.compliance.overallScore}%`}
+                        label={r.compliance.riskLevel}
+                        active={openModule === "compliance"}
+                        onClick={() => setOpenModule("compliance")}/>
+                    </>)}
+
                     {changeCount > 0 && canChanges && (<>
                       <div className={styles.sidebarNavGroup}>Monitoramento</div>
                       <SidebarNavItem icon="△" title="Changes"
@@ -4749,6 +4946,21 @@ export default function App() {
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("tech")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
                         <TechCardsPanel tf={tf} />
+                      </>
+                    )}
+
+                    {openModule === "compliance" && canCompliance && r.compliance && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color":
+                          r.compliance.riskLevel === "COMPLIANT" ? "var(--secure)" :
+                          r.compliance.riskLevel === "LOW"       ? "var(--info)" :
+                          r.compliance.riskLevel === "MEDIUM"    ? "var(--warning)" : "var(--critical)"
+                        } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>⊕</span>
+                          <span className={styles.sidebarContentTitleText}>LGPD / ISO 27001:2022</span>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("compliance")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                        </div>
+                        <CompliancePanel compliance={r.compliance} />
                       </>
                     )}
 
