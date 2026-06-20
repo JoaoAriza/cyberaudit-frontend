@@ -2293,7 +2293,15 @@ function ChangesPage() {
 
 // ── Domains Page ─────────────────────────────────────────────────────────────
 
+interface SubdomainInfo {
+  host: string;
+  alive: boolean;
+  httpStatus: number | null;
+  ip: string | null;
+}
+
 function DomainsPage() {
+  const { user } = useAuth();
   const [domains, setDomains]   = useState<DomainDto[]>([]);
   const [loading, setLoading]   = useState(true);
   const [host, setHost]         = useState("");
@@ -2301,6 +2309,11 @@ function DomainsPage() {
   const [error, setError]       = useState<string | null>(null);
   const [verifying, setVerifying] = useState<string | null>(null);
   const [copied, setCopied]     = useState<string | null>(null);
+  const [enumerating, setEnumerating] = useState<string | null>(null);
+  const [subdomains, setSubdomains]   = useState<Record<string, SubdomainInfo[]>>({});
+  const [openEnum, setOpenEnum]       = useState<string | null>(null);
+
+  const isCompany = user?.account?.type === "COMPANY";
 
   async function load() {
     try { setDomains((await api.get<DomainDto[]>("/domains")).data); }
@@ -2332,10 +2345,30 @@ function DomainsPage() {
     finally { setVerifying(null); }
   }
 
+  async function enumerate(id: string) {
+    setEnumerating(id); setError(null);
+    setOpenEnum(id);
+    try {
+      const res = await api.post<SubdomainInfo[]>(`/domains/${id}/enumerate`);
+      setSubdomains(prev => ({ ...prev, [id]: res.data }));
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? "Erro ao enumerar subdomínios.");
+      setOpenEnum(null);
+    } finally { setEnumerating(null); }
+  }
+
   function copyToken(token: string, id: string) {
     navigator.clipboard.writeText(token);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
+  }
+
+  function statusColor(s: number | null) {
+    if (!s) return "var(--text-muted)";
+    if (s < 300) return "var(--secure)";
+    if (s < 400) return "var(--info)";
+    if (s < 500) return "var(--warning)";
+    return "var(--critical)";
   }
 
   return (
@@ -2382,18 +2415,23 @@ function DomainsPage() {
                 </div>
                 <div className={styles.actionBtns}>
                   {!d.verified && (
-                    <button
-                      className={`${styles.btn} ${styles.btnGhost}`}
-                      onClick={() => verify(d.id)}
-                      disabled={verifying === d.id}
-                    >
+                    <button className={`${styles.btn} ${styles.btnGhost}`}
+                      onClick={() => verify(d.id)} disabled={verifying === d.id}>
                       {verifying === d.id ? "Verificando..." : "Verificar"}
                     </button>
                   )}
-                  <button
-                    className={`${styles.btn} ${styles.btnDanger}`}
-                    onClick={() => remove(d.id, d.host)}
-                  >
+                  {/* Enumeração de subdomínios — apenas EMPRESA + domínio verificado */}
+                  {d.verified && isCompany && (
+                    <button
+                      className={`${styles.btn} ${styles.btnGhost}`}
+                      onClick={() => openEnum === d.id ? setOpenEnum(null) : enumerate(d.id)}
+                      disabled={enumerating === d.id}
+                      title="Enumerar subdomínios via Certificate Transparency"
+                    >
+                      {enumerating === d.id ? "Enumerando..." : openEnum === d.id ? "▲ Fechar" : "◈ Subdomínios"}
+                    </button>
+                  )}
+                  <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => remove(d.id, d.host)}>
                     Remover
                   </button>
                 </div>
@@ -2414,10 +2452,7 @@ function DomainsPage() {
                       <div className={styles.stepTitle}>Conteúdo do arquivo</div>
                       <div className={styles.tokenRow}>
                         <code className={styles.stepCode}>{d.verificationToken}</code>
-                        <button
-                          className={styles.copyBtn}
-                          onClick={() => copyToken(d.verificationToken, d.id)}
-                        >
+                        <button className={styles.copyBtn} onClick={() => copyToken(d.verificationToken, d.id)}>
                           {copied === d.id ? "✓ Copiado" : "Copiar"}
                         </button>
                       </div>
@@ -2429,6 +2464,70 @@ function DomainsPage() {
                       <div className={styles.stepTitle}>Clique em "Verificar" acima após publicar o arquivo</div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Resultados de enumeração */}
+              {openEnum === d.id && subdomains[d.id] && (
+                <div style={{ marginTop: 12, borderTop: "1px solid var(--border2)", paddingTop: 12 }}>
+                  <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)", letterSpacing: ".5px", marginBottom: 8 }}>
+                    SUBDOMÍNIOS DESCOBERTOS — {subdomains[d.id].length} encontrados via Certificate Transparency
+                    <span style={{ marginLeft: 8, color: "var(--secure)" }}>
+                      ({subdomains[d.id].filter(s => s.alive).length} ativos)
+                    </span>
+                  </div>
+                  <table className={styles.table} style={{ width: "100%" }}>
+                    <thead>
+                      <tr>
+                        <th>Subdomínio</th>
+                        <th>Status</th>
+                        <th>HTTP</th>
+                        <th>IP</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subdomains[d.id].map((s, i) => (
+                        <tr key={i}>
+                          <td><code style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{s.host}</code></td>
+                          <td>
+                            <span style={{ color: s.alive ? "var(--secure)" : "var(--text-muted)", fontFamily: "var(--mono)", fontSize: 10 }}>
+                              {s.alive ? "✓ Ativo" : "✗ Inativo"}
+                            </span>
+                          </td>
+                          <td>
+                            {s.httpStatus
+                              ? <span style={{ color: statusColor(s.httpStatus), fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700 }}>{s.httpStatus}</span>
+                              : <span className={styles.muted}>—</span>}
+                          </td>
+                          <td><span className={styles.muted} style={{ fontSize: 10 }}>{s.ip ?? "—"}</span></td>
+                          <td>
+                            {s.alive && (
+                              <button
+                                className={`${styles.btn} ${styles.btnGhost}`}
+                                style={{ fontSize: 10, padding: "2px 8px" }}
+                                onClick={() => {
+                                  // Copia o host para o scanner (navega para scan tab)
+                                  navigator.clipboard.writeText(s.host);
+                                }}
+                                title="Copiar para scanner"
+                              >
+                                Copiar
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {subdomains[d.id].length === 0 && (
+                    <div className={styles.empty}>Nenhum subdomínio encontrado nos logs de Certificate Transparency.</div>
+                  )}
+                </div>
+              )}
+              {openEnum === d.id && enumerating === d.id && (
+                <div style={{ marginTop: 10, fontFamily: "var(--mono)", fontSize: 11, color: "var(--text-muted)" }}>
+                  ◈ Consultando Certificate Transparency e verificando DNS... pode levar até 60s.
                 </div>
               )}
             </div>
@@ -4239,9 +4338,10 @@ export default function App() {
   const changeCount   = r?.changes?.length ?? 0;
   const changesColor  = (r?.changes ?? []).some(c => c.changeType === "DEGRADED") ? "var(--critical)" : changeCount > 0 ? "var(--warning)" : "var(--secure)";
   // Permissões de plano (OWNER/ADMIN já recebem tudo pelo backend; guest = sem user)
-  const canChanges    = user?.account?.changesModuleAllowed === true;
-  const canHistory    = user?.account?.historyChartAllowed  === true;
-  const canActiveScan = user?.account?.activeScanAllowed    === true;
+  const canChanges              = user?.account?.changesModuleAllowed    === true;
+  const canHistory              = user?.account?.historyChartAllowed     === true;
+  const canActiveScan           = user?.account?.activeScanAllowed       === true;
+  const activeScanVerifiedOnly  = user?.account?.activeScanOnVerifiedOnly === true;
   // Gestão de usuários: exclusivo para contas COMPANY com role OWNER ou ADMIN
   const canManageUsers = isAdmin() && user?.account?.type === "COMPANY";
   // Painel Admin visível para qualquer OWNER/ADMIN (audit logs disponíveis independente do tipo de conta)
@@ -4329,13 +4429,17 @@ export default function App() {
                 <div className={styles.toggles}>
                   <label className={styles.toggle} title={
                     user && !canActiveScan
-                      ? "Scan ativo requer plano ENTERPRISE"
-                      : "Apenas em domínios autorizados."
+                      ? "Scan ativo requer plano PRO ou superior"
+                      : activeScanVerifiedOnly
+                      ? "Scan ativo permitido apenas em domínios verificados na sua conta"
+                      : "Executa probes ativos: WAF, CORS, portas abertas e mais"
                   }>
                     <input type="checkbox" checked={active}
                       disabled={scanLoading || (!!user && !canActiveScan)}
                       onChange={e => setActive(e.target.checked)} />
-                    <span className={`${styles.toggleLabel} ${user && !canActiveScan ? styles.disabledLabel : ""}`}>ACTIVE{user && !canActiveScan ? " ⛔" : ""}</span>
+                    <span className={`${styles.toggleLabel} ${user && !canActiveScan ? styles.disabledLabel : ""}`}>
+                      ACTIVE{user && !canActiveScan ? " ⛔" : ""}
+                    </span>
                   </label>
                   {user && (
                     <label className={styles.toggle} title="Receber email ao concluir o scan">
@@ -4344,6 +4448,12 @@ export default function App() {
                     </label>
                   )}
                 </div>
+                {/* Aviso para PRO INDIVIDUAL com scan ativo habilitado */}
+                {activeScanVerifiedOnly && active && (
+                  <div style={{ fontSize: 10, color: "var(--warning)", fontFamily: "var(--mono)", marginTop: 4, letterSpacing: ".3px" }}>
+                    ⚠ Modo PRO — scan ativo restrito a domínios verificados na aba <strong>Domínios</strong>
+                  </div>
+                )}
                 <div className={styles.actions}>
                   {scanLoading
                     ? <button className={`${styles.btn} ${styles.btnCancel}`} onClick={() => { abortRef.current?.abort(); stopPoll(); stopSlowTimer(); setScanLoading(false); }}>✕ Cancel</button>

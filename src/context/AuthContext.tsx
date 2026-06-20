@@ -17,6 +17,8 @@ export interface AccountDto {
   dailyScanLimit: number;       // -1 = ilimitado
   scheduledScanLimit: number;   // -1 = ilimitado
   activeScanAllowed: boolean;
+  /** PRO INDIVIDUAL — scan ativo só em domínios verificados */
+  activeScanOnVerifiedOnly: boolean;
   pdfExportAllowed: boolean;
   changesModuleAllowed: boolean;
   historyChartAllowed: boolean;
