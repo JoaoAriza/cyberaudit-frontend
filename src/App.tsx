@@ -1083,96 +1083,31 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
               )}
 
               {/* ── TLS / SSL ── */}
-              {sec === "transport" && (
-                <Section title="SSL / TLS" defaultOpen={true}>
-                  <KV label="Redireciona HTTPS" value={boolIcon(r.redirectsToHttps)} />
-                  <KV label="Certificado válido" value={boolIcon(r.sslInfo?.valid)} />
-                  <KV label="Expira em" value={r.sslInfo?.expirationDate ?? "—"} />
-                  <KV label="Dias restantes" value={
-                    <span className={(r.sslInfo?.daysRemaining ?? 0) < 30 ? styles.bad : (r.sslInfo?.daysRemaining ?? 0) < 90 ? styles.warn : styles.ok}>
-                      {r.sslInfo?.daysRemaining ?? "—"}d
-                    </span>
-                  } />
-                  <KV label="Protocolo" value={
-                    <span className={r.tlsDetails?.weakProtocol ? styles.bad : styles.ok}>
-                      {r.tlsDetails?.negotiatedProtocol ?? "—"}
-                    </span>
-                  } />
-                  <KV label="Cipher" value={<code className={styles.code}>{r.tlsDetails?.cipherSuite ?? "—"}</code>} />
-                  {r.tlsDetails?.message && <div className={styles.note}>{r.tlsDetails.message}</div>}
-                </Section>
-              )}
+              {sec === "transport" && <TransportCardsPanel r={r} />}
 
               {/* ── Headers ── */}
-              {sec === "headers" && (
-                <Section title="Security Headers" defaultOpen={true}>
-                  {Object.entries(r.headers ?? {}).map(([k, v]) => (
-                    <KV key={k} label={k} value={headerStatus(v)} />
-                  ))}
-                </Section>
-              )}
+              {sec === "headers" && <HeaderCardsPanel headers={r.headers ?? {}} />}
 
               {/* ── DNS ── */}
-              {sec === "dns" && (r.dnsSecurityResult ? (
-                <Section title="DNS Security" defaultOpen={true}>
-                  <KV label="SPF"    value={boolIcon(r.dnsSecurityResult.spfPresent)} />
-                  <KV label="DMARC"  value={boolIcon(r.dnsSecurityResult.dmarcPresent)} />
-                  <KV label="DKIM"   value={boolIcon(r.dnsSecurityResult.dkimHintFound)} />
-                  <KV label="CAA"    value={boolIcon(r.dnsSecurityResult.caaPresent)} />
-                  <KV label="Risco email spoofing" value={
-                    <span className={riskColor(r.dnsSecurityResult.emailSpoofingRisk)}>
-                      {r.dnsSecurityResult.emailSpoofingRisk ?? "—"}
-                    </span>
-                  } />
-                  {r.dnsSecurityResult.summary && <div className={styles.note}>{r.dnsSecurityResult.summary}</div>}
-                </Section>
-              ) : <div className={styles.empty}>Dados DNS não disponíveis</div>)}
+              {sec === "dns" && <DnsCardsPanel r={r} />}
 
               {/* ── Tech ── */}
-              {sec === "tech" && (r.techFingerprint ? (
-                <Section title="Technology Fingerprint" defaultOpen={true}>
-                  {r.techFingerprint.webServer  && <KV label="Web Server" value={r.techFingerprint.webServer} />}
-                  {r.techFingerprint.language   && <KV label="Language"   value={r.techFingerprint.language} />}
-                  {r.techFingerprint.backend    && <KV label="Backend"    value={r.techFingerprint.backend} />}
-                  {r.techFingerprint.framework  && <KV label="Framework"  value={r.techFingerprint.framework} />}
-                  {r.techFingerprint.cms        && <KV label="CMS"        value={r.techFingerprint.cms} />}
-                  {r.techFingerprint.cdn        && <KV label="CDN"        value={r.techFingerprint.cdn} />}
-                  {(r.techFingerprint.libraries?.length ?? 0) > 0 && (
-                    <KV label="Libraries" value={r.techFingerprint.libraries!.join(", ")} />
-                  )}
-                </Section>
-              ) : <div className={styles.empty}>Tech fingerprint não disponível</div>)}
+              {sec === "tech" && <TechCardsPanel tf={r.techFingerprint} />}
 
               {/* ── Cookies ── */}
-              {sec === "cookies" && (
-                r.cookieIssues?.length
-                  ? r.cookieIssues.map((c, i) => (
-                      <div key={i} className={styles.card} style={{ marginBottom: 8 }}>
-                        <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                          <code className={styles.code}>{c.name}</code>
-                          <span className={`${styles.tag} ${riskColor(c.risk)}`} style={{ marginLeft: 8 }}>{c.risk}</span>
-                        </div>
-                        <KV label="HttpOnly" value={boolIcon(c.httpOnly)} />
-                        <KV label="Secure"   value={boolIcon(c.secure)} />
-                        <KV label="SameSite" value={c.sameSite ?? "—"} />
-                        {c.issues && <div className={styles.note}>{c.issues}</div>}
-                      </div>
-                    ))
-                  : <div className={styles.empty}>Nenhum cookie com issue detectado</div>
-              )}
+              {sec === "cookies" && <CookieCardsPanel cookies={r.cookieIssues ?? []} />}
 
               {/* ── Ports ── */}
               {sec === "ports" && (
                 r.openPorts?.length
-                  ? r.openPorts.map((p, i) => (
-                      <div key={i} className={styles.kv}>
-                        <span className={styles.kvLabel}><code className={styles.code}>{p.port}</code></span>
-                        <span className={styles.kvValue}>
-                          <span className={`${styles.tag} ${sevColor(p.severity)}`}>{p.severity}</span>
-                          {" "}{p.service ?? ""}
-                        </span>
-                      </div>
-                    ))
+                  ? <FindingCardsPanel
+                      emptyMsg="Nenhuma porta aberta detectada"
+                      items={r.openPorts.map((p: any, i: number) => ({
+                        id: `port-${i}`, title: String(p.port), severity: p.severity,
+                        summary: p.service ?? "Serviço não identificado",
+                        details: [{ label: "PORTA", value: String(p.port) }, { label: "SERVIÇO", value: p.service ?? "—" }],
+                      }))}
+                    />
                   : <div className={styles.empty}>Nenhuma porta aberta detectada</div>
               )}
 
@@ -2644,6 +2579,894 @@ function IntradayChart({ host }: { host: string }) {
 
 interface HistorySummary { id: string; url: string; host: string; scannedAt: string; activeMode: boolean; score: number; riskLevel: string; origin?: string; }
 
+// ── Security Headers — Card Grid ──────────────────────────────────────────────
+
+const HEADER_META: Record<string, { short: string; desc: string; risk: string; example: string; tip: string }> = {
+  "Content-Security-Policy":   { short: "CSP",        desc: "Define quais origens podem carregar scripts, estilos e outros recursos — principal defesa contra XSS.", risk: "Sem CSP, scripts maliciosos de qualquer origem podem executar no browser do usuário.", example: "default-src 'self'; script-src 'self'", tip: "Comece com report-only para testar sem quebrar o site em produção." },
+  "Strict-Transport-Security": { short: "HSTS",       desc: "Força o browser a usar HTTPS em todas as conexões futuras, impedindo ataques de downgrade.", risk: "Sem HSTS, um atacante na rede pode forçar HTTP mesmo com HTTPS configurado.", example: "max-age=31536000; includeSubDomains; preload", tip: "Com preload, o navegador nunca aceita HTTP — nem na primeira visita ao site." },
+  "X-Frame-Options":           { short: "X-Frame",    desc: "Impede que o site seja embutido em iframes de outros domínios, bloqueando clickjacking.", risk: "Sem este header, o site pode ser embutido em iframes para enganar cliques do usuário.", example: "DENY", tip: "Use DENY se não precisar de iframes, SAMEORIGIN para permitir apenas do próprio domínio." },
+  "X-Content-Type-Options":    { short: "MIME Guard", desc: "Impede que o browser \"adivinhe\" o tipo de arquivo, forçando respeitar o Content-Type declarado.", risk: "Sem nosniff, um arquivo de imagem pode ser interpretado como script e executado.", example: "nosniff", tip: "Simples e sem efeitos colaterais. Sempre ative — nunca há razão para omitir." },
+  "Referrer-Policy":           { short: "Referrer",   desc: "Controla quais informações de URL são enviadas no header Referer ao navegar para outros sites.", risk: "Sem política, URLs completas com tokens e dados internos podem vazar para terceiros.", example: "strict-origin-when-cross-origin", tip: "Evita vazamento de URLs internas e parâmetros de sessão para sites externos." },
+  "Permissions-Policy":        { short: "Permissões", desc: "Restringe o acesso do site a APIs sensíveis do browser como câmera, microfone e geolocalização.", risk: "Sem política, scripts (inclusive maliciosos) podem acessar câmera e microfone do usuário.", example: "camera=(), microphone=(), geolocation=()", tip: "Desative todos os recursos que você não usa. Menos superfície = menos risco." },
+  "X-XSS-Protection":          { short: "XSS Filter", desc: "Ativa o filtro XSS embutido de browsers legados (IE/Edge antigos). Browsers modernos usam CSP.", risk: "Header legado — não é crítico em browsers modernos, mas relevante para IE/Edge antigos.", example: "1; mode=block", tip: "Se presente, use '1; mode=block'. Valor '1' sem mode pode criar vulnerabilidades em IE." },
+  "Cache-Control":             { short: "Cache",      desc: "Controla se e como o browser e proxies intermediários podem cachear as respostas HTTP.", risk: "Sem controle, dados de páginas autenticadas podem ser cacheados em proxies públicos.", example: "no-store, no-cache", tip: "Para páginas autenticadas: no-store. Recursos estáticos públicos suportam max-age longo." },
+};
+
+function HeaderCardsPanel({ headers }: { headers: Record<string, string> }) {
+  const [openSet, setOpenSet] = useState<Set<string>>(new Set());
+
+  const toggle = (key: string) =>
+    setOpenSet(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+
+  const entries = Object.entries(headers);
+  if (entries.length === 0) return <div className={styles.empty}>◈ Nenhum header retornado.</div>;
+
+  // 3 columns, align-items: start so expanded cards don't stretch their siblings
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 8, alignItems: "start" }}>
+      {entries.map(([key, val]) => {
+        const isOk      = val.startsWith("OK");
+        const isMissing = val.startsWith("MISSING");
+        const color     = isOk ? "var(--secure)" : isMissing ? "var(--critical)" : "var(--warning)";
+        const icon      = isOk ? "✓" : isMissing ? "✗" : "⚠";
+        const statusTxt = isOk ? "OK" : isMissing ? "MISSING" : "WEAK";
+        const meta      = HEADER_META[key];
+        const isOpen    = openSet.has(key);
+
+        return (
+          <div
+            key={key}
+            onClick={() => toggle(key)}
+            style={{
+              background: "var(--surface)",
+              border: `1px solid ${isOpen ? color : "var(--border)"}`,
+              borderLeft: `3px solid ${color}`,
+              borderRadius: "var(--radius)",
+              padding: "12px 14px",
+              cursor: "pointer",
+              transition: "border-color .15s",
+              userSelect: "none",
+              display: "flex",
+              flexDirection: "column",
+              gap: 0,
+              minHeight: 130,
+            }}
+            onMouseEnter={e => !isOpen && ((e.currentTarget as HTMLDivElement).style.borderColor = color)}
+            onMouseLeave={e => !isOpen && ((e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)")}
+          >
+            {/* Top row: name + status */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", fontWeight: 700 }}>
+                  {meta?.short ?? key}
+                </div>
+                <code style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {key}
+                </code>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1, flexShrink: 0 }}>
+                <span style={{ color, fontFamily: "var(--mono)", fontSize: 15, lineHeight: 1 }}>{icon}</span>
+                <span style={{ color, fontSize: 9, fontFamily: "var(--mono)", fontWeight: 700, letterSpacing: ".5px" }}>{statusTxt}</span>
+              </div>
+            </div>
+
+            {/* Brief description — always visible */}
+            {meta && (
+              <p style={{ fontSize: 10, color: "var(--text-dim)", margin: "8px 0 0", lineHeight: 1.55, flex: 1 }}>
+                {meta.desc}
+              </p>
+            )}
+
+            {/* Hint to click */}
+            {!isOpen && (
+              <span style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 8, fontFamily: "var(--mono)" }}>
+                clique para {isOk ? "ver detalhes" : "ver como corrigir"} ›
+              </span>
+            )}
+
+            {/* Expanded detail */}
+            {isOpen && meta && (
+              <div style={{ marginTop: 10, borderTop: "1px solid var(--border2)", paddingTop: 8 }} onClick={e => e.stopPropagation()}>
+                {isOk ? (
+                  <p style={{ fontSize: 11, color: "var(--secure)", margin: "0 0 6px", fontFamily: "var(--mono)" }}>
+                    ✓ Header presente e configurado corretamente.
+                  </p>
+                ) : (
+                  <p style={{ fontSize: 11, color: "var(--text-dim)", margin: "0 0 8px", lineHeight: 1.5 }}>
+                    <span style={{ color }}>⚠ Risco: </span>{meta.risk}
+                  </p>
+                )}
+                <div style={{ marginBottom: 8 }}>
+                  <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", letterSpacing: ".5px", display: "block", marginBottom: 4 }}>VALOR RECOMENDADO</span>
+                  <code style={{ fontSize: 10, color: "var(--accent)", fontFamily: "var(--mono)", wordBreak: "break-all", display: "block", background: "var(--bg)", padding: "5px 8px", borderRadius: 3 }}>
+                    {meta.example}
+                  </code>
+                </div>
+                <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0, lineHeight: 1.5, fontStyle: "italic" }}>
+                  ◈ {meta.tip}
+                </p>
+              </div>
+            )}
+            {isOpen && !meta && (
+              <div style={{ marginTop: 8, borderTop: "1px solid var(--border2)", paddingTop: 8, fontSize: 11, color: "var(--text-dim)" }}>
+                Valor: <code style={{ fontFamily: "var(--mono)", color: "var(--text)" }}>{val}</code>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Shared card toggle hook ───────────────────────────────────────────────────
+
+function useCardSet() {
+  const [openSet, setOpenSet] = useState<Set<string>>(new Set());
+  const toggle = (k: string) =>
+    setOpenSet(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  return { openSet, toggle };
+}
+
+/** Distribui items em N colunas flex independentes — expande sem afetar outras colunas */
+function ColsGrid({ items, cols = 3, gap = 8 }: { items: React.ReactNode[]; cols?: number; gap?: number }) {
+  const columns: React.ReactNode[][] = Array.from({ length: cols }, () => []);
+  items.forEach((item, i) => columns[i % cols].push(item));
+  return (
+    <div style={{ display: "flex", gap, alignItems: "flex-start", marginTop: gap }}>
+      {columns.map((col, ci) => (
+        <div key={ci} style={{ flex: 1, display: "flex", flexDirection: "column", gap }}>
+          {col}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Shared card shell ─────────────────────────────────────────────────────────
+
+function ModCard({
+  id, color, isOpen, onToggle, top, mid, bottom, minH = 110,
+}: {
+  id: string; color: string; isOpen: boolean; onToggle: () => void;
+  top: React.ReactNode; mid?: React.ReactNode; bottom: React.ReactNode; minH?: number;
+}) {
+  return (
+    <div
+      onClick={onToggle}
+      style={{
+        background: "var(--surface)",
+        border: `1px solid ${isOpen ? color : "var(--border)"}`,
+        borderLeft: `3px solid ${color}`,
+        borderRadius: "var(--radius)",
+        padding: "12px 14px",
+        cursor: "pointer",
+        transition: "border-color .15s",
+        userSelect: "none",
+        minHeight: minH,
+        display: "flex",
+        flexDirection: "column",
+      }}
+      onMouseEnter={e => !isOpen && ((e.currentTarget as HTMLDivElement).style.borderColor = color)}
+      onMouseLeave={e => !isOpen && ((e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)")}
+    >
+      {top}
+      {mid && <div style={{ flex: 1 }}>{mid}</div>}
+      {!isOpen && (
+        <span style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 6, fontFamily: "var(--mono)" }}>
+          clique para ver detalhes ›
+        </span>
+      )}
+      {isOpen && (
+        <div style={{ marginTop: 8, borderTop: "1px solid var(--border2)", paddingTop: 8, userSelect: "text" }}
+             onClick={e => e.stopPropagation()}>
+          {bottom}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SecureEmptyCard({ msg }: { msg: string }) {
+  return (
+    <div style={{
+      background: "var(--surface)", border: "1px solid var(--secure)",
+      borderLeft: "3px solid var(--secure)", borderRadius: "var(--radius)",
+      padding: "16px 18px", marginTop: 8, display: "flex", alignItems: "center", gap: 10,
+    }}>
+      <span style={{ color: "var(--secure)", fontSize: 18 }}>✓</span>
+      <span style={{ color: "var(--secure)", fontFamily: "var(--mono)", fontSize: 12 }}>{msg}</span>
+    </div>
+  );
+}
+
+const GRID3: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 8, alignItems: "start" };
+const GRID2: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginTop: 8, alignItems: "start" };
+
+// ── Transport Security Cards ───────────────────────────────────────────────────
+
+function TransportCardsPanel({ r }: { r: any }) {
+  const { openSet, toggle } = useCardSet();
+  const tls = r?.tlsDetails;
+  const ssl = r?.sslInfo;
+  const days = ssl?.daysRemaining ?? null;
+  const daysColor = days === null ? "var(--text-muted)" : days < 30 ? "var(--critical)" : days < 90 ? "var(--warning)" : "var(--secure)";
+  const proto = tls?.negotiatedProtocol ?? "—";
+  const protoColor = tls?.weakProtocol ? "var(--critical)" : "var(--secure)";
+  const certColor = ssl?.valid ? "var(--secure)" : "var(--critical)";
+
+  const cards = [
+    {
+      key: "protocol", title: "Protocolo TLS", value: proto, color: protoColor,
+      icon: tls?.weakProtocol ? "✗" : "✓", status: tls?.weakProtocol ? "FRACO" : "OK",
+      desc: "Versão do protocolo negociada na conexão HTTPS.",
+      detail: tls?.weakProtocol
+        ? "Protocolo desatualizado. TLS 1.0/1.1 têm vulnerabilidades (POODLE, BEAST). Atualize para TLS 1.2 mínimo, preferencialmente 1.3."
+        : "TLS 1.2+ é aceito. TLS 1.3 é o ideal — mais rápido e sem cipher suites legadas.",
+    },
+    {
+      key: "cipher", title: "Cipher Suite", value: tls?.cipherSuite ?? "—", color: "var(--info)",
+      icon: "◈", status: "INFO",
+      desc: "Conjunto de algoritmos de criptografia da sessão TLS.",
+      detail: (tls?.message ?? "") + " Cifras com ECDHE oferecem Perfect Forward Secrecy — sessões passadas permanecem seguras mesmo se a chave privada vazar.",
+    },
+    {
+      key: "cert", title: "Certificado Válido", value: ssl?.valid ? "✓ Válido" : "✗ Inválido", color: certColor,
+      icon: ssl?.valid ? "✓" : "✗", status: ssl?.valid ? "OK" : "CRÍTICO",
+      desc: "Certificado emitido por CA confiável e não expirado.",
+      detail: ssl?.valid
+        ? "Certificado válido e confiável pelos principais browsers."
+        : "Certificado inválido ou expirado — browsers bloqueiam o acesso e exibem aviso de segurança.",
+    },
+    {
+      key: "expiry", title: "Data de Expiração", value: ssl?.expirationDate ?? "—", color: daysColor,
+      icon: days !== null ? (days < 30 ? "✗" : days < 90 ? "⚠" : "✓") : "—",
+      status: days !== null ? (days < 30 ? "URGENTE" : days < 90 ? "ATENÇÃO" : "OK") : "—",
+      desc: "Data em que o certificado SSL deixa de ser válido.",
+      detail: "Certificados expirados afastam usuários imediatamente. Configure renovação automática (Let's Encrypt/ACME) para evitar interrupções.",
+    },
+    {
+      key: "days", title: "Dias Restantes", value: days !== null ? `${days} dias` : "—", color: daysColor,
+      icon: days !== null ? (days < 30 ? "✗" : days < 90 ? "⚠" : "✓") : "—",
+      status: days !== null ? (days < 30 ? "URGENTE" : days < 90 ? "ATENÇÃO" : "OK") : "—",
+      desc: "Quantos dias faltam até o certificado expirar.",
+      detail: days !== null && days < 30
+        ? "Menos de 30 dias! Renove agora — se expirar, o site fica inacessível."
+        : days !== null && days < 90
+        ? "Menos de 90 dias. Configure alertas de renovação para evitar esquecimento."
+        : "Certificado com vida útil confortável.",
+    },
+  ];
+
+  return (
+    <div style={GRID3}>
+      {cards.map(c => (
+        <ModCard key={c.key} id={c.key} color={c.color} isOpen={openSet.has(c.key)} onToggle={() => toggle(c.key)}
+          top={
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+              <div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--text)", fontWeight: 700 }}>{c.title}</div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: c.color, fontWeight: 700, marginTop: 3 }}>{c.value}</div>
+              </div>
+              <div style={{ flexShrink: 0, textAlign: "right" }}>
+                <div style={{ color: c.color, fontSize: 14 }}>{c.icon}</div>
+                <div style={{ color: c.color, fontSize: 9, fontFamily: "var(--mono)", fontWeight: 700 }}>{c.status}</div>
+              </div>
+            </div>
+          }
+          mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{c.desc}</p>}
+          bottom={<p style={{ fontSize: 11, color: "var(--text-dim)", margin: 0, lineHeight: 1.5 }}>{c.detail}</p>}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── DNS / Recon Cards ──────────────────────────────────────────────────────────
+
+function DnsCardsPanel({ r }: { r: any }) {
+  const { openSet, toggle } = useCardSet();
+  const dns = r?.dnsSecurityResult;
+
+  const cards = [
+    {
+      key: "spf", title: "SPF", present: dns?.spfPresent, warn: false,
+      value: dns?.spfPresent ? dns.spfPolicy : "AUSENTE",
+      desc: "Define quais servidores podem enviar email em nome do domínio.",
+      record: dns?.spfRecord,
+      tip: "SPF + DMARC juntos bloqueiam a maioria dos ataques de email spoofing.",
+    },
+    {
+      key: "dmarc", title: "DMARC", present: dns?.dmarcPresent, warn: false,
+      value: dns?.dmarcPresent ? `p=${dns.dmarcPolicy?.toLowerCase()}` : "AUSENTE",
+      desc: "Política sobre o que fazer com emails que falham SPF/DKIM.",
+      record: dns?.dmarcRecord,
+      tip: "p=reject é o mais seguro. Inicie com p=none para monitorar antes de rejeitar.",
+    },
+    {
+      key: "dkim", title: "DKIM", present: dns?.dkimHintFound, warn: true,
+      value: dns?.dkimHintFound ? `seletor: ${dns.dkimSelector}` : "Não detectado",
+      desc: "Assina emails criptograficamente para provar autenticidade.",
+      record: null,
+      tip: "Configure no seu servidor de email (Google Workspace, Office 365). Detecção passiva por heurística.",
+    },
+    {
+      key: "caa", title: "CAA Record", present: dns?.caaPresent, warn: true,
+      value: dns?.caaPresent ? "Configurado" : "AUSENTE",
+      desc: "Restringe quais CAs podem emitir certificados para o domínio.",
+      record: dns?.caaRecord,
+      tip: "Sem CAA, qualquer CA do mundo pode emitir certificados para seu domínio.",
+    },
+    {
+      key: "mx", title: "MX Records", present: dns?.mxPresent, warn: true,
+      value: dns?.mxPresent ? `${dns.mxRecords?.length ?? 0} servidor(es)` : "Sem MX",
+      desc: "Servidores responsáveis por receber email do domínio.",
+      record: dns?.mxRecords?.slice(0, 3).join(", ") ?? null,
+      tip: "MX ausente significa que o domínio não recebe email — verifique se é intencional.",
+    },
+    {
+      key: "sectxt", title: "Security.txt", present: r?.securityTxtPresent, warn: true,
+      value: r?.securityTxtPresent ? (r.securityTxtContact || "Presente") : "AUSENTE",
+      desc: "Arquivo RFC 9116 com contato para reporte responsável de vulnerabilidades.",
+      record: r?.securityTxtContact ? `Contact: ${r.securityTxtContact}` : null,
+      tip: "Crie em /.well-known/security.txt para facilitar reports de pesquisadores.",
+    },
+    {
+      key: "robots", title: "robots.txt", present: !(r?.sensitiveRobotsPaths?.length > 0), warn: false,
+      value: r?.sensitiveRobotsPaths?.length > 0 ? `${r.sensitiveRobotsPaths.length} path(s) sensíveis` : "Sem exposições",
+      desc: "Paths sensíveis expostos em Disallow do robots.txt.",
+      record: r?.sensitiveRobotsPaths?.slice(0, 3).join(", ") ?? null,
+      tip: "Disallow revela rotas que você quer esconder — atacantes leem robots.txt como primeiro passo.",
+    },
+  ];
+
+  const cardNodes = cards.map(c => {
+    const color = c.present ? "var(--secure)" : c.warn ? "var(--warning)" : "var(--critical)";
+    const icon  = c.present ? "✓" : c.warn ? "⚠" : "✗";
+    const st    = c.present ? "OK" : c.warn ? "WARN" : "MISSING";
+    return (
+      <ModCard key={c.key} id={c.key} color={color} isOpen={openSet.has(c.key)} onToggle={() => toggle(c.key)}
+        top={
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+            <div>
+              <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", fontWeight: 700 }}>{c.title}</div>
+              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color, marginTop: 2 }}>{c.value}</div>
+            </div>
+            <div style={{ flexShrink: 0, textAlign: "right" }}>
+              <div style={{ color, fontSize: 14 }}>{icon}</div>
+              <div style={{ color, fontSize: 9, fontFamily: "var(--mono)", fontWeight: 700 }}>{st}</div>
+            </div>
+          </div>
+        }
+        mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{c.desc}</p>}
+        bottom={
+          <>
+            {c.record && (
+              <div style={{ marginBottom: 8 }}>
+                <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", display: "block", marginBottom: 3 }}>REGISTRO</span>
+                <code style={{ fontSize: 10, color: "var(--accent)", fontFamily: "var(--mono)", wordBreak: "break-all", display: "block", background: "var(--bg)", padding: "4px 6px", borderRadius: 3 }}>
+                  {c.record}
+                </code>
+              </div>
+            )}
+            <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0, lineHeight: 1.5, fontStyle: "italic" }}>◈ {c.tip}</p>
+          </>
+        }
+      />
+    );
+  });
+
+  return (
+    <div>
+      {dns?.emailSpoofingRisk && (
+        <div style={{
+          background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border2)",
+          padding: "8px 14px", display: "flex", alignItems: "center", gap: 12, marginTop: 8,
+        }}>
+          <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--mono)", letterSpacing: ".5px" }}>RISCO DE EMAIL SPOOFING</span>
+          <span style={{ fontFamily: "var(--mono)", fontSize: 12, fontWeight: 700, color: dns.emailSpoofingRisk === "LOW" ? "var(--secure)" : dns.emailSpoofingRisk === "MEDIUM" ? "var(--warning)" : "var(--critical)" }}>
+            {dns.emailSpoofingRisk}
+          </span>
+          {dns.summary && <span style={{ fontSize: 10, color: "var(--text-dim)", marginLeft: "auto" }}>{dns.summary}</span>}
+        </div>
+      )}
+      <ColsGrid items={cardNodes} cols={3} />
+    </div>
+  );
+}
+
+// ── Cookie Cards ───────────────────────────────────────────────────────────────
+
+function CookieCardsPanel({ cookies }: { cookies: any[] }) {
+  const { openSet, toggle } = useCardSet();
+  if (!cookies?.length) return <SecureEmptyCard msg="Nenhum problema detectado nos cookies" />;
+  return (
+    <div style={GRID2}>
+      {cookies.map((c, idx) => {
+        const key = `${c.name}-${idx}`;
+        const color = c.risk === "CRITICAL" ? "var(--critical)" : c.risk === "HIGH" ? "var(--high)" : c.risk === "MEDIUM" ? "var(--warning)" : "var(--low)";
+        return (
+          <ModCard key={key} id={key} color={color} isOpen={openSet.has(key)} onToggle={() => toggle(key)} minH={90}
+            top={
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6, marginBottom: 8 }}>
+                  <code style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", fontWeight: 700, wordBreak: "break-all" }}>{c.name}</code>
+                  <span style={{ color, fontSize: 9, fontFamily: "var(--mono)", fontWeight: 700, background: `${color}22`, padding: "2px 5px", borderRadius: 3, flexShrink: 0 }}>{c.risk}</span>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <span style={{ fontSize: 10, fontFamily: "var(--mono)", color: c.httpOnly ? "var(--secure)" : "var(--critical)" }}>{c.httpOnly ? "✓" : "✗"} HttpOnly</span>
+                  <span style={{ fontSize: 10, fontFamily: "var(--mono)", color: c.secure ? "var(--secure)" : "var(--critical)" }}>{c.secure ? "✓" : "✗"} Secure</span>
+                  <span style={{ fontSize: 10, fontFamily: "var(--mono)", color: "var(--text-muted)" }}>SS: {c.sameSite || "—"}</span>
+                </div>
+              </>
+            }
+            mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{c.issues}</p>}
+            bottom={
+              <>
+                {!c.httpOnly && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "0 0 5px", lineHeight: 1.5 }}>• <strong>HttpOnly ausente</strong>: JS pode ler o cookie — XSS vira sequestro de sessão.</p>}
+                {!c.secure  && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "0 0 5px", lineHeight: 1.5 }}>• <strong>Secure ausente</strong>: Cookie enviado em HTTP não criptografado.</p>}
+                {(!c.sameSite || c.sameSite === "None") && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>• <strong>SameSite ausente/None</strong>: Cookie enviado em requests cross-site — risco de CSRF.</p>}
+              </>
+            }
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Technology Cards ───────────────────────────────────────────────────────────
+
+const TECH_RISK: Record<string, { desc: string; risk: string; icon: string }> = {
+  webServer:  { icon: "⬡", desc: "Servidor web detectado nos headers HTTP.", risk: "Header 'Server' com versão específica facilita busca de CVEs. Oculte ou personalize o header Server em produção." },
+  language:   { icon: "⟨⟩", desc: "Linguagem de programação detectada via headers ou body.", risk: "X-Powered-By com versão revela o stack. Remova este header em produção." },
+  backend:    { icon: "◻", desc: "Framework backend ou runtime identificado.", risk: "Versões específicas podem ter CVEs públicos. Mantenha atualizado e oculte a versão nos headers." },
+  framework:  { icon: "◈", desc: "Framework frontend/fullstack detectado.", risk: "Frameworks desatualizados têm CVEs conhecidos. Atualize e monitore novos releases." },
+  cms:        { icon: "▦", desc: "CMS identificado — WordPress, Drupal, etc.", risk: "CMS são alvos frequentes por possuírem plugins com vulnerabilidades. Mantenha core e plugins atualizados." },
+  cdn:        { icon: "◉", desc: "CDN ou proxy reverso detectado.", risk: "CDNs ajudam na segurança, mas verifique que configurações de headers de segurança são aplicadas na origem também." },
+  library:    { icon: "◎", desc: "Biblioteca JavaScript detectada no frontend.", risk: "Bibliotecas outdated são visíveis para qualquer atacante. Mantenha dependências atualizadas." },
+};
+
+function TechCardsPanel({ tf }: { tf: any }) {
+  const { openSet, toggle } = useCardSet();
+  if (!tf || (!tf.webServer && !tf.backend && !tf.framework && !tf.cms && !tf.cdn && !tf.language && !tf.libraries?.length)) {
+    return <div className={styles.empty}>◈ Nenhuma tecnologia identificável — servidor oculta headers de versão</div>;
+  }
+  const items: { key: string; cat: string; val: string; type: string }[] = [];
+  if (tf.webServer)  items.push({ key: "webServer",  cat: "Web Server", val: tf.webServer,  type: "webServer" });
+  if (tf.language)   items.push({ key: "language",   cat: "Language",   val: tf.language,   type: "language" });
+  if (tf.backend)    items.push({ key: "backend",    cat: "Backend",    val: tf.backend,    type: "backend" });
+  if (tf.framework)  items.push({ key: "framework",  cat: "Framework",  val: tf.framework,  type: "framework" });
+  if (tf.cms)        items.push({ key: "cms",        cat: "CMS",        val: tf.cms,        type: "cms" });
+  if (tf.cdn)        items.push({ key: "cdn",        cat: "CDN",        val: tf.cdn,        type: "cdn" });
+  tf.libraries?.forEach((lib: string, i: number) => items.push({ key: `lib-${i}`, cat: "Library", val: lib, type: "library" }));
+
+  return (
+    <div style={GRID3}>
+      {items.map(item => {
+        const meta = TECH_RISK[item.type] ?? TECH_RISK.library;
+        const isOpen = openSet.has(item.key);
+        return (
+          <ModCard key={item.key} id={item.key} color="var(--info)" isOpen={isOpen} onToggle={() => toggle(item.key)} minH={90}
+            top={
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+                <div>
+                  <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", letterSpacing: ".5px" }}>{item.cat.toUpperCase()}</span>
+                  <div style={{ fontFamily: "var(--mono)", fontSize: 13, color: "var(--info)", fontWeight: 700, marginTop: 2 }}>{item.val}</div>
+                </div>
+                <span style={{ fontSize: 16, color: "var(--info)", lineHeight: 1 }}>{meta.icon}</span>
+              </div>
+            }
+            mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{meta.desc}</p>}
+            bottom={<p style={{ fontSize: 11, color: "var(--text-dim)", margin: 0, lineHeight: 1.5 }}><span style={{ color: "var(--warning)" }}>⚠ Risco: </span>{meta.risk}</p>}
+          />
+        );
+      })}
+      {tf.evidence?.length > 0 && (
+        <div style={{ gridColumn: "1 / -1", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 14px" }}>
+          <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", letterSpacing: ".5px" }}>EVIDÊNCIAS DETECTADAS</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+            {tf.evidence.map((e: string, i: number) => (
+              <code key={i} style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--mono)", background: "var(--bg)", padding: "2px 6px", borderRadius: 3 }}>{e}</code>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── CVE Cards ──────────────────────────────────────────────────────────────────
+
+function CveCardsPanel({ cves }: { cves: any[] }) {
+  const { openSet, toggle } = useCardSet();
+  if (!cves?.length) return <SecureEmptyCard msg="Sem CVEs correlacionados — software não detectado ou servidor oculta versão" />;
+  return (
+    <div style={GRID2}>
+      {cves.map((cve, i) => {
+        const key = `${cve.cveId}-${i}`;
+        const color = cve.severity === "CRITICAL" ? "var(--critical)" : cve.severity === "HIGH" ? "var(--high)" : cve.severity === "MEDIUM" ? "var(--warning)" : "var(--low)";
+        return (
+          <ModCard key={key} id={key} color={color} isOpen={openSet.has(key)} onToggle={() => toggle(key)} minH={90}
+            top={
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+                <div>
+                  <a href={cve.referenceUrl} target="_blank" rel="noopener noreferrer"
+                     style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--accent)", fontWeight: 700, textDecoration: "none" }}
+                     onClick={e => e.stopPropagation()}>{cve.cveId}</a>
+                  <span style={{ fontSize: 10, color: "var(--text-muted)", display: "block", marginTop: 2 }}>{cve.affectedSoftware}</span>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <span style={{ color, fontSize: 9, fontFamily: "var(--mono)", fontWeight: 700, background: `${color}22`, padding: "2px 5px", borderRadius: 3, display: "block" }}>{cve.severity}</span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 11, color, fontWeight: 700 }}>CVSS {cve.cvssScore?.toFixed(1)}</span>
+                </div>
+              </div>
+            }
+            mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{cve.description?.slice(0, 110)}{(cve.description?.length ?? 0) > 110 ? "..." : ""}</p>}
+            bottom={
+              <>
+                <p style={{ fontSize: 11, color: "var(--text-dim)", margin: "0 0 8px", lineHeight: 1.5 }}>{cve.description}</p>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--mono)" }}>Publicado: {cve.publishedDate}</span>
+                  <a href={cve.referenceUrl} target="_blank" rel="noopener noreferrer"
+                     style={{ fontSize: 10, color: "var(--accent)", fontFamily: "var(--mono)", textDecoration: "none" }}
+                     onClick={e => e.stopPropagation()}>Ver no NVD →</a>
+                </div>
+              </>
+            }
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Generic Finding Cards ──────────────────────────────────────────────────────
+
+interface FindingItem {
+  id: string;
+  title: string;
+  subtitle?: string;
+  severity: string;
+  extraTags?: { label: string; color: string }[];
+  summary?: string;
+  details: { label: string; value: React.ReactNode }[];
+}
+
+function FindingCardsPanel({ items, emptyMsg, cols = 2 }: { items: FindingItem[]; emptyMsg: string; cols?: number }) {
+  const { openSet, toggle } = useCardSet();
+  if (!items.length) return <SecureEmptyCard msg={emptyMsg} />;
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 8, marginTop: 8, alignItems: "start" }}>
+      {items.map(item => {
+        const color = item.severity === "CRITICAL" ? "var(--critical)" : item.severity === "HIGH" ? "var(--high)" : item.severity === "MEDIUM" ? "var(--warning)" : item.severity === "LOW" ? "var(--low)" : "var(--info)";
+        return (
+          <ModCard key={item.id} id={item.id} color={color} isOpen={openSet.has(item.id)} onToggle={() => toggle(item.id)} minH={80}
+            top={
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <code style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--text)", fontWeight: 700, wordBreak: "break-all" }}>{item.title}</code>
+                  {item.subtitle && <span style={{ fontSize: 10, color: "var(--text-muted)", display: "block", marginTop: 2 }}>{item.subtitle}</span>}
+                </div>
+                <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" }}>
+                  <span style={{ color, fontSize: 9, fontFamily: "var(--mono)", fontWeight: 700, background: `${color}22`, padding: "2px 5px", borderRadius: 3 }}>{item.severity}</span>
+                  {item.extraTags?.map((t, i) => (
+                    <span key={i} style={{ color: t.color, fontSize: 9, fontFamily: "var(--mono)", fontWeight: 700, background: `${t.color}22`, padding: "2px 5px", borderRadius: 3 }}>{t.label}</span>
+                  ))}
+                </div>
+              </div>
+            }
+            mid={item.summary ? <p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{item.summary}</p> : undefined}
+            bottom={
+              <div>
+                {item.details.map((d, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, marginBottom: 5, alignItems: "flex-start" }}>
+                    <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", letterSpacing: ".5px", flexShrink: 0, paddingTop: 1, minWidth: 70 }}>{d.label}</span>
+                    <span style={{ fontSize: 10, color: "var(--text)", fontFamily: "var(--mono)", wordBreak: "break-all" }}>{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            }
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Active Checks Panel ────────────────────────────────────────────────────────
+
+function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void }) {
+  const { openSet, toggle } = useCardSet();
+
+  const SecLabel = ({ label }: { label: string }) => (
+    <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)", letterSpacing: "1px",
+      marginTop: 20, marginBottom: 4, paddingBottom: 6, borderBottom: "1px solid var(--border2)" }}>
+      {label}
+    </div>
+  );
+
+  /* ── UPSELL (scan passivo) ── */
+  if (!r.activeMode) {
+    const GHOST_COLORS = ["var(--critical)", "var(--secure)", "var(--warning)", "var(--info)", "var(--high)", "var(--secure)"];
+    const ghostCards = Array.from({ length: 6 }, (_, i) => (
+      <div key={i} style={{
+        background: "var(--surface)", border: `1px solid var(--border)`,
+        borderLeft: `3px solid ${GHOST_COLORS[i]}`,
+        borderRadius: "var(--radius)", padding: 14, minHeight: 110,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ height: 10, width: "55%", background: "var(--border2)", borderRadius: 3 }} />
+          <div style={{ height: 10, width: "14%", background: "var(--border)", borderRadius: 3 }} />
+        </div>
+        <div style={{ height: 8, width: "38%", background: "var(--border)", borderRadius: 3, marginBottom: 10 }} />
+        <div style={{ height: 7, width: "88%", background: "var(--border)", borderRadius: 3, marginBottom: 4 }} />
+        <div style={{ height: 7, width: "72%", background: "var(--border)", borderRadius: 3 }} />
+      </div>
+    ));
+
+    return (
+      <div style={{ position: "relative", borderRadius: "var(--radius)", marginTop: 8, minHeight: 400, overflow: "hidden" }}>
+        {/* Blurred ghost */}
+        <div style={{ filter: "blur(5px)", pointerEvents: "none", userSelect: "none", opacity: 0.3 }}>
+          <ColsGrid items={ghostCards} cols={3} />
+        </div>
+        {/* Gradient overlay */}
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "linear-gradient(to bottom, transparent 0%, var(--bg) 50%)",
+          display: "flex", flexDirection: "column", alignItems: "center",
+          justifyContent: "flex-end", padding: "0 24px 32px", textAlign: "center",
+        }}>
+          <div style={{ fontSize: 30, marginBottom: 10 }}>🔒</div>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 8, letterSpacing: ".5px" }}>
+            MÓDULO ACTIVE CHECKS
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 20, maxWidth: 400, lineHeight: 1.75 }}>
+            Análise invasiva com simulação real de ataques — WAF bypass, CORS injection, port scan,
+            XSS/SQLi probes e exposição de arquivos sensíveis. Disponível apenas em <strong style={{ color: "var(--accent)" }}>scan ativo</strong>.
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "7px 32px", marginBottom: 24, textAlign: "left" }}>
+            {["WAF Detection", "CORS Analysis", "Sensitive Files", "XSS / SQLi Probes", "Port Scan", "DB Error Leak"].map(f => (
+              <div key={f} style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--text-dim)", display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: "var(--secure)", fontSize: 13 }}>✓</span> {f}
+              </div>
+            ))}
+          </div>
+          <button onClick={onShowPlans} style={{
+            background: "var(--accent)", color: "var(--bg)", border: "none",
+            borderRadius: "var(--radius)", padding: "10px 26px",
+            fontFamily: "var(--mono)", fontSize: 12, fontWeight: 700,
+            cursor: "pointer", letterSpacing: ".5px",
+          }}>
+            VER PLANOS →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── CONTEÚDO ATIVO ── */
+  const waf  = r.wafDetectionResult;
+  const cors = r.corsResult;
+
+  const wafColor   = waf?.detected ? "var(--secure)" : "var(--text-muted)";
+  const probeColor = waf?.probeResponse === "BLOCKED" ? "var(--secure)" : waf?.probeResponse === "PASSED" ? "var(--warning)" : "var(--text-muted)";
+  const confColor  = waf?.confidence === "HIGH" ? "var(--secure)" : waf?.confidence === "MEDIUM" ? "var(--warning)" : "var(--text-muted)";
+
+  const corsCards = cors?.tested ? [
+    { key: "wildcard", title: "Wildcard Origin",  ok: !cors.wildcardOrigin,    value: cors.wildcardOrigin    ? "⚠ ABERTO"   : "✓ Seguro",
+      desc: "Access-Control-Allow-Origin: * permite qualquer domínio acessar a API.", tip: "Nunca use wildcard em APIs com autenticação ou cookies." },
+    { key: "reflects", title: "Reflects Origin",  ok: !cors.reflectsOrigin,    value: cors.reflectsOrigin    ? "⚠ Reflete"  : "✓ Seguro",
+      desc: "O servidor espelha o header Origin sem validar se é uma origem permitida.", tip: "Implemente whitelist de origens no servidor." },
+    { key: "creds",    title: "Credentials",      ok: !cors.credentialsAllowed, value: cors.credentialsAllowed ? "⚠ Permitido": "✓ Seguro",
+      desc: "Allow-Credentials: true permite envio de cookies em requisições cross-origin.", tip: "Use apenas com origens explícitas, nunca com wildcard." },
+    { key: "null",     title: "Null Origin",       ok: !cors.nullOriginAccepted, value: cors.nullOriginAccepted ? "⚠ Aceito"  : "✓ Seguro",
+      desc: "Origem 'null' é enviada por iframes sandboxed e pode ser explorada.", tip: "Rejeite explicitamente a origem null no backend." },
+  ] : [];
+
+  const probeCards = [
+    { key: "surface", title: "Input Surface",  neutral: !r.inputSurfaceDetected, ok: false,
+      value: r.inputSurfaceDetected ? "Detectada" : "Não detectada",
+      desc: "Formulários e parâmetros de entrada encontrados na página — superfície de ataque para XSS/SQLi.",
+      tip: "Superfície ampla = maior exposição a injeções e travessal." },
+    { key: "xss",     title: "XSS Probe",      neutral: !r.xssProbePerformed,    ok: r.xssProbePerformed,
+      value: r.xssProbePerformed ? "Executado" : "Não executado",
+      desc: "Payloads XSS injetados nos inputs detectados para verificar reflexão na resposta.",
+      tip: "Probe executado apenas quando há superfície de input detectada." },
+    { key: "rxss",    title: "Reflected XSS",  neutral: !r.xssProbePerformed,    ok: r.xssProbePerformed ? !r.reflectedXssSuspected : true,
+      value: r.xssProbePerformed ? (r.reflectedXssSuspected ? "⚠ Suspeito" : "✓ Clean") : "Sem superfície",
+      desc: "Verifica se payloads XSS são refletidos sem sanitização — permite execução de JS na vítima.",
+      tip: "XSS reflected pode causar roubo de sessão e ataques de phishing internos." },
+    { key: "dberr",   title: "DB Error Leak",   neutral: false,                   ok: !r.dbErrorLeakageSuspected,
+      value: r.dbErrorLeakageSuspected ? "⚠ Suspeito" : "✓ Clean",
+      desc: "Erros de banco expostos revelam estrutura, tipo de BD e queries internas.",
+      tip: "Configure tratamento de erros para nunca expor stack traces em produção." },
+  ];
+
+  const sensitiveItems: FindingItem[] = (r.sensitiveFiles ?? []).map((f: any, i: number) => ({
+    id: `sf-${i}`, title: f.path, severity: f.severity,
+    extraTags: [{ label: f.exposure, color: f.exposure === "EXPOSED" ? "var(--critical)" : "var(--warning)" }],
+    summary: f.contentPreview ? f.contentPreview.slice(0, 90) + "…" : "Arquivo acessível publicamente",
+    details: [
+      { label: "PATH",     value: <code style={{ fontFamily: "var(--mono)", fontSize: 10, wordBreak: "break-all" }}>{f.path}</code> },
+      { label: "EXPOSURE", value: f.exposure },
+      ...(f.contentPreview ? [{ label: "PREVIEW", value: <pre style={{ fontFamily: "var(--mono)", fontSize: 9, margin: 0, whiteSpace: "pre-wrap" as const, wordBreak: "break-all" as const }}>{f.contentPreview}</pre> }] : []),
+    ],
+  }));
+
+  return (
+    <div>
+      {/* WAF Detection */}
+      <SecLabel label="WAF DETECTION" />
+      <ColsGrid cols={3} items={[
+        <ModCard key="waf-det" id="waf-det" color={wafColor} isOpen={openSet.has("waf-det")} onToggle={() => toggle("waf-det")}
+          top={
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+              <div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", fontWeight: 700 }}>WAF Detectado</div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: wafColor, marginTop: 2 }}>
+                  {waf?.detected ? (waf.provider ?? "Sim") : "Não confirmado"}
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 14, color: wafColor }}>{waf?.detected ? "✓" : "○"}</div>
+                <div style={{ fontSize: 9, color: wafColor, fontFamily: "var(--mono)", fontWeight: 700 }}>{waf?.detected ? "ATIVO" : "NONE"}</div>
+              </div>
+            </div>
+          }
+          mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>
+            Web Application Firewall filtra e bloqueia tráfego malicioso antes de atingir o servidor.
+          </p>}
+          bottom={<>
+            {waf?.provider && <div style={{ marginBottom: 6 }}>
+              <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)" }}>PROVIDER </span>
+              <span style={{ fontSize: 11, color: "var(--accent)", fontFamily: "var(--mono)" }}>{waf.provider}</span>
+            </div>}
+            <p style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic", margin: 0 }}>◈ WAF reduz significativamente a superfície de ataque exposta.</p>
+          </>}
+        />,
+        <ModCard key="waf-conf" id="waf-conf" color={confColor} isOpen={openSet.has("waf-conf")} onToggle={() => toggle("waf-conf")}
+          top={
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+              <div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", fontWeight: 700 }}>Confiança</div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: confColor, marginTop: 2 }}>{waf?.confidence ?? "—"}</div>
+              </div>
+              <div style={{ textAlign: "right", fontSize: 14, color: confColor }}>
+                {waf?.confidence === "HIGH" ? "✓" : waf?.confidence === "MEDIUM" ? "⚠" : "—"}
+              </div>
+            </div>
+          }
+          mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>
+            Nível de certeza da detecção com base nas evidências coletadas no scan.
+          </p>}
+          bottom={<>
+            {waf?.evidence && <div style={{ marginBottom: 8 }}>
+              <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", display: "block", marginBottom: 3 }}>EVIDÊNCIA</span>
+              <code style={{ fontSize: 10, color: "var(--accent)", fontFamily: "var(--mono)", wordBreak: "break-all", display: "block" }}>{waf.evidence}</code>
+            </div>}
+            <p style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic", margin: 0 }}>◈ HIGH = múltiplas evidências confirmadas. MEDIUM = heurística parcial.</p>
+          </>}
+        />,
+        <ModCard key="waf-probe" id="waf-probe" color={probeColor} isOpen={openSet.has("waf-probe")} onToggle={() => toggle("waf-probe")}
+          top={
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+              <div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", fontWeight: 700 }}>Probe</div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: probeColor, marginTop: 2 }}>{waf?.probeResponse ?? "—"}</div>
+              </div>
+              <div style={{ textAlign: "right", fontSize: 14, color: probeColor }}>
+                {waf?.probeResponse === "BLOCKED" ? "✓" : waf?.probeResponse === "PASSED" ? "⚠" : "—"}
+              </div>
+            </div>
+          }
+          mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>
+            Payload malicioso enviado para verificar se o WAF bloqueia requisições suspeitas ativamente.
+          </p>}
+          bottom={<>
+            {waf?.summary && <div style={{ marginBottom: 8, fontSize: 10, color: "var(--text-dim)", lineHeight: 1.5 }}>{waf.summary}</div>}
+            <p style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic", margin: 0 }}>◈ BLOCKED = WAF funcionando. PASSED = payload chegou ao servidor.</p>
+          </>}
+        />,
+      ]} />
+
+      {/* CORS Analysis */}
+      <SecLabel label="CORS ANALYSIS" />
+      {cors?.tested ? (<>
+        {cors.message && (
+          <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-dim)", marginBottom: 8,
+            padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border2)" }}>
+            {cors.message}
+          </div>
+        )}
+        <ColsGrid cols={2} items={corsCards.map(c => {
+          const color = c.ok ? "var(--secure)" : "var(--warning)";
+          return (
+            <ModCard key={c.key} id={`cors-${c.key}`} color={color} isOpen={openSet.has(`cors-${c.key}`)} onToggle={() => toggle(`cors-${c.key}`)}
+              top={
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+                  <div>
+                    <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", fontWeight: 700 }}>{c.title}</div>
+                    <div style={{ fontFamily: "var(--mono)", fontSize: 10, color, marginTop: 2 }}>{c.value}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 14, color }}>{c.ok ? "✓" : "⚠"}</div>
+                    <div style={{ fontSize: 9, color, fontFamily: "var(--mono)", fontWeight: 700 }}>{c.ok ? "OK" : "WARN"}</div>
+                  </div>
+                </div>
+              }
+              mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{c.desc}</p>}
+              bottom={<p style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic", margin: 0 }}>◈ {c.tip}</p>}
+            />
+          );
+        })} />
+        {cors.allowOriginValue && (
+          <div style={{ marginTop: 8, fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)" }}>
+            Allow-Origin: <code style={{ color: "var(--accent)" }}>{cors.allowOriginValue}</code>
+          </div>
+        )}
+      </>) : (
+        <div style={{ color: "var(--text-muted)", fontFamily: "var(--mono)", fontSize: 11, padding: "10px 0" }}>Probe não executado</div>
+      )}
+
+      {/* Sensitive Files */}
+      <SecLabel label={`SENSITIVE FILES${r.sensitiveFiles?.length ? ` [${r.sensitiveFiles.length}]` : ""}`} />
+      {sensitiveItems.length > 0
+        ? <FindingCardsPanel items={sensitiveItems} emptyMsg="Nenhum arquivo sensível exposto" cols={2} />
+        : <SecureEmptyCard msg="Nenhum arquivo sensível exposto" />}
+
+      {/* Application Probes */}
+      <SecLabel label="APPLICATION PROBES" />
+      <ColsGrid cols={2} items={probeCards.map(p => {
+        const color = p.neutral ? "var(--text-muted)" : p.ok ? "var(--secure)" : "var(--warning)";
+        return (
+          <ModCard key={p.key} id={`probe-${p.key}`} color={color} isOpen={openSet.has(`probe-${p.key}`)} onToggle={() => toggle(`probe-${p.key}`)}
+            top={
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+                <div>
+                  <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", fontWeight: 700 }}>{p.title}</div>
+                  <div style={{ fontFamily: "var(--mono)", fontSize: 10, color, marginTop: 2 }}>{p.value}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 14, color }}>{p.neutral ? "○" : p.ok ? "✓" : "⚠"}</div>
+                  <div style={{ fontSize: 9, color, fontFamily: "var(--mono)", fontWeight: 700 }}>{p.neutral ? "—" : p.ok ? "OK" : "WARN"}</div>
+                </div>
+              </div>
+            }
+            mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{p.desc}</p>}
+            bottom={<p style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic", margin: 0 }}>◈ {p.tip}</p>}
+          />
+        );
+      })} />
+
+      {/* Port Scan */}
+      <SecLabel label={`PORT SCAN [${r.openPorts?.length ?? 0}]`} />
+      {r.openPorts?.length ? (
+        <table className={styles.table}>
+          <thead><tr><th>Port</th><th>Service</th><th>Sev</th><th>ms</th></tr></thead>
+          <tbody>
+            {r.openPorts.map((p: any, i: number) => (
+              <tr key={i}>
+                <td><code>{p.port}</code></td>
+                <td>{p.service}</td>
+                <td><Tag label={p.severity} cls={sevColor(p.severity)} /></td>
+                <td className={styles.muted}>{p.latencyMs}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : <SecureEmptyCard msg="Sem portas abertas detectadas" />}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFilter?: boolean }) {
   const [allData, setAllData] = useState<HistorySummary[]>([]);
   const [fromDate, setFromDate] = useState("");
@@ -3275,6 +4098,17 @@ export default function App() {
   useEffect(() => { if (user && view === "login") setView("scan"); }, [user]);
   useEffect(() => () => { pollRef.current && clearInterval(pollRef.current); }, []);
 
+  // Limpa resultado ao trocar de conta (login/logout)
+  const prevUserIdRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const currentId = user?.id ?? null;
+    if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== currentId) {
+      setResult(null); setError(null); setOwnership(null); setOpenModule(null);
+      stopPoll(); stopSlowTimer();
+    }
+    prevUserIdRef.current = currentId;
+  }, [user]);
+
   const stopPoll = useCallback(() => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } }, []);
 
   function stopSlowTimer() {
@@ -3686,10 +4520,9 @@ export default function App() {
 
                     <div className={styles.sidebarNavGroup}>Active</div>
                     <SidebarNavItem icon="▣" title="Active Checks"
-                      color={r.activeMode ? "var(--info)" : "var(--text-muted)"}
-                      metric={!r.activeMode ? "OFF" : r.wafDetectionResult?.detected ? "WAF" : `${r.openPorts?.length ?? 0}p`}
-                      label={!r.activeMode ? "REQUIRES ACTIVE" : r.wafDetectionResult?.detected ? "WAF DETECTED" : "ACTIVE"}
-                      locked={!r.activeMode}
+                      color={r.activeMode ? "var(--info)" : "var(--accent)"}
+                      metric={!r.activeMode ? "🔒" : r.wafDetectionResult?.detected ? "WAF" : `${r.openPorts?.length ?? 0}p`}
+                      label={!r.activeMode ? "PASSIVE" : r.wafDetectionResult?.detected ? "WAF DETECTED" : "ACTIVE"}
                       active={openModule === "active"}
                       onClick={() => setOpenModule("active")}/>
 
@@ -3781,9 +4614,7 @@ export default function App() {
                         
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("headers")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        <Section title="Headers" defaultOpen={true}>
-                          {Object.entries(r.headers ?? {}).map(([k, v]) => <KV key={k} label={k} value={headerStatus(v)} />)}
-                        </Section>
+                        <HeaderCardsPanel headers={r.headers ?? {}} />
                       </>
                     )}
 
@@ -3795,14 +4626,7 @@ export default function App() {
                         
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("transport")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        <Section title="SSL / TLS" defaultOpen={true}>
-                          <KV label="Protocol"  value={<span className={r.tlsDetails?.weakProtocol ? styles.bad : styles.ok}>{r.tlsDetails?.negotiatedProtocol ?? "—"}</span>} />
-                          <KV label="Cipher"    value={<code className={styles.code}>{r.tlsDetails?.cipherSuite ?? "—"}</code>} />
-                          <KV label="Valid"     value={boolIcon(r.sslInfo?.valid)} />
-                          <KV label="Expires"   value={r.sslInfo?.expirationDate ?? "—"} />
-                          <KV label="Days left" value={<span className={(r.sslInfo?.daysRemaining ?? 0) < 30 ? styles.bad : (r.sslInfo?.daysRemaining ?? 0) < 90 ? styles.warn : styles.ok}>{r.sslInfo?.daysRemaining ?? "—"}d</span>} />
-                          {r.tlsDetails?.message && <div className={styles.note}>{r.tlsDetails.message}</div>}
-                        </Section>
+                        <TransportCardsPanel r={r} />
                       </>
                     )}
 
@@ -3814,31 +4638,7 @@ export default function App() {
                         
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("tech")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        {tf && (tf.webServer || tf.backend || tf.framework || tf.cms || tf.cdn || tf.language || (tf.libraries?.length ?? 0) > 0) ? (
-                          <>
-                            <div className={styles.techGrid}>
-                              {tf.webServer  && <TechBadge icon="⬡"  label={`Web Server: ${tf.webServer}`} />}
-                              {tf.language   && <TechBadge icon="⟨⟩" label={`Language: ${tf.language}`} />}
-                              {tf.backend    && <TechBadge icon="◻"  label={`Backend: ${tf.backend}`} />}
-                              {tf.framework  && <TechBadge icon="◈"  label={`Framework: ${tf.framework}`} />}
-                              {tf.cms        && <TechBadge icon="▦"  label={`CMS: ${tf.cms}`} />}
-                              {tf.cdn        && <TechBadge icon="◉"  label={`CDN: ${tf.cdn}`} />}
-                              {tf.libraries?.map((lib, i) => <TechBadge key={i} icon="◎" label={lib} />)}
-                            </div>
-                            {(tf.evidence?.length ?? 0) > 0 && (
-                              <Section title="Evidence" defaultOpen={false}>
-                                <div className={styles.techEvidenceList}>
-                                  {tf.evidence?.map((e, i) => (
-                                    <div key={i} className={styles.techEvidenceItem}>
-                                      <span className={styles.techEvidenceDot}>›</span>
-                                      <code className={styles.code}>{e}</code>
-                                    </div>
-                                  ))}
-                                </div>
-                              </Section>
-                            )}
-                          </>
-                        ) : <div className={styles.empty}>◈ Nenhuma tecnologia identificável — servidor oculta headers de versão</div>}
+                        <TechCardsPanel tf={tf} />
                       </>
                     )}
 
@@ -3881,21 +4681,7 @@ export default function App() {
                         
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("cookies")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        {r.cookieIssues?.length ? (
-                          <Section title={`${r.cookieIssues.length} cookie(s) com problemas`} defaultOpen={true}>
-                            {r.cookieIssues.map((c, i) => (
-                              <div key={i} className={styles.cookieRow}>
-                                <div className={styles.cookieName}><code>{c.name}</code><Tag label={c.risk} cls={sevColor(c.risk)} /></div>
-                                <div className={styles.cookieFlags}>
-                                  <span className={c.httpOnly ? styles.ok : styles.bad}>HttpOnly</span>
-                                  <span className={c.secure ? styles.ok : styles.bad}>Secure</span>
-                                  <span className={styles.muted}>SameSite: {c.sameSite}</span>
-                                </div>
-                                <div className={styles.cookieIssue}>{c.issues}</div>
-                              </div>
-                            ))}
-                          </Section>
-                        ) : <div className={styles.empty}>◈ Nenhum problema detectado</div>}
+                        <CookieCardsPanel cookies={r.cookieIssues ?? []} />
                       </>
                     )}
 
@@ -3907,20 +4693,14 @@ export default function App() {
                         
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("http")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        {r.dangerousHttpMethods?.length ? (
-                          <Section title={`${r.dangerousHttpMethods.length} método(s)`} defaultOpen={true}>
-                            {r.dangerousHttpMethods.map((m, i) => (
-                              <div key={i} className={styles.findingRow}>
-                                <div className={styles.findingPath}>
-                                  <code className={styles.method}>{m.method}</code>
-                                  <span className={styles.muted}>HTTP {m.statusCode}</span>
-                                  <Tag label={m.severity} cls={sevColor(m.severity)} />
-                                </div>
-                                <div className={styles.findingNote}>{m.risk}</div>
-                              </div>
-                            ))}
-                          </Section>
-                        ) : <div className={styles.empty}>◈ Nenhum método perigoso</div>}
+                        <FindingCardsPanel
+                          emptyMsg="Nenhum método HTTP perigoso detectado"
+                          items={(r.dangerousHttpMethods ?? []).map((m: any, i: number) => ({
+                            id: `${m.method}-${i}`, title: m.method, subtitle: `HTTP ${m.statusCode}`,
+                            severity: m.severity, summary: m.risk,
+                            details: [{ label: "STATUS", value: `HTTP ${m.statusCode}` }, { label: "RISCO", value: m.risk }],
+                          }))}
+                        />
                       </>
                     )}
 
@@ -3932,16 +4712,14 @@ export default function App() {
                         
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("redirect")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        {redirectVuln.length ? (
-                          <Section title="Vulnerabilidades detectadas" defaultOpen={true}>
-                            {redirectVuln.map((f, i) => (
-                              <div key={i} className={styles.findingRow}>
-                                <div className={styles.findingPath}><code>?{f.parameter}=</code><Tag label="VULNERABLE" cls={styles.critical} /></div>
-                                <div className={styles.findingNote}>→ {f.redirectedTo}</div>
-                              </div>
-                            ))}
-                          </Section>
-                        ) : <div className={styles.empty}>◈ Nenhum open redirect detectado</div>}
+                        <FindingCardsPanel
+                          emptyMsg="Nenhum open redirect detectado"
+                          items={redirectVuln.map((f: any, i: number) => ({
+                            id: `redirect-${i}`, title: `?${f.parameter}=`, severity: "HIGH",
+                            summary: `Redireciona para: ${f.redirectedTo}`,
+                            details: [{ label: "PARÂMETRO", value: `?${f.parameter}=` }, { label: "DESTINO", value: f.redirectedTo }],
+                          }))}
+                        />
                       </>
                     )}
 
@@ -3953,16 +4731,14 @@ export default function App() {
                         
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("dirlist")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        {dirExposed.length ? (
-                          <Section title="Diretórios expostos" defaultOpen={true}>
-                            {dirExposed.map((f, i) => (
-                              <div key={i} className={styles.findingRow}>
-                                <div className={styles.findingPath}><code>{f.path}</code><Tag label={f.severity} cls={sevColor(f.severity)} /></div>
-                                <div className={styles.findingNote}>Evidência: {f.evidence}</div>
-                              </div>
-                            ))}
-                          </Section>
-                        ) : <div className={styles.empty}>◈ Nenhum directory listing detectado</div>}
+                        <FindingCardsPanel
+                          emptyMsg="Nenhum directory listing detectado"
+                          items={dirExposed.map((f: any, i: number) => ({
+                            id: `dir-${i}`, title: f.path, severity: f.severity,
+                            summary: `Listagem de diretório exposta publicamente`,
+                            details: [{ label: "PATH", value: f.path }, { label: "EVIDÊNCIA", value: f.evidence }],
+                          }))}
+                        />
                       </>
                     )}
 
@@ -3973,40 +4749,7 @@ export default function App() {
                           <span className={styles.sidebarContentTitleText}>Reconnaissance</span>
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("recon")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        <Section title="robots.txt" defaultOpen={true}>
-                          {r.sensitiveRobotsPaths?.length ? (
-                            r.sensitiveRobotsPaths.map((p, i) => (
-                              <div key={i} className={styles.findingRow}>
-                                <div className={styles.findingPath}><code>{p}</code><Tag label="SENSITIVE" cls={styles.warning} /></div>
-                              </div>
-                            ))
-                          ) : <div className={styles.empty}>◈ Nenhum path sensível</div>}
-                        </Section>
-                        <Section title="security.txt" defaultOpen={true}>
-                          <KV label="Presente" value={boolIcon(r.securityTxtPresent)} />
-                          {r.securityTxtContact && <KV label="Contact" value={<code className={styles.code}>{r.securityTxtContact}</code>} />}
-                          {!r.securityTxtPresent && <div className={styles.note}>Sem security.txt (RFC 9116) — dificulta reporte responsável de vulnerabilidades.</div>}
-                        </Section>
-                        {dns && (
-                          <Section title="DNS Security" defaultOpen={true}>
-                            <div style={{ marginBottom: 10 }}>
-                              <Tag label={`Email Spoofing Risk: ${dns.emailSpoofingRisk}`}
-                                cls={dns.emailSpoofingRisk === "LOW" ? styles.secure : dns.emailSpoofingRisk === "MEDIUM" ? styles.warning : dns.emailSpoofingRisk === "HIGH" ? styles.high : styles.critical} />
-                            </div>
-                            <KV label="SPF"   value={<span className={dns.spfPresent ? styles.ok : styles.bad}>{dns.spfPresent ? `✓ ${dns.spfPolicy}` : "✗ Ausente"}</span>} />
-                            {dns.spfRecord   && <div className={styles.note} style={{ marginBottom: 6 }}><code className={styles.code}>{dns.spfRecord}</code></div>}
-                            <KV label="DMARC" value={<span className={dns.dmarcPresent ? styles.ok : styles.bad}>{dns.dmarcPresent ? `✓ p=${dns.dmarcPolicy?.toLowerCase()}` : "✗ Ausente"}</span>} />
-                            {dns.dmarcRecord && <div className={styles.note} style={{ marginBottom: 6 }}><code className={styles.code}>{dns.dmarcRecord}</code></div>}
-                            <KV label="DKIM"  value={dns.dkimHintFound ? <span className={styles.ok}>✓ Seletor: {dns.dkimSelector}</span> : <span className={styles.warn}>⚠ Nenhum seletor encontrado</span>} />
-                            <KV label="CAA"   value={dns.caaPresent ? <span className={styles.ok}>✓ Configurado</span> : <span className={styles.warn}>⚠ Ausente — qualquer CA pode emitir certificado</span>} />
-                            {dns.caaRecord   && <div className={styles.note} style={{ marginBottom: 6 }}><code className={styles.code}>{dns.caaRecord}</code></div>}
-                            <KV label="MX"    value={dns.mxPresent ? <span className={styles.ok}>✓ {dns.mxRecords?.length} servidor(es)</span> : <span className={styles.muted}>Sem servidores de email</span>} />
-                            {dns.mxPresent && dns.mxRecords?.length > 0 && (
-                              <div className={styles.note}>{dns.mxRecords.map((mx, i) => <div key={i}><code className={styles.code}>{mx}</code></div>)}</div>
-                            )}
-                            <div className={styles.note} style={{ marginTop: 8 }}>{dns.summary}</div>
-                          </Section>
-                        )}
+                        <DnsCardsPanel r={r} />
                       </>
                     )}
 
@@ -4018,22 +4761,7 @@ export default function App() {
                         
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("cve")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        {cveCount > 0 ? (
-                          <div className={styles.cveList}>
-                            {r.cveFindings.map((cve, i) => (
-                              <div key={i} className={styles.cveRow}>
-                                <div className={styles.cveHeader}>
-                                  <a href={cve.referenceUrl} target="_blank" rel="noopener noreferrer" className={styles.cveId}>{cve.cveId}</a>
-                                  <Tag label={cve.severity} cls={sevColor(cve.severity)} />
-                                  <span className={styles.cveScore}>CVSS {cve.cvssScore.toFixed(1)}</span>
-                                  <span className={styles.cveSoftware}>{cve.affectedSoftware}</span>
-                                  <span className={styles.muted}>{cve.publishedDate}</span>
-                                </div>
-                                <div className={styles.cveDesc}>{cve.description}</div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : <div className={styles.empty}>◈ Sem CVEs correlacionados — versão de software não detectada ou servidor oculta headers</div>}
+                        <CveCardsPanel cves={r.cveFindings ?? []} />
                       </>
                     )}
 
@@ -4044,21 +4772,15 @@ export default function App() {
                           <span className={styles.sidebarContentTitleText}>API Docs Exposure</span>
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("apidocs")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        {apiDocsCount > 0 ? (
-                          <div className={styles.cveList}>
-                            {(r?.apiDocsExposure ?? []).map((f, i) => (
-                              <div key={i} className={styles.cveRow}>
-                                <div className={styles.cveHeader}>
-                                  <code className={styles.code}>{f.path}</code>
-                                  <Tag label={f.type} cls={styles.info} />
-                                  <Tag label={f.severity} cls={sevColor(f.severity)} />
-                                </div>
-                                <div className={styles.cveDesc}>{f.description}</div>
-                                {f.evidence && <div className={styles.findingNote}><span className={styles.muted}>Evidence: </span><code className={styles.code}>{f.evidence}</code></div>}
-                              </div>
-                            ))}
-                          </div>
-                        ) : <div className={styles.empty}>◈ Nenhuma documentação de API exposta detectada</div>}
+                        <FindingCardsPanel
+                          emptyMsg="Nenhuma documentação de API exposta detectada"
+                          items={(r?.apiDocsExposure ?? []).map((f: any, i: number) => ({
+                            id: `apidoc-${i}`, title: f.path, severity: f.severity,
+                            extraTags: [{ label: f.type, color: "var(--info)" }],
+                            summary: f.description,
+                            details: [{ label: "PATH", value: f.path }, { label: "TIPO", value: f.type }, ...(f.evidence ? [{ label: "EVIDÊNCIA", value: f.evidence }] : [])],
+                          }))}
+                        />
                       </>
                     )}
 
@@ -4069,22 +4791,22 @@ export default function App() {
                           <span className={styles.sidebarContentTitleText}>GraphQL Introspection</span>
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("graphql")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        {gqlFindings.length > 0 ? (
-                          <div className={styles.cveList}>
-                            {gqlFindings.map((f, i) => (
-                              <div key={i} className={styles.cveRow}>
-                                <div className={styles.cveHeader}>
-                                  <code className={styles.code}>{f.endpoint}</code>
-                                  <Tag label={f.severity} cls={sevColor(f.severity)} />
-                                  {f.playgroundExposed && <Tag label="PLAYGROUND" cls={styles.critical} />}
-                                  {f.introspectionEnabled && <Tag label="INTROSPECTION" cls={styles.warning} />}
-                                  {f.typeCount > 0 && <span className={styles.muted}>{f.typeCount} tipos</span>}
-                                </div>
-                                {f.evidence && <div className={styles.findingNote}><code className={styles.code}>{f.evidence}</code></div>}
-                              </div>
-                            ))}
-                          </div>
-                        ) : <div className={styles.empty}>◈ Nenhum endpoint GraphQL detectado</div>}
+                        <FindingCardsPanel
+                          emptyMsg="Nenhum endpoint GraphQL vulnerável detectado"
+                          items={gqlFindings.map((f: any, i: number) => ({
+                            id: `gql-${i}`, title: f.endpoint, severity: f.severity,
+                            extraTags: [
+                              ...(f.playgroundExposed ? [{ label: "PLAYGROUND", color: "var(--critical)" }] : []),
+                              ...(f.introspectionEnabled ? [{ label: "INTROSPECTION", color: "var(--warning)" }] : []),
+                            ],
+                            summary: f.typeCount > 0 ? `${f.typeCount} tipos expostos via introspection` : "Endpoint GraphQL exposto",
+                            details: [
+                              { label: "ENDPOINT", value: f.endpoint },
+                              ...(f.typeCount > 0 ? [{ label: "TIPOS", value: `${f.typeCount}` }] : []),
+                              ...(f.evidence ? [{ label: "EVIDÊNCIA", value: f.evidence }] : []),
+                            ],
+                          }))}
+                        />
                       </>
                     )}
 
@@ -4095,28 +4817,20 @@ export default function App() {
                           <span className={styles.sidebarContentTitleText}>JWT Security</span>
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("jwt")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        {jwtFindings.length > 0 ? (
-                          <div className={styles.cveList}>
-                            {jwtFindings.map((jwt, i) => (
-                              <div key={i} className={styles.cveRow}>
-                                <div className={styles.cveHeader}>
-                                  <code className={styles.code}>{jwt.source}</code>
-                                  <Tag label={jwt.severity} cls={sevColor(jwt.severity)} />
-                                  <span className={styles.muted}>alg={jwt.algorithm}</span>
-                                </div>
-                                <div className={styles.findingPath}>
-                                  <span className={jwt.hasExpiry ? (jwt.expired ? styles.bad : styles.ok) : styles.bad}>
-                                    exp: {!jwt.hasExpiry ? "MISSING" : jwt.expired ? "EXPIRED" : "✓"}
-                                  </span>
-                                  <span className={jwt.hasIssuer ? styles.ok : styles.muted}>iss: {jwt.hasIssuer ? "✓" : "—"}</span>
-                                  <span className={jwt.hasAudience ? styles.ok : styles.muted}>aud: {jwt.hasAudience ? "✓" : "—"}</span>
-                                </div>
-                                <div className={styles.cveDesc}>{(jwt.issues ?? []).join(" · ")}</div>
-                                {jwt.evidence && <div className={styles.findingNote}><code className={styles.code}>{jwt.evidence}</code></div>}
-                              </div>
-                            ))}
-                          </div>
-                        ) : <div className={styles.empty}>◈ Nenhum JWT com problemas de segurança detectado</div>}
+                        <FindingCardsPanel
+                          emptyMsg="Nenhum JWT com problemas de segurança detectado"
+                          items={jwtFindings.map((jwt: any, i: number) => ({
+                            id: `jwt-${i}`, title: jwt.source, severity: jwt.severity,
+                            summary: (jwt.issues ?? []).join(" · "),
+                            details: [
+                              { label: "ALG", value: jwt.algorithm },
+                              { label: "EXP", value: !jwt.hasExpiry ? "MISSING" : jwt.expired ? "EXPIRED" : "✓ Presente" },
+                              { label: "ISS", value: jwt.hasIssuer ? "✓" : "Ausente" },
+                              { label: "AUD", value: jwt.hasAudience ? "✓" : "Ausente" },
+                              ...(jwt.evidence ? [{ label: "EVIDÊNCIA", value: jwt.evidence }] : []),
+                            ],
+                          }))}
+                        />
                       </>
                     )}
 
@@ -4127,120 +4841,108 @@ export default function App() {
                           <span className={styles.sidebarContentTitleText}>Path Traversal / LFI</span>
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("traversal")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        {ptFindings.length > 0 ? (
-                          <div className={styles.cveList}>
-                            {ptFindings.map((pt, i) => (
-                              <div key={i} className={styles.cveRow}>
-                                <div className={styles.cveHeader}>
-                                  <code className={styles.code}>?{pt.parameter}=</code>
-                                  <Tag label="CRITICAL" cls={styles.critical} />
-                                  <span className={styles.muted}>→ {pt.target}</span>
-                                </div>
-                                <div className={styles.findingNote}><span className={styles.muted}>Payload: </span><code className={styles.code}>{pt.payload}</code></div>
-                                {pt.evidence && <div className={styles.findingNote}><span className={styles.muted}>Evidence: </span><code className={styles.code}>{pt.evidence}</code></div>}
-                              </div>
-                            ))}
-                          </div>
-                        ) : <div className={styles.empty}>◈ Nenhum path traversal / LFI detectado</div>}
+                        <FindingCardsPanel
+                          emptyMsg="Nenhum path traversal / LFI detectado"
+                          items={ptFindings.map((pt: any, i: number) => ({
+                            id: `pt-${i}`, title: `?${pt.parameter}=`, severity: "CRITICAL",
+                            summary: `Arquivo alvo: ${pt.target}`,
+                            details: [
+                              { label: "PARÂMETRO", value: `?${pt.parameter}=` },
+                              { label: "ALVO", value: pt.target },
+                              { label: "PAYLOAD", value: pt.payload },
+                              ...(pt.evidence ? [{ label: "EVIDÊNCIA", value: pt.evidence }] : []),
+                            ],
+                          }))}
+                        />
                       </>
                     )}
 
                                       {openModule === "ssrf" && (
-                    <div>
-                      <div className={styles.moduleHeader}>
-                        <h2>SSRF — Server-Side Request Forgery</h2>
-                        <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("ssrf")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
-                      </div>
-                      {ssrfFindings.length > 0 ? (
-                        <div className={styles.findingList}>
-                          {ssrfFindings.map((ssrf, i) => (
-                            <div key={i} className={styles.findingCard}>
-                              <div className={styles.findingHeader}>
-                                <span className={`${styles.severityBadge} ${styles.critical}`}>CRITICAL</span>
-                                <span className={styles.findingTitle}>param: {ssrf.parameter}</span>
-                              </div>
-                              <div className={styles.findingMeta}>
-                                <span><strong>Indicator:</strong> {ssrf.indicator}</span>
-                                <span><strong>Payload:</strong> {ssrf.payload}</span>
-                                {ssrf.evidence && <span><strong>Evidence:</strong> {ssrf.evidence}</span>}
-                              </div>
-                            </div>
-                          ))}
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": "var(--critical)" } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>◈</span>
+                          <span className={styles.sidebarContentTitleText}>SSRF</span>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("ssrf")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                      ) : <div className={styles.empty}>◈ Nenhum SSRF detectado</div>}
-                    </div>
-                  )}
-                                                                        {openModule === "crlf" && (
-                    <div>
-                      <div className={styles.moduleHeader}>
-                        <h2>CRLF Injection</h2>
-                        <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("crlf")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
-                      </div>
-                      {crlfFindings.length > 0 ? (
-                        <div className={styles.findingList}>
-                          {crlfFindings.map((crlf, i) => (
-                            <div key={i} className={styles.findingCard}>
-                              <div className={styles.findingHeader}>
-                                <span className={`${styles.severityBadge} ${styles.high}`}>HIGH</span>
-                                <span className={styles.findingTitle}>param: {crlf.parameter} [{crlf.injectionType}]</span>
-                              </div>
-                              <div className={styles.findingMeta}>
-                                <span><strong>Payload:</strong> {crlf.payload}</span>
-                                {crlf.evidence && <span><strong>Evidence:</strong> {crlf.evidence}</span>}
-                              </div>
-                            </div>
-                          ))}
+                        <FindingCardsPanel
+                          emptyMsg="Nenhum SSRF detectado"
+                          items={ssrfFindings.map((f: any, i: number) => ({
+                            id: `ssrf-${i}`, title: `param: ${f.parameter}`, severity: "CRITICAL",
+                            summary: `Indicador: ${f.indicator}`,
+                            details: [
+                              { label: "PARÂMETRO", value: f.parameter },
+                              { label: "INDICADOR", value: f.indicator },
+                              { label: "PAYLOAD", value: f.payload },
+                              ...(f.evidence ? [{ label: "EVIDÊNCIA", value: f.evidence }] : []),
+                            ],
+                          }))}
+                        />
+                      </>
+                    )}
+                    {openModule === "crlf" && (
+                      <>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": "var(--high)" } as React.CSSProperties}>
+                          <span className={styles.sidebarContentIcon}>◈</span>
+                          <span className={styles.sidebarContentTitleText}>CRLF Injection</span>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("crlf")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                      ) : <div className={styles.empty}>◈ Nenhuma injeção CRLF detectada</div>}
-                    </div>
-                  )}
+                        <FindingCardsPanel
+                          emptyMsg="Nenhuma injeção CRLF detectada"
+                          items={crlfFindings.map((f: any, i: number) => ({
+                            id: `crlf-${i}`, title: `param: ${f.parameter}`, severity: "HIGH",
+                            subtitle: `Tipo: ${f.injectionType}`,
+                            details: [
+                              { label: "PARÂMETRO", value: f.parameter },
+                              { label: "TIPO", value: f.injectionType },
+                              { label: "PAYLOAD", value: f.payload },
+                              ...(f.evidence ? [{ label: "EVIDÊNCIA", value: f.evidence }] : []),
+                            ],
+                          }))}
+                        />
+                      </>
+                    )}
                   {openModule === "sourcemap" && (
-                    <div>
-                      <div className={styles.moduleHeader}>
-                        <h2>Source Map / Debug Exposure</h2>
+                    <>
+                      <div className={styles.sidebarContentTitle} style={{ "--mc-color": smFindings.length ? "var(--high)" : "var(--secure)" } as React.CSSProperties}>
+                        <span className={styles.sidebarContentIcon}>◈</span>
+                        <span className={styles.sidebarContentTitleText}>Source Map / Debug</span>
                         <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("sourcemap")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                       </div>
-                      {smFindings.length > 0 ? (
-                        <div className={styles.findingList}>
-                          {smFindings.map((sm, i) => (
-                            <div key={i} className={styles.findingCard}>
-                              <div className={styles.findingHeader}>
-                                <span className={`${styles.severityBadge} ${sm.severity === "HIGH" ? styles.high : styles.medium}`}>{sm.severity}</span>
-                                <span className={styles.findingTitle}>[{sm.type}]</span>
-                              </div>
-                              <div className={styles.findingMeta}>
-                                <span><strong>URL:</strong> {sm.url}</span>
-                                {sm.evidence && <span><strong>Evidence:</strong> {sm.evidence}</span>}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : <div className={styles.empty}>◈ Nenhum source map ou debug endpoint exposto</div>}
-                    </div>
+                      <FindingCardsPanel
+                        emptyMsg="Nenhum source map ou debug endpoint exposto"
+                        items={smFindings.map((f: any, i: number) => ({
+                          id: `sm-${i}`, title: `[${f.type}]`, severity: f.severity,
+                          summary: f.url,
+                          details: [
+                            { label: "TIPO", value: f.type },
+                            { label: "URL", value: f.url },
+                            ...(f.evidence ? [{ label: "EVIDÊNCIA", value: f.evidence }] : []),
+                          ],
+                        }))}
+                      />
+                    </>
                   )}
                   {openModule === "hostheader" && (
-                    <div>
-                      <div className={styles.moduleHeader}>
-                        <h2>Host Header Injection</h2>
+                    <>
+                      <div className={styles.sidebarContentTitle} style={{ "--mc-color": hhFindings.length ? "var(--high)" : "var(--secure)" } as React.CSSProperties}>
+                        <span className={styles.sidebarContentIcon}>◈</span>
+                        <span className={styles.sidebarContentTitleText}>Host Header Injection</span>
                         <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("hostheader")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                       </div>
-                      {hhFindings.length > 0 ? (
-                        <div className={styles.findingList}>
-                          {hhFindings.map((hh, i) => (
-                            <div key={i} className={styles.findingCard}>
-                              <div className={styles.findingHeader}>
-                                <span className={`${styles.severityBadge} ${styles.high}`}>HIGH</span>
-                                <span className={styles.findingTitle}>{hh.injectedHeader} → reflected in {hh.reflectionPoint}</span>
-                              </div>
-                              <div className={styles.findingMeta}>
-                                <span><strong>Injected value:</strong> {hh.injectedValue}</span>
-                                {hh.evidence && <span><strong>Evidence:</strong> {hh.evidence}</span>}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : <div className={styles.empty}>◈ Nenhuma reflexão de Host header detectada</div>}
-                    </div>
+                      <FindingCardsPanel
+                        emptyMsg="Nenhuma reflexão de Host header detectada"
+                        items={hhFindings.map((f: any, i: number) => ({
+                          id: `hh-${i}`, title: f.injectedHeader, severity: "HIGH",
+                          summary: `Refletido em: ${f.reflectionPoint}`,
+                          details: [
+                            { label: "HEADER", value: f.injectedHeader },
+                            { label: "REFLETIDO EM", value: f.reflectionPoint },
+                            { label: "VALOR INJETADO", value: f.injectedValue },
+                            ...(f.evidence ? [{ label: "EVIDÊNCIA", value: f.evidence }] : []),
+                          ],
+                        }))}
+                      />
+                    </>
                   )}
                   {openModule === "cert" && (
                       <>
@@ -4252,23 +4954,20 @@ export default function App() {
                         </div>
                         {ct ? (
                           <>
-                            <div className={styles.ctOverview}>
-                              <div className={styles.ctStat}>
-                                <span className={styles.ctStatVal}>{ct.totalCertificates}</span>
-                                <span className={styles.ctStatLabel}>Certificados nos logs CT</span>
-                              </div>
-                              <div className={styles.ctStat}>
-                                <span className={styles.ctStatVal}>{ct.uniqueSubdomains}</span>
-                                <span className={styles.ctStatLabel}>Subdomínios históricos</span>
-                              </div>
-                              <div className={styles.ctStat}>
-                                <span className={`${styles.ctStatVal} ${ct.wildcardDetected ? styles.warn : styles.ok}`}>{ct.wildcardDetected ? "⚠ Sim" : "✓ Não"}</span>
-                                <span className={styles.ctStatLabel}>Wildcard (*.domínio)</span>
-                              </div>
-                              <div className={styles.ctStat}>
-                                <span className={`${styles.ctStatVal} ${ct.recentlyIssued ? styles.warn : styles.ok}`}>{ct.recentlyIssued ? "⚠ Sim" : "—"}</span>
-                                <span className={styles.ctStatLabel}>Emitido últimos 7 dias</span>
-                              </div>
+                            {/* Stats as interactive cards */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 8, marginBottom: 12 }}>
+                              {[
+                                { label: "Certificados", value: ct.totalCertificates, color: "var(--info)", icon: "◑", detail: "Total de certificados emitidos para este domínio registrados nos logs públicos de Certificate Transparency." },
+                                { label: "Subdomínios históricos", value: ct.uniqueSubdomains, color: ct.uniqueSubdomains > 20 ? "var(--warning)" : "var(--info)", icon: "◎", detail: "Subdomínios descobertos via CT logs. Muitos subdomínios podem indicar superfície de ataque ampla — verifique os que não estão mais em uso." },
+                                { label: "Wildcard", value: ct.wildcardDetected ? "⚠ Sim" : "✓ Não", color: ct.wildcardDetected ? "var(--warning)" : "var(--secure)", icon: ct.wildcardDetected ? "⚠" : "✓", detail: ct.wildcardDetected ? "Certificado wildcard detectado (*.dominio). Compromisso de um subdomínio pode afetar todos os outros cobertos pelo wildcard." : "Nenhum certificado wildcard detectado." },
+                                { label: "Emitido (7 dias)", value: ct.recentlyIssued ? "⚠ Sim" : "—", color: ct.recentlyIssued ? "var(--warning)" : "var(--secure)", icon: ct.recentlyIssued ? "⚠" : "✓", detail: ct.recentlyIssued ? "Certificado emitido nos últimos 7 dias. Verifique se a emissão foi esperada — emissões inesperadas podem indicar comprometimento." : "Nenhum certificado emitido recentemente nos logs CT." },
+                              ].map((stat, i) => (
+                                <div key={i} style={{ background: "var(--surface)", border: `1px solid var(--border)`, borderLeft: `3px solid ${stat.color}`, borderRadius: "var(--radius)", padding: "10px 12px" }}>
+                                  <div style={{ fontFamily: "var(--mono)", fontSize: 18, color: stat.color, fontWeight: 700 }}>{stat.value}</div>
+                                  <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", marginTop: 3, letterSpacing: ".3px" }}>{stat.label.toUpperCase()}</div>
+                                  <p style={{ fontSize: 9, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{stat.detail}</p>
+                                </div>
+                              ))}
                             </div>
                             {ct.unexpectedIssuer && (
                               <div className={styles.ctAlert}>⚠ Issuer(s) não autorizado(s) pelo CAA: {ct.unexpectedIssuers.map((iss, i) => <Tag key={i} label={iss} cls={styles.critical} />)}</div>
@@ -4322,94 +5021,34 @@ export default function App() {
                         
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("takeover")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        {(r.subdomainTakeover?.length ?? 0) > 0 ? (
-                          <div className={styles.takeoverList}>
-                            {r.subdomainTakeover.map((t, i) => (
-                              <div key={i} className={`${styles.takeoverRow} ${t.status === "VULNERABLE" ? styles.takeoverVulnerable : styles.takeoverPotential}`}>
-                                <div className={styles.takeoverHeader}>
-                                  <span className={`${styles.takeoverStatus} ${t.status === "VULNERABLE" ? styles.tsVulnerable : styles.tsPotential}`}>{t.status}</span>
-                                  <Tag label={t.severity} cls={sevColor(t.severity)} />
-                                  <code className={styles.code}>{t.subdomain}</code>
-                                  <span className={styles.takeoverService}>via {t.service}</span>
-                                </div>
-                                <div className={styles.takeoverVuln}>{t.vulnerability}</div>
-                                <div className={styles.takeoverCname}><span className={styles.muted}>CNAME →</span><code className={styles.code}>{t.cnameTarget}</code></div>
-                                {t.evidence && <div className={styles.takeoverEvidence}>{t.evidence}</div>}
-                              </div>
-                            ))}
-                          </div>
-                        ) : <div className={styles.empty}>◈ Nenhum subdomínio vulnerável a takeover detectado</div>}
+                        <FindingCardsPanel
+                          emptyMsg="Nenhum subdomínio vulnerável a takeover detectado"
+                          cols={1}
+                          items={(r.subdomainTakeover ?? []).map((t: any, i: number) => ({
+                            id: `takeover-${i}`, title: t.subdomain, severity: t.severity,
+                            extraTags: [{ label: t.status, color: t.status === "VULNERABLE" ? "var(--critical)" : "var(--warning)" }],
+                            summary: `${t.vulnerability} — via ${t.service}`,
+                            details: [
+                              { label: "SUBDOMÍNIO", value: t.subdomain },
+                              { label: "STATUS", value: t.status },
+                              { label: "SERVIÇO", value: t.service },
+                              { label: "CNAME →", value: t.cnameTarget },
+                              { label: "VULNERAB.", value: t.vulnerability },
+                              ...(t.evidence ? [{ label: "EVIDÊNCIA", value: t.evidence }] : []),
+                            ],
+                          }))}
+                        />
                       </>
                     )}
 
-                    {openModule === "active" && r.activeMode && (
+                    {openModule === "active" && (
                       <>
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": "var(--info)" } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>▣</span>
                           <span className={styles.sidebarContentTitleText}>Active Checks</span>
-                        
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("active")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        <Section title="WAF Detection" defaultOpen={true}>
-                          <KV label="Detectado" value={r.wafDetectionResult?.detected ? <span className={styles.ok}>✓ Sim</span> : <span className={styles.warn}>✗ Não confirmado</span>} />
-                          {r.wafDetectionResult?.detected && (<>
-                            <KV label="Provider"  value={<strong style={{ color: "var(--accent)" }}>{r.wafDetectionResult.provider}</strong>} />
-                            <KV label="Confiança" value={<span className={r.wafDetectionResult.confidence === "HIGH" ? styles.secure : r.wafDetectionResult.confidence === "MEDIUM" ? styles.warning : styles.muted}>{r.wafDetectionResult.confidence}</span>} />
-                            <KV label="Evidência" value={<code className={styles.code}>{r.wafDetectionResult.evidence}</code>} />
-                          </>)}
-                          <KV label="Probe" value={<span className={r.wafDetectionResult?.probeResponse === "BLOCKED" ? styles.ok : r.wafDetectionResult?.probeResponse === "PASSED" ? styles.warn : styles.muted}>{r.wafDetectionResult?.probeResponse ?? "—"}</span>} />
-                          {r.wafDetectionResult?.summary && <div className={styles.note} style={{ marginTop: 8 }}>{r.wafDetectionResult.summary}</div>}
-                        </Section>
-                        <Section title="CORS Analysis" defaultOpen={false}>
-                          {r.corsResult?.tested ? (<>
-                            <KV label="Allow-Origin"   value={<code className={styles.code}>{r.corsResult.allowOriginValue}</code>} />
-                            <KV label="Wildcard"        value={boolIcon(!r.corsResult.wildcardOrigin, "✓ No", "⚠ YES")} />
-                            <KV label="Reflects Origin" value={boolIcon(!r.corsResult.reflectsOrigin, "✓ No", "⚠ YES")} />
-                            <KV label="Credentials"     value={boolIcon(!r.corsResult.credentialsAllowed, "✓ No", "⚠ YES")} />
-                            <KV label="Null Origin"     value={boolIcon(!r.corsResult.nullOriginAccepted, "✓ No", "⚠ YES")} />
-                            <div className={styles.note}>{r.corsResult.message}</div>
-                          </>) : <div className={styles.empty}>Probe não executado</div>}
-                        </Section>
-                        <Section title={`Sensitive Files${r.sensitiveFiles?.length ? ` [${r.sensitiveFiles.length}]` : ""}`} defaultOpen={false}>
-                          {r.sensitiveFiles?.length ? (
-                            r.sensitiveFiles.map((f, i) => (
-                              <div key={i} className={styles.findingRow}>
-                                <div className={styles.findingPath}>
-                                  <code>{f.path}</code>
-                                  <Tag label={f.exposure} cls={f.exposure === "EXPOSED" ? styles.critical : styles.warning} />
-                                  <Tag label={f.severity} cls={sevColor(f.severity)} />
-                                </div>
-                                {f.contentPreview && <pre className={styles.preview}>{
-f.contentPreview}</pre>}
-                              </div>
-                            ))
-                          ) : <div className={styles.empty}>◈ Nenhum arquivo sensível exposto</div>}
-                        </Section>
-                        <Section title="Application Probes" defaultOpen={false}>
-                          <>
-                            <KV label="Input surface" value={boolIcon(r.inputSurfaceDetected, "Detectada", "Não detectada")} />
-                            <KV label="XSS probe" value={boolIcon(r.xssProbePerformed, "Executado", "—")} />
-                            <KV label="Reflected XSS" value={r.xssProbePerformed ? boolIcon(!r.reflectedXssSuspected, "✓ Clean", "⚠ Suspeito") : <span className={styles.muted}>Sem superfície de input</span>} />
-                            <KV label="DB error leak" value={boolIcon(!r.dbErrorLeakageSuspected, "✓ Clean", "⚠ Suspeito")} />
-                          </>
-                        </Section>
-                        <Section title={`Port Scan [${r.openPorts?.length ?? 0}]`} defaultOpen={false}>
-                          {r.openPorts?.length ? (
-                            <table className={styles.table}>
-                              <thead><tr><th>Port</th><th>Service</th><th>Sev</th><th>ms</th></tr></thead>
-                              <tbody>
-                                {r.openPorts.map((p, i) => (
-                                  <tr key={i}>
-                                    <td><code>{p.port}</code></td>
-                                    <td>{p.service}</td>
-                                    <td><Tag label={p.severity} cls={sevColor(p.severity)} /></td>
-                                    <td className={styles.muted}>{p.latencyMs}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          ) : <div className={styles.empty}>Sem portas abertas detectadas</div>}
-                        </Section>
+                        <ActiveChecksPanel r={r} onShowPlans={() => setShowPlans(true)} />
                       </>
                     )}
 
