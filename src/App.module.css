@@ -3246,6 +3246,14 @@
 
 /* ── Audit Logs ────────────────────────────────────────────────────────────── */
 
+.auditFilterRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
 .auditTableWrap {
   overflow-x: auto;
   width: 100%;
