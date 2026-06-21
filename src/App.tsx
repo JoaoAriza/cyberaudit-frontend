@@ -4147,6 +4147,9 @@ function SettingsPage() {
 
       {/* ── API Keys ── */}
       <ApiKeysSection />
+
+      {/* ── Identidade Visual (EMPRESA) ── */}
+      <BrandingSection />
     </div>
   );
 }
@@ -4326,6 +4329,233 @@ function ApiKeysSection() {
         Gate CI/CD: <code style={{ color: "var(--accent)" }}>GET /api-keys/ci?url=example.com&threshold=80</code>
         &nbsp;→ HTTP 200 (aprovado) ou 422 (score abaixo do threshold)
       </div>
+    </div>
+  );
+}
+
+// ── Branding Section (S16 — Branded PDF Reports) ─────────────────────────────
+
+interface BrandingDto {
+  brandLogoBase64: string | null;
+  brandColor: string | null;
+  brandReportName: string | null;
+}
+
+function BrandingSection() {
+  const { user, isAdmin, isOwner } = useAuth();
+
+  const isCompany = user?.account?.type === "COMPANY";
+  const canBranding = isCompany && (isOwner() || isAdmin());
+  const canView    = isCompany;
+
+  const [logo, setLogo]         = useState<string | null>(null);
+  const [color, setColor]       = useState<string>("#00D3A3");
+  const [name, setName]         = useState<string>("");
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [loading, setLoading]   = useState(true);
+
+  useEffect(() => {
+    if (!canView) { setLoading(false); return; }
+    api("/account/branding")
+      .then(r => r.json())
+      .then((d: BrandingDto) => {
+        setLogo(d.brandLogoBase64 ?? null);
+        setColor(d.brandColor ?? "#00D3A3");
+        setName(d.brandReportName ?? "");
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 204800) { setError("Imagem muito grande (máx. 200 KB)."); return; }
+    const reader = new FileReader();
+    reader.onload = () => setLogo(reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSaving(true);
+    try {
+      const res = await api("/account/branding", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brandLogoBase64: logo,
+          brandColor: color || null,
+          brandReportName: name.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || "Erro ao salvar branding.");
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro ao salvar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!canView) return null;
+
+  return (
+    <div className={styles.settingsCard}>
+      <div className={styles.settingsCardHeader}>
+        <span>Identidade Visual</span>
+        <span className={styles.badge} style={{ background: "var(--accent)", color: "#000" }}>EMPRESA</span>
+      </div>
+      <p className={styles.settingsCardDesc}>
+        Personalize o cabeçalho dos relatórios PDF com o logo e as cores da sua empresa.
+      </p>
+
+      {loading ? (
+        <div className={styles.muted}>Carregando...</div>
+      ) : (
+        <form onSubmit={save} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* ── Logo ── */}
+          <div>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>
+              LOGOTIPO (PNG/JPG, máx. 200 KB)
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {logo && (
+                <img
+                  src={logo}
+                  alt="Logo preview"
+                  style={{ height: 40, maxWidth: 120, objectFit: "contain",
+                    border: "1px solid var(--border)", borderRadius: 4, padding: 4, background: "#fff" }}
+                />
+              )}
+              {canBranding && (
+                <label style={{
+                  cursor: "pointer", fontFamily: "var(--mono)", fontSize: 10,
+                  padding: "5px 12px", border: "1px solid var(--border)", borderRadius: 4,
+                  background: "var(--surface2)", color: "var(--text)"
+                }}>
+                  {logo ? "Trocar logo" : "Selecionar logo"}
+                  <input type="file" accept="image/png,image/jpeg,image/svg+xml"
+                    style={{ display: "none" }} onChange={handleLogoChange} />
+                </label>
+              )}
+              {logo && canBranding && (
+                <button type="button" className={`${styles.btn}`}
+                  style={{ fontSize: 10, padding: "4px 10px", color: "var(--danger)" }}
+                  onClick={() => setLogo(null)}>
+                  Remover
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ── Nome no PDF ── */}
+          <div>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>
+              NOME NO RELATÓRIO
+            </div>
+            <input
+              className={styles.input}
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder='Ex: "ACMECORP SECURITY" (vazio = CyberAudit)'
+              maxLength={100}
+              disabled={!canBranding}
+              style={{ width: "100%", boxSizing: "border-box" }}
+            />
+          </div>
+
+          {/* ── Cor primária ── */}
+          <div>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>
+              COR PRIMÁRIA
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input
+                type="color"
+                value={color}
+                onChange={e => setColor(e.target.value)}
+                disabled={!canBranding}
+                style={{ width: 40, height: 32, border: "1px solid var(--border)",
+                  borderRadius: 4, cursor: canBranding ? "pointer" : "default",
+                  background: "transparent", padding: 2 }}
+              />
+              <input
+                className={styles.input}
+                value={color}
+                onChange={e => {
+                  const v = e.target.value;
+                  if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setColor(v);
+                }}
+                maxLength={7}
+                disabled={!canBranding}
+                style={{ width: 100, fontFamily: "var(--mono)", fontSize: 12 }}
+              />
+              <div style={{
+                width: 24, height: 24, borderRadius: 4,
+                background: /^#[0-9A-Fa-f]{6}$/.test(color) ? color : "var(--accent)"
+              }} />
+              <span className={styles.muted} style={{ fontSize: 10 }}>
+                Usada no destaque do cabeçalho do PDF
+              </span>
+            </div>
+          </div>
+
+          {/* ── Preview header ── */}
+          <div style={{
+            borderRadius: 6, overflow: "hidden", border: "1px solid var(--border)",
+            fontFamily: "var(--mono)"
+          }}>
+            <div style={{
+              background: "#0D1421", padding: "10px 16px",
+              borderLeft: `4px solid ${/^#[0-9A-Fa-f]{6}$/.test(color) ? color : "#00D3A3"}`,
+              display: "flex", alignItems: "center", gap: 12
+            }}>
+              {logo && (
+                <img src={logo} alt="" style={{ height: 30, maxWidth: 80, objectFit: "contain" }} />
+              )}
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700,
+                  color: /^#[0-9A-Fa-f]{6}$/.test(color) ? color : "#00D3A3" }}>
+                  {name.trim().toUpperCase() || "CYBERAUDIT"}
+                </div>
+                <div style={{ fontSize: 9, color: "#fff", marginTop: 2 }}>Web Security Report</div>
+              </div>
+              <div style={{ marginLeft: "auto", fontSize: 8, color: "#4A5568" }}>
+                <div>Generated: {new Date().toLocaleDateString("pt-BR")}</div>
+                <div style={{ fontWeight: 700 }}>CONFIDENTIAL</div>
+              </div>
+            </div>
+            <div style={{ background: "var(--surface)", padding: "5px 16px", fontSize: 9, color: "var(--text-muted)" }}>
+              Prévia do cabeçalho do PDF
+            </div>
+          </div>
+
+          {!canBranding && (
+            <div className={styles.muted} style={{ fontSize: 10 }}>
+              Somente OWNER e ADMIN podem alterar o branding.
+            </div>
+          )}
+
+          {error && <div style={{ color: "var(--danger)", fontSize: 11 }}>{error}</div>}
+
+          {canBranding && (
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button className={`${styles.btn} ${styles.btnScan}`} type="submit" disabled={saving}>
+                {saving ? "Salvando..." : saved ? "✓ Salvo" : "Salvar branding"}
+              </button>
+            </div>
+          )}
+        </form>
+      )}
     </div>
   );
 }
