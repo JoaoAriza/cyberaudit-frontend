@@ -4144,6 +4144,188 @@ function SettingsPage() {
           <DeleteAccountButton onDelete={() => { flash("Conta excluída."); window.location.href = "/"; }} />
         </div>
       </div>
+
+      {/* ── API Keys ── */}
+      <ApiKeysSection />
+    </div>
+  );
+}
+
+// ── API Keys Section (dentro de SettingsPage via componente separado) ──────────
+
+interface ApiKeyDto {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  expiresAt: string | null;
+  active: boolean;
+  createdByName: string | null;
+  plainKey?: string;
+}
+
+function ApiKeysSection() {
+  const { user, isAdmin } = useAuth();
+  const [keys, setKeys]         = useState<ApiKeyDto[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [newName, setNewName]   = useState("");
+  const [creating, setCreating] = useState(false);
+  const [newKey, setNewKey]     = useState<ApiKeyDto | null>(null);
+  const [copied, setCopied]     = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+
+  const canApiKeys = isAdmin()
+      || user?.account?.type === "COMPANY"
+      || user?.account?.plan === "PRO"
+      || user?.account?.plan === "ENTERPRISE";
+
+  async function load() {
+    try { setKeys((await api.get<ApiKeyDto[]>("/api-keys")).data); }
+    catch { /* silencioso */ }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { if (canApiKeys) load(); else setLoading(false); }, []);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setCreating(true); setError(null);
+    try {
+      const res = await api.post<ApiKeyDto>("/api-keys", { name: newName.trim() });
+      setNewKey(res.data);
+      setNewName("");
+      await load();
+    } catch (e: any) { setError(e?.response?.data?.message ?? "Erro ao criar API key."); }
+    finally { setCreating(false); }
+  }
+
+  async function revoke(id: string) {
+    if (!confirm("Revogar esta API key? Esta ação não pode ser desfeita.")) return;
+    try { await api.delete(`/api-keys/${id}`); await load(); }
+    catch (e: any) { setError(e?.response?.data?.message ?? "Erro ao revogar."); }
+  }
+
+  function copyKey(k: string) {
+    navigator.clipboard.writeText(k);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
+
+  if (!canApiKeys) {
+    return (
+      <div className={styles.settingsCard}>
+        <div className={styles.settingsCardHeader}>
+          <div>
+            <div className={styles.settingsCardTitle}>API Keys / CI-CD</div>
+            <div className={styles.settingsCardSub}>Acesse o CyberAudit programaticamente via pipelines CI/CD.</div>
+          </div>
+          <span className={styles.tf2faBadgeOff}>PRO</span>
+        </div>
+        <div className={styles.settingsCardSub} style={{ color: "var(--text-muted)", marginTop: 4 }}>
+          Disponível para planos PRO e contas Empresa.{" "}
+          <span style={{ color: "var(--accent)", cursor: "pointer" }}>Ver planos →</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.settingsCard}>
+      <div className={styles.settingsCardHeader}>
+        <div>
+          <div className={styles.settingsCardTitle}>API Keys / CI-CD</div>
+          <div className={styles.settingsCardSub}>
+            Use <code style={{ fontFamily: "var(--mono)", fontSize: 11 }}>X-Api-Key: ca_...</code> para autenticar chamadas à API. Máx. 10 keys ativas.
+          </div>
+        </div>
+      </div>
+
+      {/* Modal: nova key gerada */}
+      {newKey?.plainKey && (
+        <div style={{ background: "var(--secure)15", border: "1px solid var(--secure)50", borderRadius: 6, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--secure)", letterSpacing: ".5px", marginBottom: 6 }}>
+            ✓ KEY CRIADA — COPIE AGORA, NÃO SERÁ EXIBIDA NOVAMENTE
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <code style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", flex: 1, wordBreak: "break-all" }}>
+              {newKey.plainKey}
+            </code>
+            <button className={`${styles.btn} ${styles.btnScan}`} style={{ fontSize: 11, whiteSpace: "nowrap" }}
+              onClick={() => copyKey(newKey.plainKey!)}>
+              {copied ? "✓ Copiado" : "Copiar"}
+            </button>
+          </div>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--text-muted)", marginTop: 8 }}>
+            Exemplo CI/CD:<br />
+            <code style={{ color: "var(--accent)" }}>
+              curl -H "X-Api-Key: {newKey.plainKey}" "https://sua-api.com/api-keys/ci?url=example.com&threshold=80"
+            </code>
+          </div>
+          <button style={{ marginTop: 8, fontSize: 10, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
+            onClick={() => setNewKey(null)}>✕ Fechar</button>
+        </div>
+      )}
+
+      {error && <div className={styles.errorBox} style={{ marginBottom: 8 }}>{error}</div>}
+
+      {/* Form nova key */}
+      <form onSubmit={create} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <input className={styles.urlInput} value={newName}
+          onChange={e => setNewName(e.target.value)}
+          placeholder='Nome da key (ex: "GitHub CI")'
+          disabled={creating} style={{ flex: 1 }} />
+        <button className={`${styles.btn} ${styles.btnScan}`} type="submit"
+          disabled={creating || !newName.trim()}>
+          {creating ? "..." : "+ Gerar Key"}
+        </button>
+      </form>
+
+      {/* Lista de keys */}
+      {loading ? (
+        <div className={styles.muted}>Carregando...</div>
+      ) : keys.length === 0 ? (
+        <div className={styles.muted} style={{ fontSize: 11 }}>Nenhuma API key criada ainda.</div>
+      ) : (
+        <table className={styles.table} style={{ width: "100%" }}>
+          <thead>
+            <tr><th>Nome</th><th>Prefixo</th><th>Criada</th><th>Último uso</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody>
+            {keys.map(k => (
+              <tr key={k.id} style={{ opacity: k.active ? 1 : .45 }}>
+                <td><span style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{k.name}</span></td>
+                <td><code style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--accent)" }}>{k.keyPrefix}...</code></td>
+                <td><span className={styles.muted} style={{ fontSize: 10 }}>{new Date(k.createdAt).toLocaleDateString("pt-BR")}</span></td>
+                <td><span className={styles.muted} style={{ fontSize: 10 }}>{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString("pt-BR") : "—"}</span></td>
+                <td>
+                  <span style={{
+                    fontFamily: "var(--mono)", fontSize: 9, fontWeight: 700,
+                    color: k.active ? "var(--secure)" : "var(--text-muted)"
+                  }}>
+                    {k.active ? "ATIVA" : "REVOGADA"}
+                  </span>
+                </td>
+                <td>
+                  {k.active && (
+                    <button className={`${styles.btn} ${styles.btnDanger}`} style={{ fontSize: 10, padding: "2px 8px" }}
+                      onClick={() => revoke(k.id)}>
+                      Revogar
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--text-muted)", marginTop: 10, lineHeight: 1.6 }}>
+        Gate CI/CD: <code style={{ color: "var(--accent)" }}>GET /api-keys/ci?url=example.com&threshold=80</code>
+        &nbsp;→ HTTP 200 (aprovado) ou 422 (score abaixo do threshold)
+      </div>
     </div>
   );
 }
