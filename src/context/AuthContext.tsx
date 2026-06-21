@@ -36,10 +36,24 @@ export interface TwoFactorPending {
   twoFactorMethods: string[];
 }
 
+export interface RegisterPayload {
+  name: string;
+  email: string;
+  password: string;
+  accountType: "INDIVIDUAL" | "COMPANY";
+  companyName?: string;
+  companyDomain?: string;
+  companySize?: string;
+  cnpj?: string;
+  country?: string;
+  termsAccepted: boolean;
+}
+
 interface AuthContextValue {
   user: UserDto | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<TwoFactorPending | null>;
+  register: (payload: RegisterPayload) => Promise<void>;
   verify2fa: (code: string, method: string) => Promise<void>;
   resendEmailOtp: () => Promise<void>;
   logout: () => void;
@@ -92,6 +106,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
+  const register = async (payload: RegisterPayload): Promise<void> => {
+    const res = await api.post<{ token: string; user: UserDto }>("/auth/register", payload);
+    setToken(res.data.token);
+    setUser(res.data.user);
+  };
+
   const verify2fa = async (code: string, method: string): Promise<void> => {
     const res = await api.post<{ token: string; user: UserDto }>(
       "/auth/2fa/verify", { code, method }
@@ -111,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, loading, login, verify2fa, resendEmailOtp, logout,
+      user, loading, login, register, verify2fa, resendEmailOtp, logout,
       isOwner:         () => user?.role === "OWNER",
       isAdmin:         () => user?.role === "OWNER" || user?.role === "ADMIN",
       isAuthenticated: () => user !== null,
