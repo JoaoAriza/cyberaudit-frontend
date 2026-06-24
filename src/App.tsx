@@ -34,7 +34,7 @@ interface SubdomainTakeoverFinding { subdomain: string; cnameTarget: string; ser
 interface ScanChange { category: string; field: string; changeType: string; oldValue: string; newValue: string; severity: string; description: string; }
 interface TechFingerprintResult { webServer: string | null; backend: string | null; framework: string | null; cms: string | null; cdn: string | null; language: string | null; libraries: string[]; evidence: string[]; }
 interface ScanResult {
-  url: string; finalUrl: string; httpStatus: number; redirectsToHttps: boolean;
+  url: string; finalUrl: string; analyzedHost?: string | null; httpStatus: number; redirectsToHttps: boolean;
   sslInfo: SSLInfo; tlsDetails: TlsDetails; headers: Record<string, string>;
   serverVersionExposed: boolean; activeMode: boolean; inputSurfaceDetected: boolean;
   dbErrorLeakageSuspected: boolean; xssProbePerformed: boolean; reflectedXssSuspected: boolean;
@@ -340,6 +340,7 @@ const MODULE_INFO: Record<string, { title: string; icon: string; what: string; d
   ssrf: { title: "SSRF", icon: "◈", what: "Detecta Server-Side Request Forgery: o servidor faz requests HTTP para URLs controladas pelo atacante, permitindo acesso a metadados de cloud (AWS/GCP), serviços internos ou máquinas na rede interna.", does: "Injeta payloads SSRF em 24 parâmetros URL-like (url, callback, webhook, redirect, etc.). Detecta via conteúdo de metadata AWS/GCP na resposta, error disclosure revelando IPs internos, banners SSH/SMTP, e redirecionamento para endereços RFC1918.", tip: "Nunca faça requests server-side para URLs arbitrárias vindas do usuário. Use whitelists de domínios permitidos, bloqueie IPs privados/loopback e metadata endpoints no nível de rede." },
   traversal: { title: "Path Traversal / LFI", icon: "◈", what: "Testa parâmetros que referenciam arquivos (file, page, path, template, etc.) com payloads de traversal para verificar se o servidor serve arquivos do sistema.", does: "Injeta payloads Unix e Windows (../../../etc/passwd, ..\..\windows\win.ini, variantes com %2F, %5C) em 12 parâmetros file-like. Confirma exploração com assinaturas de conteúdo — exige dupla evidência para evitar FPs.", tip: "Nunca passe nomes de arquivo diretamente de parâmetros de usuário ao filesystem. Use whitelists de páginas permitidas, nunca concatenação direta de path." },
   active:    { title: "Active Checks", icon: "▣", what: "Módulo avançado que executa probes ativos contra o servidor. Requer autorização explícita do proprietário do modulo contratante.", does: "Executa: detecção de WAF (Web Application Firewall), análise de política CORS, varredura de ~25 arquivos sensíveis (.env, backup.sql, etc.), probes de XSS refletido e injeção de DB error, e port scan em 21 portas comuns. Cada probe faz requests reais ao servidor.", tip: "Use APENAS em domínios que você é proprietário ou tem autorização explícita. Probes não autorizados podem ser ilegais." },
+  compliance: { title: "LGPD / ISO 27001:2022", icon: "⊕", what: "Mapeia os resultados técnicos do scan para obrigações legais da LGPD (Lei 13.709/2018) e controles da norma ISO/IEC 27001:2022.", does: "Cruza cada vulnerabilidade encontrada com artigos da LGPD (Arts. 46–50) e controles ISO 27001 (A.5–A.8). Classifica cada item como CONFORME ou NÃO CONFORME e calcula um Compliance Score percentual. Os itens não conformes são agrupados por artigo/controle com a lista de issues que os causam.", tip: "Use o relatório de compliance como base para comunicação com DPO, auditorias internas ou due diligence. Corrija os itens CRITICAL e HIGH primeiro — eles tendem a gerar o maior número de não conformidades." },
 };
 
 // ── Module Info Modal ─────────────────────────────────────────────────────────
@@ -1221,7 +1222,7 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
               {sec === "transport" && <TransportCardsPanel r={r} />}
 
               {/* ── Headers ── */}
-              {sec === "headers" && <HeaderCardsPanel headers={r.headers ?? {}} />}
+              {sec === "headers" && <HeaderCardsPanel headers={r.headers ?? {}} host={r.analyzedHost ?? (r.finalUrl ?? r.url ?? "").replace(/^https?:\/\//, "").split("/")[0]} />}
 
               {/* ── DNS ── */}
               {sec === "dns" && <DnsCardsPanel r={r} />}
@@ -2997,7 +2998,7 @@ const HEADER_META: Record<string, { short: string; desc: string; risk: string; e
   "Cache-Control":             { short: "Cache",      desc: "Controla se e como o browser e proxies intermediários podem cachear as respostas HTTP.", risk: "Sem controle, dados de páginas autenticadas podem ser cacheados em proxies públicos.", example: "no-store, no-cache", tip: "Para páginas autenticadas: no-store. Recursos estáticos públicos suportam max-age longo." },
 };
 
-function HeaderCardsPanel({ headers }: { headers: Record<string, string> }) {
+function HeaderCardsPanel({ headers, host }: { headers: Record<string, string>; host?: string | null }) {
   const [openSet, setOpenSet] = useState<Set<string>>(new Set());
 
   const toggle = (key: string) =>
@@ -3010,10 +3011,11 @@ function HeaderCardsPanel({ headers }: { headers: Record<string, string> }) {
   const entries = Object.entries(headers);
   if (entries.length === 0) return <div className={styles.empty}>◈ Nenhum header retornado.</div>;
 
-  // 3 columns, align-items: start so expanded cards don't stretch their siblings
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 8, alignItems: "start" }}>
-      {entries.map(([key, val]) => {
+  // 3 colunas flex independentes — expandir um card não afeta as outras colunas
+  const cols: [string, string][][] = [[], [], []];
+  entries.forEach(([k, v], i) => cols[i % 3].push([k, v]));
+
+  const renderCard = ([key, val]: [string, string]) => {
         const isOk      = val.startsWith("OK");
         const isMissing = val.startsWith("MISSING");
         const color     = isOk ? "var(--secure)" : isMissing ? "var(--critical)" : "var(--warning)";
@@ -3103,7 +3105,25 @@ function HeaderCardsPanel({ headers }: { headers: Record<string, string> }) {
             )}
           </div>
         );
-      })}
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {host && (
+        <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>
+          ◈ Headers do host{" "}
+          <code style={{ fontFamily: "var(--mono)", color: "var(--text)" }}>{host}</code>.
+          {" "}Outros hosts do mesmo site (ex: APIs em{" "}
+          <code style={{ fontFamily: "var(--mono)" }}>server.…</code>) podem ter configuração diferente.
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 12 }}>
+        {cols.map((col, ci) => (
+          <div key={ci} style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+            {col.map(renderCard)}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -5454,7 +5474,7 @@ export default function App() {
                         
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("headers")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        <HeaderCardsPanel headers={r.headers ?? {}} />
+                        <HeaderCardsPanel headers={r.headers ?? {}} host={r.analyzedHost ?? (r.finalUrl ?? r.url ?? "").replace(/^https?:\/\//, "").split("/")[0]} />
                       </>
                     )}
 
@@ -5915,5 +5935,4 @@ export default function App() {
         )}
       </main>
     </div>
-  );
-}
+  );}
