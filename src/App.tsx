@@ -33,6 +33,7 @@ interface CertTransparencyResult {
 interface SubdomainTakeoverFinding { subdomain: string; cnameTarget: string; service: string; vulnerability: string; evidence: string; severity: string; status: string; }
 interface ScanChange { category: string; field: string; changeType: string; oldValue: string; newValue: string; severity: string; description: string; }
 interface TechFingerprintResult { webServer: string | null; backend: string | null; framework: string | null; cms: string | null; cdn: string | null; language: string | null; libraries: string[]; evidence: string[]; }
+interface RelatedHostHeaders { host: string; reachable: boolean; headers: Record<string, string>; missingCount: number; }
 interface ScanResult {
   url: string; finalUrl: string; analyzedHost?: string | null; httpStatus: number; redirectsToHttps: boolean;
   sslInfo: SSLInfo; tlsDetails: TlsDetails; headers: Record<string, string>;
@@ -45,6 +46,7 @@ interface ScanResult {
   directoryListingFindings: DirectoryListingFinding[]; score: ScoreResult;
   dnsSecurityResult: DnsSecurityResult | null; wafDetectionResult: WafDetectionResult | null;
   techFingerprint: TechFingerprintResult | null;
+  relatedHostHeaders?: RelatedHostHeaders[];
   cveFindings: CVEFinding[];
   changes: ScanChange[];
   subdomainTakeover: SubdomainTakeoverFinding[];
@@ -1222,7 +1224,7 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
               {sec === "transport" && <TransportCardsPanel r={r} />}
 
               {/* ── Headers ── */}
-              {sec === "headers" && <HeaderCardsPanel headers={r.headers ?? {}} host={r.analyzedHost ?? (r.finalUrl ?? r.url ?? "").replace(/^https?:\/\//, "").split("/")[0]} />}
+              {sec === "headers" && <HeaderCardsPanel headers={r.headers ?? {}} host={r.analyzedHost ?? (r.finalUrl ?? r.url ?? "").replace(/^https?:\/\//, "").split("/")[0]} related={r.relatedHostHeaders} />}
 
               {/* ── DNS ── */}
               {sec === "dns" && <DnsCardsPanel r={r} />}
@@ -2998,7 +3000,7 @@ const HEADER_META: Record<string, { short: string; desc: string; risk: string; e
   "Cache-Control":             { short: "Cache",      desc: "Controla se e como o browser e proxies intermediários podem cachear as respostas HTTP.", risk: "Sem controle, dados de páginas autenticadas podem ser cacheados em proxies públicos.", example: "no-store, no-cache", tip: "Para páginas autenticadas: no-store. Recursos estáticos públicos suportam max-age longo." },
 };
 
-function HeaderCardsPanel({ headers, host }: { headers: Record<string, string>; host?: string | null }) {
+function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, string>; host?: string | null; related?: RelatedHostHeaders[] }) {
   const [openSet, setOpenSet] = useState<Set<string>>(new Set());
 
   const toggle = (key: string) =>
@@ -3009,7 +3011,12 @@ function HeaderCardsPanel({ headers, host }: { headers: Record<string, string>; 
     });
 
   const entries = Object.entries(headers);
-  if (entries.length === 0) return <div className={styles.empty}>◈ Nenhum header retornado.</div>;
+  if (entries.length === 0) return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div className={styles.empty}>◈ Nenhum header retornado.</div>
+      <RelatedHostsPanel related={related} />
+    </div>
+  );
 
   // 3 colunas flex independentes — expandir um card não afeta as outras colunas
   const cols: [string, string][][] = [[], [], []];
@@ -3121,6 +3128,48 @@ function HeaderCardsPanel({ headers, host }: { headers: Record<string, string>; 
         {cols.map((col, ci) => (
           <div key={ci} style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
             {col.map(renderCard)}
+          </div>
+        ))}
+      </div>
+      <RelatedHostsPanel related={related} />
+    </div>
+  );
+}
+
+// ── Related Hosts — Security Headers (informativo, fora do score) ──────────────
+
+function RelatedHostsPanel({ related }: { related?: RelatedHostHeaders[] }) {
+  if (!related || related.length === 0) return null;
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>
+        Hosts relacionados{" "}
+        <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: 11 }}>
+          — informativo, não entra no score
+        </span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {related.map(rh => (
+          <div key={rh.host} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 12px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <code style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)" }}>{rh.host}</code>
+              <span style={{ fontSize: 11, color: rh.missingCount > 0 ? "var(--critical)" : "var(--secure)" }}>
+                {rh.missingCount} ausente{rh.missingCount === 1 ? "" : "s"}
+              </span>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {Object.entries(rh.headers ?? {}).map(([k, v]) => {
+                const ok = v.startsWith("OK");
+                const missing = v.startsWith("MISSING");
+                const color = ok ? "var(--secure)" : missing ? "var(--critical)" : "var(--warning)";
+                const short = HEADER_META[k]?.short ?? k;
+                return (
+                  <span key={k} title={`${k}: ${v}`} style={{ fontSize: 10, fontFamily: "var(--mono)", color, border: `1px solid ${color}`, borderRadius: 3, padding: "1px 6px" }}>
+                    {ok ? "✓" : missing ? "✗" : "⚠"} {short}
+                  </span>
+                );
+              })}
+            </div>
           </div>
         ))}
       </div>
@@ -5474,7 +5523,7 @@ export default function App() {
                         
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("headers")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
                         </div>
-                        <HeaderCardsPanel headers={r.headers ?? {}} host={r.analyzedHost ?? (r.finalUrl ?? r.url ?? "").replace(/^https?:\/\//, "").split("/")[0]} />
+                        <HeaderCardsPanel headers={r.headers ?? {}} host={r.analyzedHost ?? (r.finalUrl ?? r.url ?? "").replace(/^https?:\/\//, "").split("/")[0]} related={r.relatedHostHeaders} />
                       </>
                     )}
 
