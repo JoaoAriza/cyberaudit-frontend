@@ -1751,6 +1751,54 @@
   gap: 6px;
   align-items: center;
   flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ── Tabela de scans agendados ──────────────────────────────────────────── */
+.userTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px;            /* gap vertical entre linhas — separa as URLs */
+  font-size: 0.82rem;
+}
+
+.userTable thead th {
+  text-align: left;
+  padding: 6px 18px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.userTable tbody td {
+  padding: 13px 18px;              /* respiro horizontal/vertical — sem valores colados */
+  vertical-align: middle;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+/* Primeira/última célula arredondadas + bordas laterais → cada linha vira um "card" */
+.userTable tbody td:first-child {
+  border-left: 1px solid var(--border);
+  border-top-left-radius: var(--radius);
+  border-bottom-left-radius: var(--radius);
+  width: 1%;                       /* domínio encolhe ao conteúdo, sobra vai p/ o meio */
+}
+
+.userTable tbody td:last-child {
+  border-right: 1px solid var(--border);
+  border-top-right-radius: var(--radius);
+  border-bottom-right-radius: var(--radius);
+  width: 1%;                       /* coluna de ações encolhe ao conteúdo */
+}
+
+.userTable tbody tr:hover td {
+  border-color: var(--border2);
 }
 
 .btnDanger {
