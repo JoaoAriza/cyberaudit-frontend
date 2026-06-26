@@ -2210,10 +2210,13 @@ function ChangesPage() {
                   : s.riskLevel === "MEDIUM"   ? styles.warning
                   : s.riskLevel === "HIGH"     ? styles.high
                   : styles.critical;
-                const scoreColor = s.score >= 85 ? "var(--secure)"
-                  : s.score >= 70 ? "var(--info)"
-                  : s.score >= 45 ? "var(--warning)"
-                  : s.score >= 20 ? "var(--high)"
+                // Cor por NÍVEL DE RISCO (mesma regra do ScoreGauge), não pelo número cru.
+                // Reflete o veredito: 83 que virou MEDIUM por override de issue HIGH fica
+                // laranja aqui também — Scanner e Histórico mostram a mesma cor pro mesmo scan.
+                const scoreColor = s.riskLevel === "SECURE" ? "var(--secure)"
+                  : s.riskLevel === "LOW"      ? "var(--info)"
+                  : s.riskLevel === "MEDIUM"   ? "var(--warning)"
+                  : s.riskLevel === "HIGH"     ? "var(--high)"
                   : "var(--critical)";
                 const pct = Math.max(2, s.score);
                 const dt  = new Date(s.scannedAt);
