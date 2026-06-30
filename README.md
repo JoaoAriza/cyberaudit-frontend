@@ -1,73 +1,161 @@
-# React + TypeScript + Vite
+# CyberAudit — Frontend (cyberaudit-ui)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SPA (dashboard) do **CyberAudit** — consome a API de auditoria de segurança e apresenta
+nota, issues, detalhamento por módulo, histórico, agendamentos e relatórios.
 
-Currently, two official plugins are available:
+> React 19 · TypeScript · Vite 7. Consome o backend Spring Boot (`Seg_site`).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## Índice
+- [Stack](#stack)
+- [Como rodar](#como-rodar)
+- [Variáveis de ambiente](#variáveis-de-ambiente)
+- [Estrutura do projeto](#estrutura-do-projeto)
+- [Telas](#telas)
+- [Como conversa com o backend](#como-conversa-com-o-backend)
+- [Convenções de cor / score](#convenções-de-cor--score)
+- [Build e deploy](#build-e-deploy)
+- [Notas / dívidas conhecidas](#notas--dívidas-conhecidas)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## Stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+| Função | Lib |
+|---|---|
+| UI | React 19 + React DOM |
+| Build / dev | Vite 7 |
+| Linguagem | TypeScript 5.9 |
+| HTTP | axios (cliente único em `src/api/client.ts`) |
+| Data fetching | @tanstack/react-query |
+| Formulários | react-hook-form + zod (`@hookform/resolvers`) |
+| Gráficos | recharts (ex: histórico de score) |
+| Estilo | CSS Modules (`App.module.css`) + variáveis globais (`index.css`) |
+| Lint | ESLint 9 + typescript-eslint |
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Como rodar
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev        # http://localhost:5173
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+O backend precisa estar de pé (por padrão em `http://localhost:8081`) e com essa origem
+liberada no CORS (`ALLOWED_ORIGINS` do backend).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Scripts:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev        # servidor de desenvolvimento (HMR)
+npm run build      # tsc -b && vite build  → gera dist/
+npm run preview    # serve o build de produção localmente
+npm run lint       # ESLint
 ```
+
+---
+
+## Variáveis de ambiente
+
+Vite expõe variáveis prefixadas com `VITE_`. Crie um `.env` (ou `.env.local`):
+
+```env
+# URL base da API. Sem isso, cai no default http://localhost:8081
+VITE_API_URL=http://localhost:8081
+```
+
+Em produção, aponte para o domínio da API, ex: `VITE_API_URL=https://api.seudominio.com.br`.
+O valor é lido **em tempo de build** (`import.meta.env.VITE_API_URL`).
+
+---
+
+## Estrutura do projeto
+
+```
+src/
+├── main.tsx              entry point (monta o React)
+├── App.tsx               ⚠️ monolito (~6k linhas): tipos, componentes e todas as telas
+├── api/client.ts         axios pré-configurado (baseURL + token JWT + interceptors)
+├── context/AuthContext.tsx   estado de autenticação
+├── App.module.css        estilos (CSS Modules)
+└── index.css             reset + variáveis CSS globais (cores, fontes, --radius…)
+```
+
+> **Heads-up:** `App.tsx` concentra praticamente toda a UI (interfaces de tipo,
+> componentes e telas num arquivo só). É a maior dívida técnica do projeto — um bom
+> primeiro refactor seria quebrar por feature (`components/`, `views/`, `types/`).
+
+---
+
+## Telas
+
+Acessadas pela barra de navegação (`view`/`openModule` em `App.tsx`):
+
+| Tela | O que mostra |
+|---|---|
+| **Scanner** | Input de URL + modo ACTIVE/EMAIL, gauge de score, breakdown, distribuição de severidade, painéis por módulo (Security Headers, Transport, DNS, etc.), export PDF. |
+| **Admin** | Gestão administrativa (usuários, etc.). |
+| **Agendamentos** | Scans recorrentes por domínio (frequência, próximo/último scan, pausar/remover). |
+| **Domínios** | Domínios da conta e verificação de propriedade. |
+| **Histórico** | Mudanças entre scans, visão por domínio, análise de score. |
+| **Segurança** | Configurações de segurança da conta (2FA, etc.). |
+
+O painel **Security Headers** mostra também os **hosts relacionados** (`api.`, `server.`,
+`www.`) com a postura de headers de cada um — informativo, esclarece que outros hosts do
+mesmo site podem ter configuração diferente do host escaneado.
+
+---
+
+## Como conversa com o backend
+
+- **Cliente único:** `src/api/client.ts` cria um axios com `baseURL = VITE_API_URL`.
+- **Token JWT:** guardado em `localStorage` sob a chave `cyberaudit.token`. Um interceptor
+  injeta `Authorization: Bearer <token>` em todo request.
+- **Logout automático:** resposta `401` limpa o token e dispara o evento `auth:logout`
+  (o `AuthContext` reage e desloga).
+- **Sem `/api` na frente:** as rotas batem direto nos endpoints do backend
+  (`/scan`, `/scheduled-scans`, `/badge/{host}`, …).
+
+---
+
+## Convenções de cor / score
+
+A cor do score reflete o **nível de risco** (o veredito), não só o número cru — consistente
+entre o gauge do Scanner e a barra do Histórico:
+
+| Nível | Cor |
+|---|---|
+| SECURE | verde (`--secure`) |
+| LOW | azul (`--info`) |
+| MEDIUM | laranja (`--warning`) |
+| HIGH | laranja-forte (`--high`) |
+| CRITICAL | vermelho (`--critical`) |
+
+> Por isso um site com nota 83 mas com uma issue HIGH aparece **MEDIUM/laranja** (e não
+> azul): o backend aplica um *severity override* e a UI segue o risco, não o número.
+
+---
+
+## Build e deploy
+
+```bash
+VITE_API_URL=https://api.seudominio.com.br npm run build   # → dist/
+```
+
+O `dist/` é estático e pode ser servido por qualquer CDN/host estático (Vercel, Cloudflare
+Pages, Netlify) ou por um reverse proxy (Caddy/nginx) no mesmo VPS do backend. Para SPA,
+configure **fallback para `index.html`** (rotas client-side).
+
+Arquitetura recomendada (dois subdomínios):
+- `app.seudominio.com.br` → este SPA (estático)
+- `api.seudominio.com.br` → backend (reverse proxy)
+
+---
+
+## Notas / dívidas conhecidas
+
+- **`App.tsx` é um monolito** — candidato número 1 a refactor por feature.
+- **`VITE_API_URL` é build-time** — trocar de ambiente exige novo build.
+- **Sem testes automatizados** de UI no momento.
