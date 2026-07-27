@@ -195,7 +195,7 @@ function ScoreGauge({ score, risk }: { score: number; risk: string }) {
 
 // ── Issue Item ────────────────────────────────────────────────────────────────
 
-function IssueItem({ issue }: { issue: SecurityIssue }) {
+function IssueItem({ issue, onContest }: { issue: SecurityIssue; onContest?: (findingLabel: string) => void }) {
   const [open, setOpen] = useState(false);
   const isCve = issue.id.startsWith("CVE_");
   // Extract "Ref: URL" from recommendation if present
@@ -225,8 +225,201 @@ function IssueItem({ issue }: { issue: SecurityIssue }) {
               </a>
             )}
           </div>
+          {onContest && (
+            <div style={{ marginTop: 8 }}>
+              <button
+                onClick={() => onContest(issue.title)}
+                title="Contestar este achado"
+                style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 11, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+              >
+                ⚑ Isso está errado?
+              </button>
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Feedback (contestação de achados) ─────────────────────────────────────────
+
+type FeedbackStatus = "OPEN" | "REVIEWING" | "RESOLVED";
+
+interface FeedbackDto {
+  id: string;
+  scanId: string | null;
+  host: string;
+  module: string | null;
+  findingLabel: string | null;
+  message: string;
+  status: FeedbackStatus;
+  adminResponse: string | null;
+  submittedByName: string | null;
+  submittedByEmail: string | null;
+  reviewedByName: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  resolvedAt: string | null;
+}
+
+interface FeedbackTarget {
+  host: string;
+  scanId?: string | null;
+  module?: string | null;
+  findingLabel?: string | null;
+}
+
+function fbStatusLabel(s: FeedbackStatus) {
+  return s === "OPEN" ? "Aberto" : s === "REVIEWING" ? "Em análise" : "Resolvido";
+}
+function fbStatusColor(s: FeedbackStatus) {
+  return s === "OPEN" ? "var(--warning, #f5a623)"
+    : s === "REVIEWING" ? "var(--info, #4aa3ff)"
+    : "var(--secure, #00c87a)";
+}
+
+/** Modal do cliente: contesta um achado/módulo/scan e vê respostas anteriores. */
+function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: () => void }) {
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [mine, setMine] = useState<FeedbackDto[]>([]);
+
+  const targetLabel = target.findingLabel || target.module || "scan inteiro";
+
+  useEffect(() => {
+    api.get<FeedbackDto[]>("/feedback/mine")
+      .then(r => setMine(r.data.filter(f => f.host === target.host)))
+      .catch(() => {});
+  }, [target.host, sent]);
+
+  async function submit() {
+    if (!message.trim()) { setError("Descreva o que está errado."); return; }
+    setSending(true); setError(null);
+    try {
+      await api.post("/feedback", {
+        scanId: target.scanId ?? null,
+        host: target.host,
+        module: target.module ?? null,
+        findingLabel: target.findingLabel ?? null,
+        message: message.trim(),
+      });
+      setSent(true); setMessage("");
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? "Erro ao enviar feedback.");
+    } finally { setSending(false); }
+  }
+
+  return (
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+        <div className={styles.modalHeader}>
+          <span className={styles.modalTitle}>Contestar resultado</span>
+          <button className={styles.modalClose} onClick={onClose}>✕</button>
+        </div>
+        <div className={styles.modalBody}>
+          {sent ? (
+            <div style={{ textAlign: "center", padding: "12px 0" }}>
+              <div style={{ fontSize: 32, marginBottom: 8, color: "var(--secure)" }}>✓</div>
+              <div style={{ color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>Feedback enviado</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Nossa equipe vai analisar. Obrigado!</div>
+              <button className={`${styles.btn} ${styles.btnGhost}`} style={{ marginTop: 16 }} onClick={() => setSent(false)}>
+                Enviar outro
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
+                Contestando <strong style={{ color: "var(--text)" }}>{targetLabel}</strong> em <code className={styles.code}>{target.host}</code>. Explique por que acredita que o resultado está errado.
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>O QUE ESTÁ ERRADO?</label>
+                <textarea
+                  className={styles.formInput}
+                  rows={4}
+                  value={message}
+                  maxLength={4000}
+                  onChange={e => setMessage(e.target.value)}
+                  placeholder="Ex: este header existe, mas está configurado num subdomínio diferente..."
+                />
+              </div>
+              {error && <div className={styles.errorBox}>{error}</div>}
+              <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={sending} onClick={submit}>
+                {sending ? "Enviando..." : "Enviar contestação"}
+              </button>
+            </>
+          )}
+
+          {mine.length > 0 && (
+            <div style={{ marginTop: 18, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+              <div className={styles.formLabel} style={{ marginBottom: 8 }}>SEUS FEEDBACKS NESTE HOST</div>
+              {mine.map(f => (
+                <div key={f.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "8px 10px", marginBottom: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ fontSize: 12, color: "var(--text)" }}>{f.findingLabel || f.module || "scan inteiro"}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: fbStatusColor(f.status) }}>{fbStatusLabel(f.status)}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3, whiteSpace: "pre-wrap" }}>{f.message}</div>
+                  {f.adminResponse && (
+                    <div style={{ fontSize: 11, color: "var(--text)", marginTop: 6, paddingLeft: 8, borderLeft: "2px solid var(--secure)" }}>
+                      <strong>Resposta:</strong> {f.adminResponse}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Linha de triagem de um feedback no painel admin (resposta + status). */
+function FeedbackAdminRow({ f, onReply }: {
+  f: FeedbackDto;
+  onReply: (id: string, resp: string, status: FeedbackStatus) => Promise<void>;
+}) {
+  const [resp, setResp] = useState(f.adminResponse ?? "");
+  const [status, setStatus] = useState<FeedbackStatus>(f.status);
+  const [saving, setSaving] = useState(false);
+
+  return (
+    <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "12px 14px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+        <div>
+          <code className={styles.code}>{f.host}</code>
+          <span style={{ marginLeft: 8, fontSize: 12, color: "var(--text)" }}>{f.findingLabel || f.module || "scan inteiro"}</span>
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 700, color: fbStatusColor(f.status) }}>{fbStatusLabel(f.status)}</span>
+      </div>
+      <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
+        {f.submittedByName ?? f.submittedByEmail ?? "—"} · {new Date(f.createdAt).toLocaleString("pt-BR")}
+      </div>
+      <div style={{ fontSize: 13, color: "var(--text)", marginBottom: 10, whiteSpace: "pre-wrap" }}>{f.message}</div>
+      <textarea
+        className={styles.formInput}
+        rows={2}
+        value={resp}
+        onChange={e => setResp(e.target.value)}
+        placeholder="Resposta ao cliente..."
+      />
+      <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+        <select className={styles.roleSelect} value={status} onChange={e => setStatus(e.target.value as FeedbackStatus)}>
+          <option value="OPEN">Aberto</option>
+          <option value="REVIEWING">Em análise</option>
+          <option value="RESOLVED">Resolvido</option>
+        </select>
+        <button
+          className={`${styles.btn} ${styles.btnScan} ${styles.btnSm}`}
+          disabled={saving}
+          onClick={async () => { setSaving(true); try { await onReply(f.id, resp, status); } finally { setSaving(false); } }}
+        >
+          {saving ? "Salvando..." : "Salvar"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -1686,7 +1879,7 @@ function AuditLogsTab() {
 function AdminPanel() {
   const { user } = useAuth();
   const isCompany = user?.account?.type === "COMPANY";
-  const [tab, setTab] = useState<"users" | "invites" | "audit">(
+  const [tab, setTab] = useState<"users" | "invites" | "audit" | "feedback">(
     isCompany && user?.role === "OWNER" ? "users" : isCompany ? "invites" : "audit"
   );
   const [users, setUsers] = useState<UserManagementDto[]>([]);
@@ -1708,9 +1901,25 @@ function AdminPanel() {
   const [pdfScope,      setPdfScope]      = useState<"DOMAINS" | "TEAM_SCANS" | "BOTH">("DOMAINS");
   const [pdfFrom,       setPdfFrom]       = useState("");
   const [pdfTo,         setPdfTo]         = useState("");
+  const [feedbacks,     setFeedbacks]     = useState<FeedbackDto[]>([]);
+  const [fbLoading,     setFbLoading]     = useState(false);
+  const [fbFilter,      setFbFilter]      = useState<"" | FeedbackStatus>("");
 
   useEffect(() => { loadUsers(); loadInvites(); }, []);
   useEffect(() => { if (user?.role === "ADMIN") setInvRole("FREE_EMPLOYEE"); }, [user]);
+  useEffect(() => { if (tab === "feedback") loadFeedbacks(); /* eslint-disable-next-line */ }, [tab, fbFilter]);
+
+  async function loadFeedbacks() {
+    setFbLoading(true);
+    try {
+      const params = fbFilter ? { status: fbFilter } : {};
+      setFeedbacks((await api.get<FeedbackDto[]>("/admin/feedback", { params })).data);
+    } catch {} finally { setFbLoading(false); }
+  }
+  async function replyFeedback(id: string, adminResponse: string, status: FeedbackStatus) {
+    try { await api.put(`/admin/feedback/${id}`, { adminResponse, status }); await loadFeedbacks(); }
+    catch (e: any) { alert(e?.response?.data?.message ?? "Erro ao salvar."); }
+  }
 
   async function loadUsers() { setLoading(true); try { setUsers((await api.get<UserManagementDto[]>("/admin/users")).data); } catch {} finally { setLoading(false); } }
   async function loadInvites() { try { setInvites((await api.get<InviteDto[]>("/admin/invites")).data); } catch {} }
@@ -1858,11 +2067,12 @@ function AdminPanel() {
             </div>
           </div>
         )}
-        {isCompany && (
+        {(isCompany || user?.role === "OWNER" || user?.role === "ADMIN") && (
           <div className={styles.adminTabs}>
-            {user?.role === "OWNER" && (<button className={`${styles.adminTab} ${tab === "users" ? styles.adminTabActive : ""}`} onClick={() => setTab("users")}>Usuários ({users.length})</button>)}
-            <button className={`${styles.adminTab} ${tab === "invites" ? styles.adminTabActive : ""}`} onClick={() => setTab("invites")}>Convites ({invites.length})</button>
+            {isCompany && user?.role === "OWNER" && (<button className={`${styles.adminTab} ${tab === "users" ? styles.adminTabActive : ""}`} onClick={() => setTab("users")}>Usuários ({users.length})</button>)}
+            {isCompany && (<button className={`${styles.adminTab} ${tab === "invites" ? styles.adminTabActive : ""}`} onClick={() => setTab("invites")}>Convites ({invites.length})</button>)}
             {(user?.role === "OWNER" || user?.role === "ADMIN") && (<button className={`${styles.adminTab} ${tab === "audit" ? styles.adminTabActive : ""}`} onClick={() => setTab("audit")}>Auditoria</button>)}
+            {(user?.role === "OWNER" || user?.role === "ADMIN") && (<button className={`${styles.adminTab} ${tab === "feedback" ? styles.adminTabActive : ""}`} onClick={() => setTab("feedback")}>Feedback</button>)}
           </div>
         )}
       </div>
@@ -1918,6 +2128,32 @@ function AdminPanel() {
         </div>
       )}
       {tab === "audit" && <AuditLogsTab />}
+
+      {tab === "feedback" && (
+        <div className={styles.adminContent}>
+          <Card title="FEEDBACK DE CLIENTES">
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
+              Contestações enviadas por clientes sobre resultados de scan. Responda e atualize o status para triar.
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+              {([["", "Todos"], ["OPEN", "Abertos"], ["REVIEWING", "Em análise"], ["RESOLVED", "Resolvidos"]] as const).map(([val, label]) => (
+                <button
+                  key={val || "ALL"}
+                  className={`${styles.btn} ${styles.btnSm} ${fbFilter === val ? styles.btnScan : styles.btnGhost}`}
+                  onClick={() => setFbFilter(val as "" | FeedbackStatus)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {fbLoading ? <div className={styles.empty}>Carregando...</div>
+              : feedbacks.length === 0 ? <div className={styles.empty}>Nenhum feedback {fbFilter ? "com esse status" : ""}.</div>
+              : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {feedbacks.map(f => <FeedbackAdminRow key={f.id} f={f} onReply={replyFeedback} />)}
+                </div>}
+          </Card>
+        </div>
+      )}
 
       {/* Status Page toggle — visible for OWNER only */}
       {user?.role === "OWNER" && (
@@ -4953,6 +5189,7 @@ export default function App() {
   const [scanLoading, setScanLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [lastScanId, setLastScanId] = useState<string | null>(null);
+  const [feedbackTarget, setFeedbackTarget] = useState<FeedbackTarget | null>(null);
   const [notify, setNotify] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -5154,6 +5391,7 @@ export default function App() {
     <div className={styles.app}>
       <SlowScanToast visible={showSlowToast} />
       {showPlans && <PlansModal onClose={() => setShowPlans(false)} />}
+      {feedbackTarget && <FeedbackModal target={feedbackTarget} onClose={() => setFeedbackTarget(null)} />}
 
       <header className={styles.header}>
         <div className={styles.logo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
@@ -5510,9 +5748,12 @@ export default function App() {
                           <span className={styles.sidebarContentTitleText}>Issues</span>
                         
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("issues")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          {isAuthenticated() && (
+                            <button className={styles.moduleInfoTrigger} onClick={() => setFeedbackTarget({ host: badgeHost, scanId: lastScanId, module: null, findingLabel: null })} title="Contestar um resultado deste scan">⚑ Contestar</button>
+                          )}
                         </div>
                         {issueCount
-                          ? <div className={styles.issuesList}>{r.score.issues.map(i => <IssueItem key={i.id} issue={i} />)}</div>
+                          ? <div className={styles.issuesList}>{r.score.issues.map(i => <IssueItem key={i.id} issue={i} onContest={isAuthenticated() ? (label) => setFeedbackTarget({ host: badgeHost, scanId: lastScanId, module: null, findingLabel: label }) : undefined} />)}</div>
                           : <div className={styles.empty}>◈ Nenhuma issue detectada</div>}
                       </>
                     )}
