@@ -9,12 +9,13 @@ html, body, #root {
 }
 
 body {
-  background: #07090d;
-  color: #b8ccde;
+  background: var(--bg, #07090d);
+  color: var(--text, #b8ccde);
   font-family: 'JetBrains Mono', monospace;
+  transition: background-color .2s ease, color .2s ease;
 }
 
 button { cursor: pointer; }
 
-a { color: #00d4a0; text-decoration: none; }
+a { color: var(--accent, #00d4a0); text-decoration: none; }
 a:hover { text-decoration: underline; }

@@ -20,6 +20,29 @@
   --sans: 'Barlow', sans-serif;
   --radius: 6px;
   --shadow: 0 4px 24px rgba(0, 0, 0, .6);
+  --header-bg: rgba(13, 18, 25, .8);
+}
+
+/* ── Tema claro: off-white frio + cards brancos + teal escurecido ───────── */
+:root[data-theme="light"] {
+  --bg: #eef1f5;
+  --surface: #ffffff;
+  --surface2: #f4f6f9;
+  --surface3: #eaeef3;
+  --border: #d8e0e9;
+  --border2: #c4cfdb;
+  --text: #14212e;
+  --text-dim: #4a5f74;
+  --text-muted: #8095a8;
+  --accent: #008f6b;
+  --secure: #00875e;
+  --warning: #b9770a;
+  --critical: #d92d2d;
+  --high: #d1541b;
+  --info: #1f6fd0;
+  --low: #4b9e78;
+  --shadow: 0 4px 20px rgba(20, 40, 60, .10);
+  --header-bg: rgba(255, 255, 255, .85);
 }
 
 * {
@@ -44,7 +67,7 @@
   justify-content: space-between;
   padding: 16px 32px;
   border-bottom: 1px solid var(--border);
-  background: rgba(13, 18, 25, .8);
+  background: var(--header-bg);
   backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
@@ -252,6 +275,25 @@
 .btn:disabled {
   opacity: .4;
   cursor: not-allowed;
+}
+
+.themeToggle {
+  height: 34px;
+  width: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1;
+  transition: border-color .2s, background-color .2s;
+}
+.themeToggle:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .activeWarning {
@@ -818,8 +860,8 @@
 }
 
 .issueCveLink:hover {
-  color: #7bbfff;
-  border-color: #7bbfff;
+  color: var(--info);
+  border-color: var(--info);
 }
 
 .issueBody {
@@ -1477,7 +1519,7 @@
 }
 
 .partial {
-  color: #f0a500;
+  color: var(--warning);
   font-size: 13px;
 }
 

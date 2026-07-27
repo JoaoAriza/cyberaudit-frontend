@@ -446,12 +446,12 @@ function SlowScanToast({ visible }: { visible: boolean }) {
     }}>
       {expanded && (
         <div style={{
-          width: 320, background: "#0d1219",
+          width: 320, background: "var(--surface)",
           border: "1px solid rgba(0,212,160,.25)", borderRadius: "var(--radius)",
           boxShadow: "0 8px 32px rgba(0,0,0,.7)",
           overflow: "hidden", animation: "fadeUp .25s ease",
         }}>
-          <div style={{ height: 2, background: "linear-gradient(90deg, var(--accent), #3b9eff)" }} />
+          <div style={{ height: 2, background: "linear-gradient(90deg, var(--accent), var(--info))" }} />
           <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", letterSpacing: ".5px" }}>Por que alguns checks demoram?</div>
             <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Cada módulo faz requests reais ao servidor alvo</div>
@@ -474,7 +474,7 @@ function SlowScanToast({ visible }: { visible: boolean }) {
         style={{
           display: "flex", alignItems: "center", gap: 8,
           padding: "8px 14px",
-          background: "#0d1219",
+          background: "var(--surface)",
           border: "1px solid rgba(0,212,160,.35)",
           borderLeft: "3px solid var(--accent)",
           borderRadius: "var(--radius)",
@@ -3184,7 +3184,7 @@ function IntradayChart({ host }: { host: string }) {
                 />
                 <Tooltip
                   contentStyle={{
-                    background: "var(--bg-card, #0d1b2a)",
+                    background: "var(--surface)",
                     border: "1px solid var(--border)",
                     borderRadius: 4,
                     fontSize: 11,
@@ -4318,7 +4318,7 @@ function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFil
                   />
                   <Tooltip
                     contentStyle={{
-                      background: "var(--bg-card, #0d1b2a)",
+                      background: "var(--surface)",
                       border: "1px solid var(--border)",
                       borderRadius: 4,
                       fontSize: 11,
@@ -5190,6 +5190,16 @@ export default function App() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [lastScanId, setLastScanId] = useState<string | null>(null);
   const [feedbackTarget, setFeedbackTarget] = useState<FeedbackTarget | null>(null);
+  const [theme, setTheme] = useState<"dark" | "light">(
+    () => (typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "light") ? "light" : "dark"
+  );
+  const toggleTheme = () => {
+    // Efeitos colaterais FORA do updater (StrictMode invoca o updater 2x → cancelaria o flip).
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("cyberaudit.theme", next); } catch { /* ignore */ }
+    setTheme(next);
+  };
   const [notify, setNotify] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -5404,6 +5414,14 @@ export default function App() {
           {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "settings" ? styles.navBtnActive : ""}`} onClick={() => setView("settings")}>⚙ Segurança</button>)}
         </nav>
         <div className={styles.headerRight}>
+          <button
+            className={styles.themeToggle}
+            onClick={toggleTheme}
+            title={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
+            aria-label="Alternar tema claro/escuro"
+          >
+            {theme === "dark" ? "☀" : "☾"}
+          </button>
           {isAuthenticated() ? (
             <div className={styles.userInfo}>
               {user?.account?.plan && (
