@@ -104,6 +104,9 @@ function getStatusTokenFromUrl(): string | null {
   const match = path.match(/\/status\/([a-f0-9]{32,64})/);
   return match ? match[1] : null;
 }
+function isBillingReturnPath(): boolean {
+  return window.location.pathname === "/billing/return";
+}
 function riskColor(level?: string) {
   if (level === "SECURE")   return styles.secure;
   if (level === "LOW")      return styles.low;
@@ -1034,7 +1037,7 @@ const PLAN_DEFS: PlanDef[] = [
   {
     key:   "PESSOAL_PRO",
     name:  "Pessoal Pro",
-    price: "Em breve",
+    price: "R$ 29,90/mês",
     doc:   "CPF opcional",
     features: [
       { label: "Scans ilimitados",     ok: true  },
@@ -1048,7 +1051,7 @@ const PLAN_DEFS: PlanDef[] = [
   {
     key: "EMPRESA",
     name:  "Empresa",
-    price: "Em breve",
+    price: "R$ 99,90/mês",
     doc:   "CNPJ obrigatório",
     features: [
       { label: "Scans ilimitados",     ok: true },
@@ -1069,6 +1072,28 @@ function PlansModal({ onClose }: { onClose: () => void }) {
     user?.account?.type === "COMPANY" ? "EMPRESA" :
       user?.account?.plan === "PRO" ? "PESSOAL_PRO" :
         "PESSOAL_FREE";
+
+  // Plano pago que ESTE usuário pode assinar (individual → Pro; empresa → Empresa).
+  const targetKey: PlanKey = user?.account?.type === "COMPANY" ? "EMPRESA" : "PESSOAL_PRO";
+  const isFree   = (user?.account?.plan ?? "FREE") === "FREE";
+  const loggedIn = !!user;
+  const [subscribing, setSubscribing] = useState(false);
+  const [subError, setSubError] = useState<string | null>(null);
+
+  async function subscribe() {
+    setSubscribing(true); setSubError(null);
+    try {
+      const res = await api.post<{ initPoint: string }>("/billing/subscribe");
+      if (res.data?.initPoint) {
+        window.location.href = res.data.initPoint; // → checkout do Mercado Pago
+      } else {
+        setSubError("Não foi possível iniciar o checkout."); setSubscribing(false);
+      }
+    } catch (e: any) {
+      setSubError(e?.response?.data?.message ?? e?.response?.data?.error ?? "Erro ao iniciar assinatura.");
+      setSubscribing(false);
+    }
+  }
 
   return (
     <div className={styles.modalOverlay} onClick={onClose}>
@@ -1098,14 +1123,29 @@ function PlansModal({ onClose }: { onClose: () => void }) {
                   ))}
                 </ul>
                 {!current && (
-                  <div className={styles.planCta}>
-                    {plan.key === "PESSOAL_FREE" ? "Plano atual" : "Em breve"}
-                  </div>
+                  plan.key === targetKey && isFree ? (
+                    loggedIn ? (
+                      <button
+                        className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`}
+                        disabled={subscribing}
+                        onClick={subscribe}
+                      >
+                        {subscribing ? "Redirecionando..." : `Assinar ${plan.price} →`}
+                      </button>
+                    ) : (
+                      <div className={styles.planCta}>Faça login para assinar</div>
+                    )
+                  ) : (
+                    <div className={styles.planCta}>
+                      {plan.key === "PESSOAL_FREE" ? "Grátis" : "—"}
+                    </div>
+                  )
                 )}
               </div>
             );
           })}
         </div>
+        {subError && <div className={styles.errorBox} style={{ margin: "0 16px 16px" }}>{subError}</div>}
       </div>
     </div>
   );
@@ -5259,6 +5299,53 @@ function PublicStatusPage({ token }: { token: string }) {
   );
 }
 
+/** Retorno do checkout do Mercado Pago (back_url = /billing/return). Confirma a assinatura. */
+function BillingReturnPage() {
+  const [state, setState] = useState<"processing" | "active" | "pending">("processing");
+  useEffect(() => {
+    let stop = false, tries = 0;
+    const check = async () => {
+      tries++;
+      try {
+        const res = await api.get("/billing/subscription");
+        const sub: any = res.data;
+        if (sub && sub.status === "AUTHORIZED") {
+          setState("active"); stop = true;
+          setTimeout(() => { window.location.href = "/"; }, 1800);
+          return;
+        }
+      } catch { /* ainda processando */ }
+      if (!stop && tries >= 12) { setState("pending"); stop = true; }
+    };
+    check();
+    const iv = setInterval(() => { if (stop) { clearInterval(iv); return; } check(); }, 3000);
+    return () => { stop = true; clearInterval(iv); };
+  }, []);
+
+  return (
+    <div className={styles.app}>
+      <div className={styles.loginPage}>
+        <div className={styles.loginCard} style={{ textAlign: "center" }}>
+          <div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
+          {state === "processing" && (<>
+            <div className={styles.loginTitle}>Processando pagamento…</div>
+            <div className={styles.loginSub}>Confirmando sua assinatura com o Mercado Pago. Leva alguns segundos.</div>
+          </>)}
+          {state === "active" && (<>
+            <div className={styles.loginTitle} style={{ color: "var(--secure)" }}>✓ Assinatura ativa!</div>
+            <div className={styles.loginSub}>Seu plano foi liberado. Redirecionando…</div>
+          </>)}
+          {state === "pending" && (<>
+            <div className={styles.loginTitle} style={{ color: "var(--warning)" }}>Quase lá…</div>
+            <div className={styles.loginSub}>O Mercado Pago ainda está confirmando o pagamento — pode levar alguns minutos.</div>
+            <button className={`${styles.btn} ${styles.btnScan}`} style={{ marginTop: 16 }} onClick={() => { window.location.href = "/"; }}>Voltar ao app</button>
+          </>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Módulos informativos liberados p/ guest/FREE mesmo com detailsLocked (sincronizar com ScanEntitlementService no backend). */
 const FREE_MODULES = ["transport", "tech", "cert"];
 
@@ -5399,6 +5486,8 @@ export default function App() {
 
   const statusToken = getStatusTokenFromUrl();
   if (statusToken) return <PublicStatusPage token={statusToken} />;
+
+  if (isBillingReturnPath()) return <BillingReturnPage />;
 
   // Aguarda tanto a verificação de setup quanto a validação de auth
   if (setupConfigured === null || loading)
