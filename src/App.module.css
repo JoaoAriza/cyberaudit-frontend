@@ -136,6 +136,17 @@
   margin-right: auto;
 }
 
+/* Busca compacta no topo da coluna de resultados (faixa, sem card flutuante). */
+.scanPanelInline .scanPanel {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+  max-width: none;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
 .scanForm {
   display: flex;
   gap: 12px;
@@ -552,10 +563,11 @@
 .dashboard {
   display: grid;
   grid-template-columns: 260px 1fr;
+  align-items: start;          /* nav toma a própria altura → pode "grudar" (sticky) */
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  overflow: hidden;
+  overflow: visible;           /* visible p/ o sticky da nav funcionar; recorte via radius nos filhos */
   animation: fadeUp .4s ease;
 }
 
@@ -568,8 +580,10 @@
 .dashboardRight {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;   /* flui na página (a janela rola os resultados) */
   background: var(--surface2);
+  min-width: 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
 }
 
 .dashboardRight > .row {
@@ -2631,9 +2645,18 @@
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
-  overflow-y: auto;
   background: var(--surface);
   min-height: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+  /* Gruda logo abaixo do header fixo e ganha scrollbar próprio quando a lista é longa. */
+  position: sticky;
+  top: 72px;
+  align-self: start;
+  max-height: calc(100vh - 88px);
+  overflow-y: auto;
+}
+@media (max-width: 768px) {
+  .sidebarNav { position: static; max-height: none; border-radius: var(--radius) var(--radius) 0 0; }
 }
 
 .sidebarNavHeader {
@@ -2772,10 +2795,11 @@
 /* ── Right content panel ── */
 .sidebarContent {
   padding: 24px;
-  overflow-y: auto;
+  overflow: visible;   /* flui na página (a janela é o scroller) */
   flex: 1;
   min-height: 400px;
   background: var(--surface2);
+  scroll-margin-top: 84px;   /* respiro p/ o header fixo ao rolar até o detalhe */
 }
 
 .sidebarEmpty {

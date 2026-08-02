@@ -1527,7 +1527,7 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
               {/* ── Issues ── */}
               {sec === "issues" && (
                 sc.issues?.length
-                  ? <div className={styles.issuesList}>{sc.issues.map(i => <IssueItem key={i.id} issue={i} />)}</div>
+                  ? <div className={styles.issuesList}>{sc.issues.map((i, idx) => <IssueItem key={`${i.id}-${idx}`} issue={i} />)}</div>
                   : <div className={styles.empty}>◈ Nenhuma issue detectada</div>
               )}
 
@@ -5376,6 +5376,20 @@ export default function App() {
   const [guestRefreshKey, setGuestRefreshKey] = useState(0);
   const [openModule, setOpenModule] = useState<string | null>(null);
   const [openModuleInfo, setOpenModuleInfo] = useState<string | null>(null);
+  const moduleContentRef = useRef<HTMLDivElement>(null);
+  // Abre o módulo e rola a página até o detalhe (não precisa rolar na mão).
+  const selectModule = (key: string) => {
+    setOpenModule(key);
+    // pequeno delay p/ o React renderizar o novo conteúdo antes de rolar
+    setTimeout(() => {
+      moduleContentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
+  };
+  // Volta ao topo (aba Scanner) SEM perder o scan atual — usado no clique da logo.
+  const goHome = () => {
+    setView("scan");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const abortRef = useRef<AbortController | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -5569,6 +5583,59 @@ export default function App() {
   const crlfColor      = crlfFindings.length === 0 ? "var(--secure)" : "var(--high)";
   const tlsColor       = !(r?.sslInfo?.valid) ? "var(--critical)" : r?.tlsDetails?.weakProtocol ? "var(--warning)" : "var(--secure)";
 
+  // Painel de busca — reusado no início (standalone) e no topo da coluna de resultados.
+  const searchPanel = (
+    <div className={styles.scanPanel}>
+      <div className={styles.scanForm}>
+        <div className={styles.inputWrap}>
+          <span className={styles.inputPrefix}>https://</span>
+          <input className={styles.urlInput} value={url} onChange={e => setUrl(e.target.value)} placeholder="example.com" onKeyDown={e => e.key === "Enter" && !scanLoading && handleScan()} />
+        </div>
+        <div className={styles.toggles}>
+          <label className={styles.toggle} title={
+            user && !canActiveScan
+              ? "Scan ativo requer plano PRO ou superior"
+              : activeScanVerifiedOnly
+              ? "Scan ativo permitido apenas em domínios verificados na sua conta"
+              : "Executa probes ativos: WAF, CORS, portas abertas e mais"
+          }>
+            <input type="checkbox" checked={active}
+              disabled={scanLoading || (!!user && !canActiveScan)}
+              onChange={e => setActive(e.target.checked)} />
+            <span className={`${styles.toggleLabel} ${user && !canActiveScan ? styles.disabledLabel : ""}`}>
+              ACTIVE{user && !canActiveScan ? " ⛔" : ""}
+            </span>
+          </label>
+          {user && (
+            <label className={styles.toggle} title="Receber email ao concluir o scan">
+              <input type="checkbox" checked={notify} disabled={scanLoading} onChange={e => setNotify(e.target.checked)} />
+              <span className={styles.toggleLabel}>EMAIL</span>
+            </label>
+          )}
+        </div>
+        {activeScanVerifiedOnly && active && (
+          <div style={{ fontSize: 10, color: "var(--warning)", fontFamily: "var(--mono)", marginTop: 4, letterSpacing: ".3px" }}>
+            ⚠ Modo PRO — scan ativo restrito a domínios verificados na aba <strong>Domínios</strong>
+          </div>
+        )}
+        <div className={styles.actions}>
+          {scanLoading
+            ? <button className={`${styles.btn} ${styles.btnCancel}`} onClick={() => { abortRef.current?.abort(); stopPoll(); stopSlowTimer(); setScanLoading(false); }}>✕ Cancel</button>
+            : <button className={`${styles.btn} ${styles.btnScan}`} onClick={handleScan}>◈ Scan</button>}
+          <button
+            className={`${styles.btn} ${styles.btnGhost}`}
+            onClick={handlePdf}
+            disabled={pdfLoading || scanLoading || (!!user && user.account?.pdfExportAllowed === false)}
+            title={user && user.account?.pdfExportAllowed === false ? "PDF requer plano PRO ou superior" : ""}
+          >{pdfLoading ? "..." : "PDF"}</button>
+        </div>
+      </div>
+      {active && <div className={styles.activeWarning}>⚠ Modo ativo: Use apenas em domínios autorizados.</div>}
+      {scanLoading && <div className={styles.progressBar}><div className={styles.progressFill} /></div>}
+      {error && <div className={styles.errorBox}>{error}</div>}
+    </div>
+  );
+
   return (
     <div className={styles.app}>
       <SlowScanToast visible={showSlowToast} />
@@ -5576,7 +5643,7 @@ export default function App() {
       {feedbackTarget && <FeedbackModal target={feedbackTarget} onClose={() => setFeedbackTarget(null)} />}
 
       <header className={styles.header}>
-        <div className={styles.logo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
+        <div className={styles.logo} onClick={goHome} title="Voltar ao início" role="button" style={{ cursor: "pointer" }}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
         <nav className={styles.headerNav}>
           <button className={`${styles.navBtn} ${view === "scan" ? styles.navBtnActive : ""}`} onClick={() => setView("scan")}>Scanner</button>
           {canViewAdmin && (<button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`} onClick={() => setView("admin")}>Admin</button>)}
@@ -5633,56 +5700,7 @@ export default function App() {
 
         {view === "scan" && (
           <>
-            <div className={styles.scanPanel}>
-              <div className={styles.scanForm}>
-                <div className={styles.inputWrap}>
-                  <span className={styles.inputPrefix}>https://</span>
-                  <input className={styles.urlInput} value={url} onChange={e => setUrl(e.target.value)} placeholder="example.com" onKeyDown={e => e.key === "Enter" && !scanLoading && handleScan()} />
-                </div>
-                <div className={styles.toggles}>
-                  <label className={styles.toggle} title={
-                    user && !canActiveScan
-                      ? "Scan ativo requer plano PRO ou superior"
-                      : activeScanVerifiedOnly
-                      ? "Scan ativo permitido apenas em domínios verificados na sua conta"
-                      : "Executa probes ativos: WAF, CORS, portas abertas e mais"
-                  }>
-                    <input type="checkbox" checked={active}
-                      disabled={scanLoading || (!!user && !canActiveScan)}
-                      onChange={e => setActive(e.target.checked)} />
-                    <span className={`${styles.toggleLabel} ${user && !canActiveScan ? styles.disabledLabel : ""}`}>
-                      ACTIVE{user && !canActiveScan ? " ⛔" : ""}
-                    </span>
-                  </label>
-                  {user && (
-                    <label className={styles.toggle} title="Receber email ao concluir o scan">
-                      <input type="checkbox" checked={notify} disabled={scanLoading} onChange={e => setNotify(e.target.checked)} />
-                      <span className={styles.toggleLabel}>EMAIL</span>
-                    </label>
-                  )}
-                </div>
-                {/* Aviso para PRO INDIVIDUAL com scan ativo habilitado */}
-                {activeScanVerifiedOnly && active && (
-                  <div style={{ fontSize: 10, color: "var(--warning)", fontFamily: "var(--mono)", marginTop: 4, letterSpacing: ".3px" }}>
-                    ⚠ Modo PRO — scan ativo restrito a domínios verificados na aba <strong>Domínios</strong>
-                  </div>
-                )}
-                <div className={styles.actions}>
-                  {scanLoading
-                    ? <button className={`${styles.btn} ${styles.btnCancel}`} onClick={() => { abortRef.current?.abort(); stopPoll(); stopSlowTimer(); setScanLoading(false); }}>✕ Cancel</button>
-                    : <button className={`${styles.btn} ${styles.btnScan}`} onClick={handleScan}>◈ Scan</button>}
-                  <button
-                    className={`${styles.btn} ${styles.btnGhost}`}
-                    onClick={handlePdf}
-                    disabled={pdfLoading || scanLoading || (!!user && user.account?.pdfExportAllowed === false)}
-                    title={user && user.account?.pdfExportAllowed === false ? "PDF requer plano PRO ou superior" : ""}
-                  >{pdfLoading ? "..." : "PDF"}</button>
-                </div>
-              </div>
-              {active && <div className={styles.activeWarning}>⚠ Modo ativo: Use apenas em domínios autorizados.</div>}
-              {scanLoading && <div className={styles.progressBar}><div className={styles.progressFill} /></div>}
-              {error && <div className={styles.errorBox}>{error}</div>}
-            </div>
+            {(!r || scanLoading) && searchPanel}
 
             {ownership && <OwnershipCard state={ownership} onDismiss={() => setOwnership(null)} />}
 
@@ -5709,7 +5727,7 @@ export default function App() {
                       metric={issueCount === 0 ? "✓" : issueCount}
                       label={issueCount === 0 ? "SECURE" : (r.score?.issues?.[0]?.severity ?? "FOUND")}
                       active={openModule === "issues"}
-                      onClick={() => setOpenModule("issues")}/>
+                      onClick={() => selectModule("issues")}/>
 
                     <div className={styles.sidebarNavGroup}>HTTP &amp; Headers</div>
                     <SidebarNavItem icon="⬡" title="Security Headers"
@@ -5718,34 +5736,34 @@ export default function App() {
                       label={missingH + weakH === 0 ? "SECURE" : missingH > 2 ? "CRITICAL" : "MEDIUM"}
                       active={openModule === "headers"}
                       locked={modGated("headers")}
-                      onClick={() => setOpenModule("headers")}/>
+                      onClick={() => selectModule("headers")}/>
                     <SidebarNavItem icon="⬟" title="Transport Security"
                       color={tlsColor}
                       metric={r.sslInfo?.valid ? (r.sslInfo.daysRemaining ?? "?") + "d" : "✗"}
                       label={!r.sslInfo?.valid ? "INVALID CERT" : r.tlsDetails?.weakProtocol ? "WEAK PROTOCOL" : "SECURE"}
                       active={openModule === "transport"}
-                      onClick={() => setOpenModule("transport")}/>
+                      onClick={() => selectModule("transport")}/>
                     <SidebarNavItem icon="⚙" title="HTTP Methods"
                       color={httpColor}
                       metric={dangerMethods.length === 0 ? "✓" : dangerMethods.length}
                       label={dangerMethods.length === 0 ? "SECURE" : "DANGEROUS"}
                       active={openModule === "http"}
                       locked={modGated("http")}
-                      onClick={() => setOpenModule("http")}/>
+                      onClick={() => selectModule("http")}/>
                     <SidebarNavItem icon="↪" title="Open Redirect"
                       color={redirectColor}
                       metric={redirectVuln.length === 0 ? "✓" : redirectVuln.length}
                       label={redirectVuln.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "redirect"}
                       locked={modGated("redirect")}
-                      onClick={() => setOpenModule("redirect")}/>
+                      onClick={() => selectModule("redirect")}/>
                     <SidebarNavItem icon="◫" title="Directory Listing"
                       color={dirColor}
                       metric={dirExposed.length === 0 ? "✓" : dirExposed.length}
                       label={dirExposed.length === 0 ? "SECURE" : "EXPOSED"}
                       active={openModule === "dirlist"}
                       locked={modGated("dirlist")}
-                      onClick={() => setOpenModule("dirlist")}/>
+                      onClick={() => selectModule("dirlist")}/>
 
                     <div className={styles.sidebarNavGroup}>DNS &amp; Domínio</div>
                     <SidebarNavItem icon="◉" title="Reconnaissance"
@@ -5754,20 +5772,20 @@ export default function App() {
                       label={dns?.emailSpoofingRisk ? `SPOOFING: ${dns.emailSpoofingRisk}` : "UNKNOWN"}
                       active={openModule === "recon"}
                       locked={modGated("recon")}
-                      onClick={() => setOpenModule("recon")}/>
+                      onClick={() => selectModule("recon")}/>
                     <SidebarNavItem icon="◑" title="Cert Transparency"
                       color={certColor}
                       metric={ct ? ct.totalCertificates : "—"}
                       label={!ct ? "N/A" : ct.unexpectedIssuer ? "ISSUER ALERT" : ct.wildcardDetected ? "WILDCARD" : "INFO"}
                       active={openModule === "cert"}
-                      onClick={() => setOpenModule("cert")}/>
+                      onClick={() => selectModule("cert")}/>
                     <SidebarNavItem icon="◎" title="Subdomain Takeover"
                       color={takeoverColor}
                       metric={takeoverVuln.length === 0 ? "✓" : takeoverVuln.length}
                       label={takeoverVuln.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "takeover"}
                       locked={modGated("takeover")}
-                      onClick={() => setOpenModule("takeover")}/>
+                      onClick={() => selectModule("takeover")}/>
 
                     <div className={styles.sidebarNavGroup}>Aplicação</div>
                     <SidebarNavItem icon="⟨⟩" title="Technology"
@@ -5775,77 +5793,77 @@ export default function App() {
                       metric={techFirst}
                       label="DETECTED"
                       active={openModule === "tech"}
-                      onClick={() => setOpenModule("tech")}/>
+                      onClick={() => selectModule("tech")}/>
                     <SidebarNavItem icon="☰" title="Cookie Security"
                       color={cookieColor}
                       metric={cookieCount === 0 ? "✓" : cookieCount}
                       label={cookieCount === 0 ? "SECURE" : "ISSUES FOUND"}
                       active={openModule === "cookies"}
                       locked={modGated("cookies")}
-                      onClick={() => setOpenModule("cookies")}/>
+                      onClick={() => selectModule("cookies")}/>
                     <SidebarNavItem icon="◈" title="API Docs"
                       color={apiDocsColor}
                       metric={apiDocsCount === 0 ? "✓" : apiDocsCount}
                       label={apiDocsCount === 0 ? "SECURE" : "EXPOSED"}
                       active={openModule === "apidocs"}
                       locked={modGated("apidocs")}
-                      onClick={() => setOpenModule("apidocs")}/>
+                      onClick={() => selectModule("apidocs")}/>
                     <SidebarNavItem icon="◈" title="GraphQL"
                       color={gqlColor}
                       metric={gqlFindings.length === 0 ? "✓" : gqlFindings.length}
                       label={gqlFindings.length === 0 ? "SECURE" : gqlFindings.some(f => f.playgroundExposed) ? "PLAYGROUND" : "INTROSPECTION"}
                       active={openModule === "graphql"}
                       locked={modGated("graphql")}
-                      onClick={() => setOpenModule("graphql")}/>
+                      onClick={() => selectModule("graphql")}/>
                     <SidebarNavItem icon="◈" title="JWT Security"
                       color={jwtColor}
                       metric={jwtFindings.length === 0 ? "✓" : jwtFindings.length}
                       label={jwtFindings.length === 0 ? "SECURE" : jwtFindings.some(f => f.severity === "CRITICAL") ? "CRITICAL" : "ISSUES FOUND"}
                       active={openModule === "jwt"}
                       locked={modGated("jwt")}
-                      onClick={() => setOpenModule("jwt")}/>
+                      onClick={() => selectModule("jwt")}/>
                     <SidebarNavItem icon="◈" title="Path Traversal"
                       color={ptColor}
                       metric={ptFindings.length === 0 ? "✓" : ptFindings.length}
                       label={ptFindings.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "traversal"}
                       locked={modGated("traversal")}
-                      onClick={() => setOpenModule("traversal")}/>
+                      onClick={() => selectModule("traversal")}/>
                     <SidebarNavItem icon="◈" title="SSRF"
                       color={ssrfColor}
                       metric={ssrfFindings.length === 0 ? "✓" : ssrfFindings.length}
                       label={ssrfFindings.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "ssrf"}
                       locked={modGated("ssrf")}
-                      onClick={() => setOpenModule("ssrf")}/>
+                      onClick={() => selectModule("ssrf")}/>
                     <SidebarNavItem icon="◈" title="CRLF Injection"
                       color={crlfColor}
                       metric={crlfFindings.length === 0 ? "✓" : crlfFindings.length}
                       label={crlfFindings.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "crlf"}
                       locked={modGated("crlf")}
-                      onClick={() => setOpenModule("crlf")}/>
+                      onClick={() => selectModule("crlf")}/>
                     <SidebarNavItem icon="◈" title="Source Map/Debug"
                       color={smColor}
                       metric={smFindings.length === 0 ? "✓" : smFindings.length}
                       label={smFindings.length === 0 ? "SECURE" : smFindings.some(f => f.severity === "HIGH") ? "HIGH" : "MEDIUM"}
                       active={openModule === "sourcemap"}
                       locked={modGated("sourcemap")}
-                      onClick={() => setOpenModule("sourcemap")}/>
+                      onClick={() => selectModule("sourcemap")}/>
                     <SidebarNavItem icon="◈" title="Host Header"
                       color={hhColor}
                       metric={hhFindings.length === 0 ? "✓" : hhFindings.length}
                       label={hhFindings.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "hostheader"}
                       locked={modGated("hostheader")}
-                      onClick={() => setOpenModule("hostheader")}/>
+                      onClick={() => selectModule("hostheader")}/>
                     <SidebarNavItem icon="◈" title="CVE Correlation"
                       color={cveColor}
                       metric={cveCount === 0 ? "✓" : cveCount}
                       label={cveCount === 0 ? "SECURE" : maxCvss >= 9 ? "CRITICAL" : maxCvss >= 7 ? "HIGH" : maxCvss >= 4 ? "MEDIUM" : "LOW"}
                       active={openModule === "cve"}
                       locked={modGated("cve")}
-                      onClick={() => setOpenModule("cve")}/>
+                      onClick={() => selectModule("cve")}/>
 
                     {/* ── Compliance ── */}
                     {canCompliance && r.compliance && (<>
@@ -5861,7 +5879,7 @@ export default function App() {
                         label={r.compliance.riskLevel}
                         active={openModule === "compliance"}
                         locked={modGated("compliance")}
-                        onClick={() => setOpenModule("compliance")}/>
+                        onClick={() => selectModule("compliance")}/>
                     </>)}
 
                     {changeCount > 0 && canChanges && (<>
@@ -5872,7 +5890,7 @@ export default function App() {
                         label={changesColor === "var(--critical)" ? "DEGRADED" : "CHANGED"}
                         active={openModule === "changes"}
                         locked={modGated("changes")}
-                        onClick={() => setOpenModule("changes")}/>
+                        onClick={() => selectModule("changes")}/>
                     </>)}
 
                     <div className={styles.sidebarNavGroup}>Active</div>
@@ -5882,7 +5900,7 @@ export default function App() {
                       label={!r.activeMode ? "PASSIVE" : r.wafDetectionResult?.detected ? "WAF DETECTED" : "ACTIVE"}
                       active={openModule === "active"}
                       locked={modGated("active")}
-                      onClick={() => setOpenModule("active")}/>
+                      onClick={() => selectModule("active")}/>
 
                   </nav>
 
@@ -5890,6 +5908,8 @@ export default function App() {
 
                   {/* ── Right: Overview + Content ── */}
                   <div className={styles.dashboardRight}>
+
+                    <div className={styles.scanPanelInline}>{searchPanel}</div>
 
                     <div className={styles.row}>
                       <Card>
@@ -5946,7 +5966,7 @@ export default function App() {
 
                     {badgeHost && canHistory && <ScoreHistoryChart host={badgeHost} />}
 
-                    <div className={styles.sidebarContent}>
+                    <div className={styles.sidebarContent} ref={moduleContentRef}>
 
                     {!openModule && (
                       <div className={styles.sidebarEmpty}>◈ Selecione um módulo para ver os detalhes</div>
@@ -5964,7 +5984,7 @@ export default function App() {
                           )}
                         </div>
                         {issueCount
-                          ? <div className={styles.issuesList}>{r.score.issues.map(i => <IssueItem key={i.id} issue={i} locked={r.detailsLocked} onUpgrade={() => setShowPlans(true)} onContest={isAuthenticated() ? (label) => setFeedbackTarget({ host: badgeHost, scanId: lastScanId, module: null, findingLabel: label }) : undefined} />)}</div>
+                          ? <div className={styles.issuesList}>{r.score.issues.map((i, idx) => <IssueItem key={`${i.id}-${idx}`} issue={i} locked={r.detailsLocked} onUpgrade={() => setShowPlans(true)} onContest={isAuthenticated() ? (label) => setFeedbackTarget({ host: badgeHost, scanId: lastScanId, module: null, findingLabel: label }) : undefined} />)}</div>
                           : <div className={styles.empty}>◈ Nenhuma issue detectada</div>}
                       </>
                     )}

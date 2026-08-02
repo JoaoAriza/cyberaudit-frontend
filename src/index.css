@@ -5,8 +5,10 @@ html, body, #root {
   padding: 0;
   width: 100%;
   min-height: 100%;
-  overflow-x: hidden;
 }
+/* overflow-x só no html: evita scroll horizontal SEM quebrar position: sticky nos descendentes
+   (tê-lo em body/#root os torna scroll-containers e o header/nav sticky param de grudar). */
+html { overflow-x: hidden; }
 
 body {
   background: var(--bg, #07090d);
