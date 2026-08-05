@@ -4483,7 +4483,7 @@ function SettingsPage() {
   const [loadedSettings, setLoadedSettings] = useState(false);
 
   // TOTP setup flow
-  const [totpSetup, setTotpSetup]         = useState<{ secret: string; qrUri: string } | null>(null);
+  const [totpSetup, setTotpSetup]         = useState<{ secret: string; qrUri: string; qrImage?: string } | null>(null);
   const [totpConfirmCode, setTotpConfirmCode] = useState("");
 
   const [msg, setMsg]   = useState<string | null>(null);
@@ -4561,9 +4561,10 @@ function SettingsPage() {
 
   if (!loadedSettings) return <div className={styles.settingsPage}><p className={styles.muted}>Carregando...</p></div>;
 
-  const qrImageUrl = totpSetup
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(totpSetup.qrUri)}`
-    : null;
+  // QR vem do backend como data URI. Antes era montado em api.qrserver.com com a
+  // otpauth:// na query string — ou seja, o SEGREDO TOTP e o e-mail do usuário
+  // eram enviados para um terceiro a cada setup de 2FA.
+  const qrImageUrl = totpSetup?.qrImage ?? null;
 
   return (
     <div className={styles.settingsPage}>
