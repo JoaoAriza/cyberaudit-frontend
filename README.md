@@ -5,6 +5,11 @@ nota, issues, detalhamento por módulo, histórico, agendamentos e relatórios.
 
 > React 19 · TypeScript · Vite 7. Consome o backend Spring Boot (`Seg_site`).
 
+> ⚠ **Antes de publicar**: os headers de segurança do SPA vêm do host
+> (`vercel.json` ou `public/_headers`) — `frame-ancestors` e HSTS não funcionam via
+> `<meta>`. Confirme que o host escolhido está lendo um dos dois. Checklist completo
+> em `docs/DEPLOY_CHECKLIST.md` no repositório do backend.
+
 ---
 
 ## Índice
