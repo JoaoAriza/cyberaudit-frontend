@@ -7,7 +7,7 @@ import type { TwoFactorPending } from "./context/AuthContext";
 
 // ── Backend Types ─────────────────────────────────────────────────────────────
 
-interface SSLInfo { https: boolean; valid: boolean; expirationDate: string | null; daysRemaining: number; message: string; }
+interface SSLInfo { https: boolean; valid: boolean; expirationDate: string | null; daysRemaining: number; message: string; totalValidityDays?: number; }
 interface TlsDetails { negotiatedProtocol: string; cipherSuite: string; weakProtocol: boolean; message: string; }
 interface CorsResult { tested: boolean; allowOriginValue: string; wildcardOrigin: boolean; reflectsOrigin: boolean; credentialsAllowed: boolean; nullOriginAccepted: boolean; message: string; }
 interface CookieFinding { name: string; httpOnly: boolean; secure: boolean; sameSite: string; risk: string; issues: string; }
@@ -3619,12 +3619,34 @@ const GRID2: React.CSSProperties = { display: "grid", gridTemplateColumns: "repe
 
 // ── Transport Security Cards ───────────────────────────────────────────────────
 
+/**
+ * A partir de quantos dias restantes o certificado merece alerta — em proporção
+ * à vida útil total, espelhando o ScoreService.renewalWarningThreshold do backend.
+ *
+ * Julgar por dias absolutos fica cada vez mais errado: o CA/Browser Forum está
+ * reduzindo o máximo para 200 dias (2026), 100 (2027) e 47 (2029).
+ */
+function certRenewalThreshold(totalValidityDays?: number | null): number {
+  if (!totalValidityDays || totalValidityDays <= 0) return 7;   // vida útil desconhecida
+  return Math.min(Math.max(Math.round(totalValidityDays * 0.1), 1), 30);
+}
+
 function TransportCardsPanel({ r }: { r: any }) {
   const { openSet, toggle } = useCardSet();
   const tls = r?.tlsDetails;
   const ssl = r?.sslInfo;
   const days = ssl?.daysRemaining ?? null;
-  const daysColor = days === null ? "var(--text-muted)" : days < 30 ? "var(--critical)" : days < 90 ? "var(--warning)" : "var(--secure)";
+  // Proporcional à vida útil do certificado, igual ao ScoreService. Com o limite
+  // antigo em dias absolutos (<30 vermelho, <90 amarelo), um Let's Encrypt — que
+  // vive 90 dias e renova aos 30 — ficava amarelo quase o ciclo inteiro e vermelho
+  // justamente durante a renovação normal.
+  const daysColor = days === null
+    ? "var(--text-muted)"
+    : days <= 0
+      ? "var(--critical)"
+      : days < certRenewalThreshold(ssl?.totalValidityDays)
+        ? "var(--warning)"
+        : "var(--secure)";
   const proto = tls?.negotiatedProtocol ?? "—";
   const protoColor = tls?.weakProtocol ? "var(--critical)" : "var(--secure)";
   const certColor = ssl?.valid ? "var(--secure)" : "var(--critical)";
