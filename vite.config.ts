@@ -53,8 +53,63 @@ function apiOriginFrom(url: string | undefined): string {
   }
 }
 
+/**
+ * Aborta o build de produção quando VITE_API_URL não chegou.
+ *
+ * Sem isto o erro é invisível e sai no ar: o `?? "http://localhost:8081"` do
+ * client.ts faz o bundle publicado chamar a máquina de quem abriu o site, e a
+ * CSP daqui de cima nasce com `connect-src 'self'` — que bloquearia a API de
+ * qualquer jeito. O build passa, o deploy passa, e só o navegador do usuário
+ * final descobre. Foi exatamente assim que a produção quebrou: o `.gitignore`
+ * cobre `.env.*`, então o `.env.production` não vai para o repositório e o host
+ * de build (Cloudflare Pages) compilava sem a variável.
+ *
+ * Falhar aqui transforma uma quebra silenciosa em produção num build vermelho.
+ */
+function assertApiUrl(mode: string, url: string | undefined): void {
+  if (mode !== 'production') return
+
+  const hint =
+    'Defina VITE_API_URL nas variáveis de ambiente do host de build ' +
+    '(ex.: Cloudflare Pages → Settings → Environment variables), ' +
+    'ou em .env.production para builds locais. Ex.: https://api.cyberauditapp.com'
+
+  if (!url) {
+    throw new Error(`[cyberaudit] build de produção sem VITE_API_URL.\n${hint}`)
+  }
+  if (!apiOriginFrom(url)) {
+    throw new Error(
+      `[cyberaudit] VITE_API_URL não é uma URL absoluta válida: ${JSON.stringify(url)}.\n${hint}`,
+    )
+  }
+
+  // localhost também é fatal. O `.env` de desenvolvimento existe em toda máquina
+  // e aponta para localhost:8081, então `npm run build` numa estação de trabalho
+  // produz um bundle de produção quebrado sem nenhum sinal — o mesmo defeito que
+  // foi ao ar, só que por outro caminho. `build && preview` contra um backend
+  // local continua possível pela variável de escape abaixo.
+  const host = new URL(url).hostname.replace(/^\[|\]$/g, '')
+  if (/^(localhost|127\.|::1$|0\.0\.0\.0$)/.test(host)) {
+    if (process.env.VITE_ALLOW_LOCAL_API === '1') {
+      console.warn(
+        `\n[cyberaudit] AVISO: build de produção apontando para ${url} ` +
+          '(liberado por VITE_ALLOW_LOCAL_API=1).\nNão publique este bundle.\n',
+      )
+      return
+    }
+    throw new Error(
+      `[cyberaudit] build de produção apontando para ${url}.\n` +
+        'Publicado assim, nenhuma chamada à API funciona: o navegador do usuário ' +
+        'chamaria a própria máquina dele.\n' +
+        `${hint}\n` +
+        'Para gerar um bundle local de propósito (build && preview): VITE_ALLOW_LOCAL_API=1',
+    )
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
+  assertApiUrl(mode, env.VITE_API_URL)
   return {
     plugins: [react(), cspPlugin(apiOriginFrom(env.VITE_API_URL))],
     build: {
