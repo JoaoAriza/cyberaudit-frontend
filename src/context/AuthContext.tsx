@@ -22,6 +22,8 @@ export interface AccountDto {
   pdfExportAllowed: boolean;
   changesModuleAllowed: boolean;
   historyChartAllowed: boolean;
+  /** Cadastrar domínio próprio — PRO ou superior */
+  domainRegistrationAllowed: boolean;
   publicStatusToken: string | null;
 }
 export interface UserDto {

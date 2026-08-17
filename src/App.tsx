@@ -324,6 +324,24 @@ function ModuleLocked({ onUpgrade }: { onUpgrade: () => void }) {
   );
 }
 
+/**
+ * Página inteira travada por plano (Agendamentos, Domínios).
+ *
+ * Mantém o item no menu de propósito: o usuário FREE precisa ver que o recurso
+ * existe para ter motivo de assinar. Esconder o menu economiza um clique e perde
+ * a conversão. O bloqueio real é do backend — isto aqui é só o aviso.
+ */
+function PagePlanLocked({ titulo, descricao, onUpgrade }: { titulo: string; descricao: string; onUpgrade: () => void }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, textAlign: "center", padding: "72px 24px", minHeight: 280 }}>
+      <div style={{ fontSize: 30, lineHeight: 1 }}>🔒</div>
+      <div style={{ fontSize: 15, fontWeight: 600 }}>{titulo}</div>
+      <div style={{ fontSize: 12, color: "var(--text-dim)", maxWidth: 420, lineHeight: 1.7 }}>{descricao}</div>
+      <button className={`${styles.btn} ${styles.btnScan}`} onClick={onUpgrade} style={{ marginTop: 4 }}>Ver planos →</button>
+    </div>
+  );
+}
+
 // ── Feedback (contestação de achados) ─────────────────────────────────────────
 
 type FeedbackStatus = "OPEN" | "REVIEWING" | "RESOLVED";
@@ -5574,10 +5592,13 @@ export default function App() {
   const reconColor    = reconProbs >= 2 ? "var(--critical)" : reconProbs >= 1 ? "var(--warning)" : "var(--secure)";
   const changeCount   = r?.changes?.length ?? 0;
   const changesColor  = (r?.changes ?? []).some(c => c.changeType === "DEGRADED") ? "var(--critical)" : changeCount > 0 ? "var(--warning)" : "var(--secure)";
-  // Permissões de plano (OWNER/ADMIN já recebem tudo pelo backend; guest = sem user)
+  // Permissões de plano (equipe da plataforma já recebe tudo pelo backend; guest = sem user)
   const canChanges              = user?.account?.changesModuleAllowed    === true;
   const canHistory              = user?.account?.historyChartAllowed     === true;
   const canActiveScan           = user?.account?.activeScanAllowed       === true;
+  const canDomains              = user?.account?.domainRegistrationAllowed === true;
+  // -1 = ilimitado; 0 = plano não agenda
+  const canSchedules            = (user?.account?.scheduledScanLimit ?? 0) !== 0;
   const activeScanVerifiedOnly  = user?.account?.activeScanOnVerifiedOnly === true;
   // Compliance: EMPRESA (qualquer plano) + PRO PESSOAL (incentivo de upsell) + OWNER/ADMIN
   const canCompliance = isAdmin()
@@ -5716,8 +5737,18 @@ export default function App() {
       <main className={styles.main}>
         {!isAuthenticated() && view === "scan" && <GuestBanner onLogin={() => setView("login")} refreshKey={guestRefreshKey} />}
         {view === "admin" && canViewAdmin && <AdminPanel />}
-        {view === "schedules" && isAuthenticated() && <SchedulesPage />}
-        {view === "domains" && isAuthenticated() && <DomainsPage />}
+        {view === "schedules" && isAuthenticated() && (canSchedules
+          ? <SchedulesPage />
+          : <PagePlanLocked
+              titulo="Agendamentos são do plano PRO"
+              descricao="Reexecute scans automaticamente e receba alerta quando algo mudar. Disponível a partir do plano PRO."
+              onUpgrade={() => setShowPlans(true)} />)}
+        {view === "domains" && isAuthenticated() && (canDomains
+          ? <DomainsPage />
+          : <PagePlanLocked
+              titulo="Cadastro de domínio é do plano PRO"
+              descricao="Verifique a posse dos seus domínios para liberar o scan ativo e o acompanhamento contínuo. Disponível a partir do plano PRO."
+              onUpgrade={() => setShowPlans(true)} />)}
         {view === "changes" && isAuthenticated() && <ChangesPage />}
         {view === "settings" && isAuthenticated() && <SettingsPage />}
 
