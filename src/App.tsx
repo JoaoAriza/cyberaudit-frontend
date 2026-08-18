@@ -361,6 +361,9 @@ interface FeedbackDto {
   createdAt: string;
   updatedAt: string | null;
   resolvedAt: string | null;
+  /** Preenchido quando a equipe excluiu a contestação — vale com deletionReason. */
+  deletedAt: string | null;
+  deletionReason: string | null;
 }
 
 interface FeedbackTarget {
@@ -377,6 +380,100 @@ function fbStatusColor(s: FeedbackStatus) {
   return s === "OPEN" ? "var(--warning, #f5a623)"
     : s === "REVIEWING" ? "var(--info, #4aa3ff)"
     : "var(--secure, #00c87a)";
+}
+
+const RESPOSTAS_VISTAS_KEY = "cyberaudit.feedbackRespostasVistas";
+
+/** Uma contestação só conta como respondida quando há texto da equipe. */
+function temResposta(f: FeedbackDto): boolean {
+  return !!(f.adminResponse && f.adminResponse.trim()) || !!f.deletionReason;
+}
+
+/**
+ * Identidade da resposta, não do feedback: se a equipe responder de novo depois
+ * de o cliente dispensar o aviso, o carimbo muda e o aviso volta.
+ */
+function chaveResposta(f: FeedbackDto): string {
+  return `${f.id}:${f.deletedAt ?? f.updatedAt ?? ""}`;
+}
+
+function lerVistas(): string[] {
+  try { return JSON.parse(localStorage.getItem(RESPOSTAS_VISTAS_KEY) ?? "[]"); }
+  catch { return []; }
+}
+
+/**
+ * Aviso na tela principal quando a equipe respondeu uma contestação.
+ *
+ * Antes a resposta só aparecia dentro do modal de contestação, que por sua vez
+ * só abre a partir de um resultado de scan na tela — ou seja, o cliente tinha de
+ * refazer o scan do host certo para descobrir que havia resposta. Aqui a resposta
+ * é mostrada direto: não há motivo para exigir um scan novo só para ler um texto
+ * que já está na API (/feedback/mine).
+ */
+function AvisoRespostasFeedback() {
+  const [itens, setItens]   = useState<FeedbackDto[]>([]);
+  const [aberto, setAberto] = useState(false);
+  const [vistas, setVistas] = useState<string[]>(lerVistas);
+
+  useEffect(() => {
+    api.get<FeedbackDto[]>("/feedback/mine")
+      .then(r => setItens(r.data.filter(temResposta)))
+      .catch(() => {});
+  }, []);
+
+  const naoLidas = itens.filter(f => !vistas.includes(chaveResposta(f)));
+  if (naoLidas.length === 0) return null;
+
+  function dispensar() {
+    const novo = [...vistas, ...naoLidas.map(chaveResposta)];
+    setVistas(novo);
+    try { localStorage.setItem(RESPOSTAS_VISTAS_KEY, JSON.stringify(novo)); } catch { /* modo privado */ }
+  }
+
+  return (
+    <div style={{ border: "1px solid var(--accent)", borderRadius: "var(--radius)", background: "var(--surface)", padding: "12px 14px", marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 15 }}>✉</span>
+        <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
+          {naoLidas.length === 1
+            ? "Sua contestação foi respondida"
+            : `${naoLidas.length} contestações suas foram respondidas`}
+        </span>
+        <button
+          className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
+          style={{ marginLeft: "auto" }}
+          onClick={() => setAberto(a => !a)}
+        >
+          {aberto ? "Ocultar" : "Ver resposta"}
+        </button>
+        <button className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`} onClick={dispensar}>
+          Dispensar
+        </button>
+      </div>
+
+      {aberto && (
+        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+          {naoLidas.map(f => (
+            <div key={f.id} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 12px" }}>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>
+                <code className={styles.code}>{f.host}</code>
+                <span style={{ marginLeft: 6 }}>{f.findingLabel || f.module || "scan inteiro"}</span>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Você escreveu:</div>
+              <div style={{ fontSize: 12, color: "var(--text-dim)", whiteSpace: "pre-wrap", marginBottom: 8 }}>{f.message}</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
+                {f.deletionReason ? "A equipe encerrou esta contestação:" : "Resposta da equipe:"}
+              </div>
+              <div style={{ fontSize: 13, color: "var(--text)", whiteSpace: "pre-wrap" }}>
+                {f.deletionReason ?? f.adminResponse}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** Modal do cliente: contesta um achado/módulo/scan e vê respostas anteriores. */
@@ -414,7 +511,7 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
 
   return (
     <div className={styles.modalOverlay} onClick={onClose}>
-      <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+      <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 720, width: "94vw" }}>
         <div className={styles.modalHeader}>
           <span className={styles.modalTitle}>Contestar resultado</span>
           <button className={styles.modalClose} onClick={onClose}>✕</button>
@@ -438,12 +535,16 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
                 <label className={styles.formLabel}>O QUE ESTÁ ERRADO?</label>
                 <textarea
                   className={styles.formInput}
-                  rows={4}
+                  rows={10}
                   value={message}
                   maxLength={4000}
                   onChange={e => setMessage(e.target.value)}
+                  style={{ minHeight: 180, resize: "vertical", lineHeight: 1.6 }}
                   placeholder="Ex: este header existe, mas está configurado num subdomínio diferente..."
                 />
+                <div style={{ fontSize: 10, color: "var(--text-muted)", textAlign: "right", marginTop: 4 }}>
+                  {message.length}/4000
+                </div>
               </div>
               {error && <div className={styles.errorBox}>{error}</div>}
               <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={sending} onClick={submit}>
@@ -459,12 +560,19 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
                 <div key={f.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "8px 10px", marginBottom: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                     <span style={{ fontSize: 12, color: "var(--text)" }}>{f.findingLabel || f.module || "scan inteiro"}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: fbStatusColor(f.status) }}>{fbStatusLabel(f.status)}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: f.deletedAt ? "var(--text-muted)" : fbStatusColor(f.status) }}>
+                      {f.deletedAt ? "ENCERRADA" : fbStatusLabel(f.status)}
+                    </span>
                   </div>
                   <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3, whiteSpace: "pre-wrap" }}>{f.message}</div>
                   {f.adminResponse && (
                     <div style={{ fontSize: 11, color: "var(--text)", marginTop: 6, paddingLeft: 8, borderLeft: "2px solid var(--secure)" }}>
                       <strong>Resposta:</strong> {f.adminResponse}
+                    </div>
+                  )}
+                  {f.deletionReason && (
+                    <div style={{ fontSize: 11, color: "var(--text)", marginTop: 6, paddingLeft: 8, borderLeft: "2px solid var(--text-muted)", whiteSpace: "pre-wrap" }}>
+                      <strong>Encerrada pela equipe:</strong> {f.deletionReason}
                     </div>
                   )}
                 </div>
@@ -478,13 +586,20 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
 }
 
 /** Linha de triagem de um feedback no painel admin (resposta + status). */
-function FeedbackAdminRow({ f, onReply }: {
+function FeedbackAdminRow({ f, onReply, onDelete }: {
   f: FeedbackDto;
   onReply: (id: string, resp: string, status: FeedbackStatus) => Promise<void>;
+  onDelete: (id: string, reason: string) => Promise<void>;
 }) {
   const [resp, setResp] = useState(f.adminResponse ?? "");
   const [status, setStatus] = useState<FeedbackStatus>(f.status);
   const [saving, setSaving] = useState(false);
+  // A justificativa só aparece depois de pedir a exclusão — e sem ela o botão
+  // não fecha, porque é ela que o cliente vai ler no lugar da contestação.
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [motivo, setMotivo] = useState("");
+  const [excluindo, setExcluindo] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState<string | null>(null);
 
   return (
     <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "12px 14px" }}>
@@ -501,9 +616,10 @@ function FeedbackAdminRow({ f, onReply }: {
       <div style={{ fontSize: 13, color: "var(--text)", marginBottom: 10, whiteSpace: "pre-wrap" }}>{f.message}</div>
       <textarea
         className={styles.formInput}
-        rows={2}
+        rows={7}
         value={resp}
         onChange={e => setResp(e.target.value)}
+        style={{ minHeight: 140, resize: "vertical", lineHeight: 1.6 }}
         placeholder="Resposta ao cliente..."
       />
       <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
@@ -519,7 +635,59 @@ function FeedbackAdminRow({ f, onReply }: {
         >
           {saving ? "Salvando..." : "Salvar"}
         </button>
+        {!confirmandoExclusao && (
+          <button
+            className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
+            style={{ marginLeft: "auto", color: "var(--critical)", borderColor: "var(--critical)" }}
+            onClick={() => { setConfirmandoExclusao(true); setErroExclusao(null); }}
+          >
+            Excluir
+          </button>
+        )}
       </div>
+
+      {confirmandoExclusao && (
+        <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+          <label className={styles.formLabel}>POR QUE ESTÁ EXCLUINDO?</label>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", margin: "4px 0 8px" }}>
+            Esta justificativa aparece para {f.submittedByName ?? "quem enviou"} no lugar da contestação.
+          </div>
+          <textarea
+            className={styles.formInput}
+            rows={5}
+            value={motivo}
+            maxLength={4000}
+            onChange={e => setMotivo(e.target.value)}
+            style={{ minHeight: 110, resize: "vertical", lineHeight: 1.6 }}
+            placeholder="Ex: o achado procede — o header realmente está ausente no host consultado."
+          />
+          {erroExclusao && <div className={styles.errorBox} style={{ marginTop: 8 }}>{erroExclusao}</div>}
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button
+              className={`${styles.btn} ${styles.btnSm}`}
+              style={{ background: "var(--critical)", color: "#fff" }}
+              disabled={excluindo || !motivo.trim()}
+              onClick={async () => {
+                setExcluindo(true); setErroExclusao(null);
+                try { await onDelete(f.id, motivo.trim()); }
+                catch (e: any) {
+                  setErroExclusao(e?.response?.data?.message ?? "Erro ao excluir.");
+                  setExcluindo(false);
+                }
+              }}
+            >
+              {excluindo ? "Excluindo..." : "Confirmar exclusão"}
+            </button>
+            <button
+              className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
+              disabled={excluindo}
+              onClick={() => { setConfirmandoExclusao(false); setMotivo(""); setErroExclusao(null); }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2064,6 +2232,13 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
     catch (e: any) { alert(e?.response?.data?.message ?? "Erro ao salvar."); }
   }
 
+  async function deleteFeedback(id: string, reason: string) {
+    // Deixa o erro subir: quem chama mostra a mensagem junto do campo de
+    // justificativa, em vez de um alert que perde o texto já digitado.
+    await api.post(`/admin/feedback/${id}/delete`, { reason });
+    await loadFeedbacks();
+  }
+
   async function loadUsers() { setLoading(true); try { setUsers((await api.get<UserManagementDto[]>("/admin/users")).data); } catch {} finally { setLoading(false); } }
   async function loadInvites() { try { setInvites((await api.get<InviteDto[]>("/admin/invites")).data); } catch {} }
   async function deactivate(id: string) { if (!confirm("Desativar este usuário?")) return; try { await api.delete(`/admin/users/${id}`); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
@@ -2299,7 +2474,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
             {fbLoading ? <div className={styles.empty}>Carregando...</div>
               : feedbacks.length === 0 ? <div className={styles.empty}>Nenhum feedback {fbFilter ? "com esse status" : ""}.</div>
               : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {feedbacks.map(f => <FeedbackAdminRow key={f.id} f={f} onReply={replyFeedback} />)}
+                  {feedbacks.map(f => <FeedbackAdminRow key={f.id} f={f} onReply={replyFeedback} onDelete={deleteFeedback} />)}
                 </div>}
           </Card>
         </div>
@@ -5765,6 +5940,7 @@ export default function App() {
 
       <main className={styles.main}>
         {!isAuthenticated() && view === "scan" && <GuestBanner onLogin={() => setView("login")} refreshKey={guestRefreshKey} />}
+        {isAuthenticated() && view === "scan" && <AvisoRespostasFeedback />}
         {view === "admin" && canViewAdmin && <AdminPanel onUpgrade={() => setShowPlans(true)} />}
         {view === "schedules" && isAuthenticated() && (canSchedules
           ? <SchedulesPage />
