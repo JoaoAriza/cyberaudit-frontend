@@ -31,6 +31,8 @@ export interface AccountDto {
 export interface UserDto {
   id: string; name: string; email: string;
   role: "OWNER" | "ADMIN" | "FREE_EMPLOYEE";
+  /** Equipe da plataforma (PLATFORM_STAFF_EMAILS) — nao e o dono da conta */
+  platformStaff?: boolean;
   jobTitle: string | null; country: string | null;
   remainingScans: number | null; dailyLimit: number | null;
   account: AccountDto | null;

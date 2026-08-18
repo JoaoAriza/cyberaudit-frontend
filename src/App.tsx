@@ -2030,6 +2030,10 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
   // Relatórios da conta (auditoria, PDF executivo, página de status) são PRO+.
   // Gestão de equipe abaixo continua valendo só o role, de propósito.
   const canReports = user?.account?.reportsModuleAllowed === true;
+  // Triagem de contestação é da equipe da plataforma, não do dono da conta —
+  // quem julga se o scanner errou somos nós. O backend revalida em
+  // PlatformStaffService; isto aqui só evita mostrar uma aba que daria 403.
+  const isStaff = user?.platformStaff === true;
   const [statusToken, setStatusToken] = useState<string | null>(user?.account?.publicStatusToken ?? null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [copiedStatus, setCopiedStatus] = useState(false);
@@ -2046,7 +2050,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
 
   useEffect(() => { loadUsers(); loadInvites(); }, []);
   useEffect(() => { if (user?.role === "ADMIN") setInvRole("FREE_EMPLOYEE"); }, [user]);
-  useEffect(() => { if (tab === "feedback") loadFeedbacks(); /* eslint-disable-next-line */ }, [tab, fbFilter]);
+  useEffect(() => { if (tab === "feedback" && isStaff) loadFeedbacks(); /* eslint-disable-next-line */ }, [tab, fbFilter, isStaff]);
 
   async function loadFeedbacks() {
     setFbLoading(true);
@@ -2213,7 +2217,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
             {isCompany && user?.role === "OWNER" && (<button className={`${styles.adminTab} ${tab === "users" ? styles.adminTabActive : ""}`} onClick={() => setTab("users")}>Usuários ({users.length})</button>)}
             {isCompany && (<button className={`${styles.adminTab} ${tab === "invites" ? styles.adminTabActive : ""}`} onClick={() => setTab("invites")}>Convites ({invites.length})</button>)}
             {(user?.role === "OWNER" || user?.role === "ADMIN") && (<button className={`${styles.adminTab} ${tab === "audit" ? styles.adminTabActive : ""}`} onClick={() => setTab("audit")}>Auditoria{canReports ? "" : " 🔒"}</button>)}
-            {(user?.role === "OWNER" || user?.role === "ADMIN") && (<button className={`${styles.adminTab} ${tab === "feedback" ? styles.adminTabActive : ""}`} onClick={() => setTab("feedback")}>Feedback</button>)}
+            {isStaff && (<button className={`${styles.adminTab} ${tab === "feedback" ? styles.adminTabActive : ""}`} onClick={() => setTab("feedback")}>Feedback</button>)}
           </div>
         )}
       </div>
@@ -2275,7 +2279,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
             descricao="Registro de quem fez o quê na conta: login, mudança de papel, domínio verificado, exportação. Disponível a partir do plano PRO."
             onUpgrade={onUpgrade} />)}
 
-      {tab === "feedback" && (
+      {tab === "feedback" && isStaff && (
         <div className={styles.adminContent}>
           <Card title="FEEDBACK DE CLIENTES">
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
@@ -5210,7 +5214,8 @@ interface PublicDomainStatus {
   riskLevel: string | null;
   lastScanAt: string | null;
   activeMode: boolean;
-  topIssues: { severity: string; title: string; recommendation: string }[];
+  /** Só a contagem — a página é pública, título e correção não saem daqui. */
+  issueCounts: { critical: number; high: number; medium: number; low: number };
 }
 interface PublicStatus {
   accountName: string;
@@ -5219,6 +5224,16 @@ interface PublicStatus {
   overallScore: number;
   overallRisk: string;
   domains: PublicDomainStatus[];
+}
+
+/** Contagem de achados de uma severidade num domínio da página pública. */
+function contagem(d: PublicDomainStatus, sev: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"): number {
+  const c = d.issueCounts;
+  if (!c) return 0;
+  return sev === "CRITICAL" ? c.critical
+       : sev === "HIGH"     ? c.high
+       : sev === "MEDIUM"   ? c.medium
+       : c.low;
 }
 
 function PublicStatusPage({ token }: { token: string }) {
@@ -5329,14 +5344,18 @@ function PublicStatusPage({ token }: { token: string }) {
                 <span className={styles.muted} style={{ fontSize: 11 }}>Sem scan</span>
               )}
             </div>
-            {d.topIssues.length > 0 && (
-              <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-                {d.topIssues.map((issue, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
-                    <span className={`${styles.tag} ${severityCls(issue.severity)}`} style={{ fontSize: 8, whiteSpace: "nowrap", marginTop: 1 }}>{issue.severity}</span>
-                    <span style={{ fontSize: 11, color: "var(--text)" }}>{issue.title}</span>
-                  </div>
-                ))}
+            {/* Contagem por severidade, sem título nem correção: a página é
+                pública e listar os achados entregaria o roteiro de ataque. */}
+            {(["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const).some(s => contagem(d, s) > 0) && (
+              <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {(["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const)
+                  .filter(s => contagem(d, s) > 0)
+                  .map(s => (
+                    <div key={s} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <span className={`${styles.tag} ${severityCls(s)}`} style={{ fontSize: 8, whiteSpace: "nowrap" }}>{s}</span>
+                      <span style={{ fontSize: 11, color: "var(--text)" }}>{contagem(d, s)}</span>
+                    </div>
+                  ))}
               </div>
             )}
           </div>
