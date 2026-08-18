@@ -24,6 +24,8 @@ export interface AccountDto {
   historyChartAllowed: boolean;
   /** Cadastrar domínio próprio — PRO ou superior */
   domainRegistrationAllowed: boolean;
+  /** Relatórios da conta (auditoria, PDF executivo, página de status) — PRO+ */
+  reportsModuleAllowed: boolean;
   publicStatusToken: string | null;
 }
 export interface UserDto {

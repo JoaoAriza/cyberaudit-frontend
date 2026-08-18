@@ -2012,7 +2012,7 @@ function AuditLogsTab() {
   );
 }
 
-function AdminPanel() {
+function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
   const { user } = useAuth();
   const isCompany = user?.account?.type === "COMPANY";
   const [tab, setTab] = useState<"users" | "invites" | "audit" | "feedback">(
@@ -2027,6 +2027,9 @@ function AdminPanel() {
   const [invJob, setInvJob] = useState("");
   const [inviting, setInviting] = useState(false);
   const [newInvite, setNewInvite] = useState<InviteDto | null>(null);
+  // Relatórios da conta (auditoria, PDF executivo, página de status) são PRO+.
+  // Gestão de equipe abaixo continua valendo só o role, de propósito.
+  const canReports = user?.account?.reportsModuleAllowed === true;
   const [statusToken, setStatusToken] = useState<string | null>(user?.account?.publicStatusToken ?? null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [copiedStatus, setCopiedStatus] = useState(false);
@@ -2123,14 +2126,16 @@ function AdminPanel() {
       <div className={styles.adminHeader}>
         <div className={styles.adminHeaderLeft}>
           <div className={styles.adminTitle}>◈ PAINEL ADMIN</div>
-          <button
-            className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
-            onClick={() => setShowPdfModal(true)}
-            disabled={downloadingPdf}
-            title="Gerar relatório executivo em PDF"
-          >
-            {downloadingPdf ? "Gerando..." : "↓ Relatório PDF"}
-          </button>
+          {canReports && (
+            <button
+              className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
+              onClick={() => setShowPdfModal(true)}
+              disabled={downloadingPdf}
+              title="Gerar relatório executivo em PDF"
+            >
+              {downloadingPdf ? "Gerando..." : "↓ Relatório PDF"}
+            </button>
+          )}
         </div>
 
         {/* Modal de configuração do PDF executivo */}
@@ -2207,7 +2212,7 @@ function AdminPanel() {
           <div className={styles.adminTabs}>
             {isCompany && user?.role === "OWNER" && (<button className={`${styles.adminTab} ${tab === "users" ? styles.adminTabActive : ""}`} onClick={() => setTab("users")}>Usuários ({users.length})</button>)}
             {isCompany && (<button className={`${styles.adminTab} ${tab === "invites" ? styles.adminTabActive : ""}`} onClick={() => setTab("invites")}>Convites ({invites.length})</button>)}
-            {(user?.role === "OWNER" || user?.role === "ADMIN") && (<button className={`${styles.adminTab} ${tab === "audit" ? styles.adminTabActive : ""}`} onClick={() => setTab("audit")}>Auditoria</button>)}
+            {(user?.role === "OWNER" || user?.role === "ADMIN") && (<button className={`${styles.adminTab} ${tab === "audit" ? styles.adminTabActive : ""}`} onClick={() => setTab("audit")}>Auditoria{canReports ? "" : " 🔒"}</button>)}
             {(user?.role === "OWNER" || user?.role === "ADMIN") && (<button className={`${styles.adminTab} ${tab === "feedback" ? styles.adminTabActive : ""}`} onClick={() => setTab("feedback")}>Feedback</button>)}
           </div>
         )}
@@ -2263,7 +2268,12 @@ function AdminPanel() {
           </div>
         </div>
       )}
-      {tab === "audit" && <AuditLogsTab />}
+      {tab === "audit" && (canReports
+        ? <AuditLogsTab />
+        : <PagePlanLocked
+            titulo="Log de auditoria é do plano PRO"
+            descricao="Registro de quem fez o quê na conta: login, mudança de papel, domínio verificado, exportação. Disponível a partir do plano PRO."
+            onUpgrade={onUpgrade} />)}
 
       {tab === "feedback" && (
         <div className={styles.adminContent}>
@@ -2291,8 +2301,8 @@ function AdminPanel() {
         </div>
       )}
 
-      {/* Status Page toggle — visible for OWNER only */}
-      {user?.role === "OWNER" && (
+      {/* Status Page toggle — OWNER e plano com relatórios (PRO+) */}
+      {user?.role === "OWNER" && canReports && (
         <div className={styles.adminContent} style={{ marginTop: 20 }}>
           <Card title="PÁGINA DE STATUS PÚBLICA">
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>
@@ -5736,7 +5746,7 @@ export default function App() {
 
       <main className={styles.main}>
         {!isAuthenticated() && view === "scan" && <GuestBanner onLogin={() => setView("login")} refreshKey={guestRefreshKey} />}
-        {view === "admin" && canViewAdmin && <AdminPanel />}
+        {view === "admin" && canViewAdmin && <AdminPanel onUpgrade={() => setShowPlans(true)} />}
         {view === "schedules" && isAuthenticated() && (canSchedules
           ? <SchedulesPage />
           : <PagePlanLocked
@@ -5749,7 +5759,12 @@ export default function App() {
               titulo="Cadastro de domínio é do plano PRO"
               descricao="Verifique a posse dos seus domínios para liberar o scan ativo e o acompanhamento contínuo. Disponível a partir do plano PRO."
               onUpgrade={() => setShowPlans(true)} />)}
-        {view === "changes" && isAuthenticated() && <ChangesPage />}
+        {view === "changes" && isAuthenticated() && (canChanges
+          ? <ChangesPage />
+          : <PagePlanLocked
+              titulo="Histórico é do plano PRO"
+              descricao="Acompanhe a evolução do score, compare scans e veja exatamente o que mudou entre execuções. Disponível a partir do plano PRO."
+              onUpgrade={() => setShowPlans(true)} />)}
         {view === "settings" && isAuthenticated() && <SettingsPage />}
 
         {view === "scan" && (
