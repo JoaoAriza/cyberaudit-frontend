@@ -1046,7 +1046,12 @@ function LoginPage({ onBack }: { onBack: () => void }) {
   async function handleResend() {
     setResendInfo(null); setError(null);
     try { await resendEmailOtp(); setResendInfo("Código reenviado para seu email."); }
-    catch (err: any) { setError("Falha ao reenviar código."); }
+    catch (err: any) {
+      // O backend agora distingue "não consegui enviar" de erro genérico. Mostrar
+      // a mensagem dele importa: antes a tela dizia "reenviado" mesmo quando nada
+      // saía, e o usuário ficava tentando um código que não existia.
+      setError(err?.response?.data?.message ?? "Falha ao reenviar código.");
+    }
   }
 
   async function handleRegister(e: React.FormEvent) {
@@ -4771,10 +4776,16 @@ function SettingsPage() {
         await api.delete("/auth/2fa/email");
         setEmailEnabled(false); flash("Email OTP desativado.");
       } else {
+        // O backend envia um código de teste antes de ativar. Se o e-mail não
+        // sai, a ativação falha aqui — de propósito: ativar assim mesmo trancaria
+        // a conta, já que não existe código de backup.
         await api.post("/auth/2fa/email");
-        setEmailEnabled(true); flash("Email OTP ativado.");
+        setEmailEnabled(true);
+        flash("Email OTP ativado. Enviamos um código de teste para seu email.");
       }
-    } catch { flash("Erro ao alterar Email OTP.", true); }
+    } catch (e: any) {
+      flash(e?.response?.data?.message ?? "Erro ao alterar Email OTP.", true);
+    }
     finally { setBusy(false); }
   }
 
