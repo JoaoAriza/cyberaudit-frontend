@@ -104,6 +104,12 @@ function getStatusTokenFromUrl(): string | null {
   const match = path.match(/\/status\/([a-f0-9]{32,64})/);
   return match ? match[1] : null;
 }
+/** Token do link de redefinição: /redefinir-senha?token=... (64 hex). */
+function getResetTokenFromUrl(): string | null {
+  if (window.location.pathname !== "/redefinir-senha") return null;
+  const t = new URLSearchParams(window.location.search).get("token");
+  return t && /^[a-f0-9]{64}$/.test(t) ? t : null;
+}
 function isBillingReturnPath(): boolean {
   return window.location.pathname === "/billing/return";
 }
@@ -992,9 +998,139 @@ function TermsModal({ type, onClose }: { type: "terms" | "privacy"; onClose: () 
   );
 }
 
+/**
+ * Pedido de redefinição.
+ *
+ * A mensagem de sucesso é a mesma exista ou não a conta — o backend responde
+ * igual de propósito, e a tela não pode desfazer isso dizendo "e-mail não
+ * encontrado". Seria um verificador de cadastro.
+ */
+function EsqueciSenha({ onVoltar }: { onVoltar: () => void }) {
+  const [email, setEmail]   = useState("");
+  const [enviado, setEnviado] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro]     = useState<string | null>(null);
+
+  async function enviar(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true); setErro(null);
+    try {
+      await api.post("/auth/forgot-password", { email });
+      setEnviado(true);
+    } catch (err: any) {
+      setErro(err?.response?.data?.message ?? "Não foi possível processar o pedido.");
+    } finally { setLoading(false); }
+  }
+
+  if (enviado) {
+    return (
+      <div className={styles.loginForm}>
+        <div style={{ textAlign: "center", padding: "12px 0" }}>
+          <div style={{ fontSize: 32, marginBottom: 8, color: "var(--secure)" }}>✓</div>
+          <div style={{ color: "var(--text)", fontWeight: 600, marginBottom: 6 }}>Verifique seu e-mail</div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6 }}>
+            Se houver uma conta com este e-mail, enviamos um link de redefinição.
+            Ele vale por 30 minutos.
+          </div>
+        </div>
+        <button type="button" className={styles.backLink} onClick={onVoltar}>← Voltar ao login</button>
+      </div>
+    );
+  }
+
+  return (
+    <form className={styles.loginForm} onSubmit={enviar}>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4, lineHeight: 1.6 }}>
+        Informe o e-mail da conta. Enviaremos um link para você criar uma senha nova.
+      </div>
+      <div className={styles.formGroup}>
+        <label className={styles.formLabel}>EMAIL</label>
+        <input className={styles.formInput} type="email" value={email}
+               onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" required />
+      </div>
+      {erro && <div className={styles.errorBox}>{erro}</div>}
+      <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading}>
+        {loading ? "Enviando..." : "Enviar link de redefinição"}
+      </button>
+      <button type="button" className={styles.backLink} onClick={onVoltar}>← Voltar ao login</button>
+    </form>
+  );
+}
+
+/** Tela aberta pelo link do e-mail: /redefinir-senha?token=... */
+function RedefinirSenha({ token }: { token: string }) {
+  const [senha, setSenha]         = useState("");
+  const [confirma, setConfirma]   = useState("");
+  const [pronto, setPronto]       = useState(false);
+  const [loading, setLoading]     = useState(false);
+  const [erro, setErro]           = useState<string | null>(null);
+
+  async function enviar(e: React.FormEvent) {
+    e.preventDefault();
+    if (senha !== confirma) { setErro("As senhas não conferem."); return; }
+    setLoading(true); setErro(null);
+    try {
+      await api.post("/auth/reset-password", { token, password: senha });
+      setPronto(true);
+    } catch (err: any) {
+      setErro(err?.response?.data?.message ?? "Não foi possível redefinir a senha.");
+    } finally { setLoading(false); }
+  }
+
+  function irParaLogin() {
+    // Troca a URL para não deixar o token no histórico do navegador.
+    window.location.replace("/");
+  }
+
+  return (
+    <div className={styles.loginPage}>
+      <div className={styles.loginCard}>
+        <div className={styles.loginLogo}>◈ CYBERAUDIT</div>
+        <div className={styles.loginTitle}>Redefinir senha</div>
+
+        {pronto ? (
+          <div className={styles.loginForm}>
+            <div style={{ textAlign: "center", padding: "12px 0" }}>
+              <div style={{ fontSize: 32, marginBottom: 8, color: "var(--secure)" }}>✓</div>
+              <div style={{ color: "var(--text)", fontWeight: 600, marginBottom: 6 }}>Senha redefinida</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                Use a senha nova para entrar.
+              </div>
+            </div>
+            <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} onClick={irParaLogin}>
+              Ir para o login
+            </button>
+          </div>
+        ) : (
+          <form className={styles.loginForm} onSubmit={enviar}>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>NOVA SENHA</label>
+              <input className={styles.formInput} type="password" value={senha} minLength={8}
+                     onChange={e => setSenha(e.target.value)} placeholder="••••••••" required />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>CONFIRME A NOVA SENHA</label>
+              <input className={styles.formInput} type="password" value={confirma} minLength={8}
+                     onChange={e => setConfirma(e.target.value)} placeholder="••••••••" required />
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
+              Mínimo de 8 caracteres.
+            </div>
+            {erro && <div className={styles.errorBox}>{erro}</div>}
+            <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading}>
+              {loading ? "Salvando..." : "Redefinir senha"}
+            </button>
+            <button type="button" className={styles.backLink} onClick={irParaLogin}>← Voltar ao login</button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function LoginPage({ onBack }: { onBack: () => void }) {
   const { login, register, verify2fa, resendEmailOtp } = useAuth();
-  const [authTab, setAuthTab] = useState<"login" | "register">("login");
+  const [authTab, setAuthTab] = useState<"login" | "register" | "forgot">("login");
   const [termsModal, setTermsModal] = useState<"terms" | "privacy" | null>(null);
 
   // ── Login state ───────────────────────────────────────────────────────────
@@ -1152,9 +1288,12 @@ function LoginPage({ onBack }: { onBack: () => void }) {
               <div className={styles.formGroup}><label className={styles.formLabel}>SENHA</label><input className={styles.formInput} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required /></div>
               {error && <div className={styles.errorBox}>{error}</div>}
               <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button>
+              <button type="button" className={styles.backLink} onClick={() => setAuthTab("forgot")}>Esqueci minha senha</button>
               <button type="button" className={styles.backLink} onClick={onBack}>← Voltar sem autenticação</button>
             </form>
           )}
+
+          {authTab === "forgot" && <EsqueciSenha onVoltar={() => setAuthTab("login")} />}
 
           {/* ── Register form ── */}
           {authTab === "register" && (
@@ -5756,6 +5895,11 @@ export default function App() {
 
   const statusToken = getStatusTokenFromUrl();
   if (statusToken) return <PublicStatusPage token={statusToken} />;
+
+  // Antes de qualquer checagem de sessão: quem chega por este link está
+  // justamente sem conseguir entrar.
+  const resetToken = getResetTokenFromUrl();
+  if (resetToken) return <RedefinirSenha token={resetToken} />;
 
   if (isBillingReturnPath()) return <BillingReturnPage />;
 
