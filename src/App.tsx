@@ -18,7 +18,7 @@ interface SensitiveFileFinding { path: string; statusCode: number; exposure: str
 interface HttpMethodFinding { method: string; statusCode: number; enabled: boolean; severity: string; risk: string; }
 interface OpenRedirectFinding { parameter: string; testedUrl: string; redirectedTo: string; vulnerable: boolean; severity: string; }
 interface DirectoryListingFinding { path: string; statusCode: number; listingEnabled: boolean; evidence: string; severity: string; }
-interface DnsSecurityResult { spfPresent: boolean; spfRecord: string | null; spfPolicy: string; dmarcPresent: boolean; dmarcRecord: string | null; dmarcPolicy: string; dkimHintFound: boolean; dkimSelector: string | null; caaPresent: boolean; caaRecord: string | null; mxPresent: boolean; mxRecords: string[]; emailSpoofingRisk: string; summary: string; }
+interface DnsSecurityResult { spfPresent: boolean; spfRecord: string | null; spfPolicy: string; dmarcPresent: boolean; dmarcRecord: string | null; dmarcPolicy: string; dkimHintFound: boolean; dkimSelector: string | null; caaPresent: boolean; caaRecord: string | null; mxPresent: boolean; mxRecords: string[]; emailSpoofingRisk: string; summary: string; lookupFailed?: boolean; }
 interface WafDetectionResult { detected: boolean; provider: string | null; confidence: string | null; evidence: string | null; probeResponse: string | null; summary: string; }
 interface CVEFinding { cveId: string; severity: string; cvssScore: number; description: string; affectedSoftware: string; publishedDate: string; referenceUrl: string; }
 interface CertEntry { commonName: string; issuer: string; notBefore: string; notAfter: string; wildcard: boolean; loggedAt: string; }
@@ -4075,38 +4075,51 @@ function DnsCardsPanel({ r }: { r: any }) {
   const { openSet, toggle } = useCardSet();
   const dns = r?.dnsSecurityResult;
 
+  /**
+   * A consulta DNS não chegou ao servidor — os registros podem existir.
+   *
+   * Sem isto, o painel se contradizia: o cabeçalho dizia "inconclusivo" e os
+   * cards logo abaixo afirmavam "AUSENTE" em vermelho. Quem lê acredita no card,
+   * não no cabeçalho, e vai reconfigurar um DNS que já estava correto.
+   *
+   * Vale só para os cards que dependem de DNS. security.txt e robots.txt são
+   * verificados por HTTP e continuam válidos mesmo quando o DNS falha.
+   */
+  const dnsIndisponivel = dns?.lookupFailed === true;
+  const semDns = (valor: string) => (dnsIndisponivel ? "NÃO VERIFICADO" : valor);
+
   const cards = [
     {
-      key: "spf", title: "SPF", present: dns?.spfPresent, warn: false,
-      value: dns?.spfPresent ? dns.spfPolicy : "AUSENTE",
+      key: "spf", title: "SPF", present: dns?.spfPresent, warn: false, dependeDeDns: true,
+      value: semDns(dns?.spfPresent ? dns.spfPolicy : "AUSENTE"),
       desc: "Define quais servidores podem enviar email em nome do domínio.",
       record: dns?.spfRecord,
       tip: "SPF + DMARC juntos bloqueiam a maioria dos ataques de email spoofing.",
     },
     {
-      key: "dmarc", title: "DMARC", present: dns?.dmarcPresent, warn: false,
-      value: dns?.dmarcPresent ? `p=${dns.dmarcPolicy?.toLowerCase()}` : "AUSENTE",
+      key: "dmarc", title: "DMARC", present: dns?.dmarcPresent, warn: false, dependeDeDns: true,
+      value: semDns(dns?.dmarcPresent ? `p=${dns.dmarcPolicy?.toLowerCase()}` : "AUSENTE"),
       desc: "Política sobre o que fazer com emails que falham SPF/DKIM.",
       record: dns?.dmarcRecord,
       tip: "p=reject é o mais seguro. Inicie com p=none para monitorar antes de rejeitar.",
     },
     {
-      key: "dkim", title: "DKIM", present: dns?.dkimHintFound, warn: true,
-      value: dns?.dkimHintFound ? `seletor: ${dns.dkimSelector}` : "Não detectado",
+      key: "dkim", title: "DKIM", present: dns?.dkimHintFound, warn: true, dependeDeDns: true,
+      value: semDns(dns?.dkimHintFound ? `seletor: ${dns.dkimSelector}` : "Não detectado"),
       desc: "Assina emails criptograficamente para provar autenticidade.",
       record: null,
       tip: "Configure no seu servidor de email (Google Workspace, Office 365). Detecção passiva por heurística.",
     },
     {
-      key: "caa", title: "CAA Record", present: dns?.caaPresent, warn: true,
-      value: dns?.caaPresent ? "Configurado" : "AUSENTE",
+      key: "caa", title: "CAA Record", present: dns?.caaPresent, warn: true, dependeDeDns: true,
+      value: semDns(dns?.caaPresent ? "Configurado" : "AUSENTE"),
       desc: "Restringe quais CAs podem emitir certificados para o domínio.",
       record: dns?.caaRecord,
       tip: "Sem CAA, qualquer CA do mundo pode emitir certificados para seu domínio.",
     },
     {
-      key: "mx", title: "MX Records", present: dns?.mxPresent, warn: true,
-      value: dns?.mxPresent ? `${dns.mxRecords?.length ?? 0} servidor(es)` : "Sem MX",
+      key: "mx", title: "MX Records", present: dns?.mxPresent, warn: true, dependeDeDns: true,
+      value: semDns(dns?.mxPresent ? `${dns.mxRecords?.length ?? 0} servidor(es)` : "Sem MX"),
       desc: "Servidores responsáveis por receber email do domínio.",
       record: dns?.mxRecords?.slice(0, 3).join(", ") ?? null,
       tip: "MX ausente significa que o domínio não recebe email — verifique se é intencional.",
@@ -4128,9 +4141,26 @@ function DnsCardsPanel({ r }: { r: any }) {
   ];
 
   const cardNodes = cards.map(c => {
-    const color = c.present ? "var(--secure)" : c.warn ? "var(--warning)" : "var(--critical)";
-    const icon  = c.present ? "✓" : c.warn ? "⚠" : "✗";
-    const st    = c.present ? "OK" : c.warn ? "WARN" : "MISSING";
+    // Três estados, não dois: encontrado, não encontrado e NÃO CONSULTADO.
+    // O terceiro usa âmbar de propósito — vermelho afirmaria um problema que
+    // não sabemos existir, e verde esconderia que a verificação não ocorreu.
+    const naoVerificado = c.dependeDeDns === true && dnsIndisponivel;
+
+    const color = naoVerificado ? "var(--warning)"
+                : c.present     ? "var(--secure)"
+                : c.warn        ? "var(--warning)"
+                                : "var(--critical)";
+    const icon  = naoVerificado ? "?" : c.present ? "✓" : c.warn ? "⚠" : "✗";
+    const st    = naoVerificado ? "N/A" : c.present ? "OK" : c.warn ? "WARN" : "MISSING";
+
+    // Por que não entrou na nota. Só aparece quando é o caso, para não virar
+    // ruído nos cards que de fato pesaram.
+    const notaScore = naoVerificado
+      ? "Não entrou no score: a consulta DNS não foi concluída, então não dá para afirmar que o registro falta."
+      : (c.warn && !c.present)
+        ? "Não entrou no score: é uma recomendação, não uma falha."
+        : null;
+
     return (
       <ModCard key={c.key} id={c.key} color={color} isOpen={openSet.has(c.key)} onToggle={() => toggle(c.key)}
         top={
@@ -4145,9 +4175,24 @@ function DnsCardsPanel({ r }: { r: any }) {
             </div>
           </div>
         }
-        mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{c.desc}</p>}
+        mid={
+          <>
+            <p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{c.desc}</p>
+            {notaScore && (
+              <p style={{ fontSize: 9, color: "var(--warning)", margin: "6px 0 0", lineHeight: 1.5 }}>
+                ⚠ {notaScore}
+              </p>
+            )}
+          </>
+        }
         bottom={
           <>
+            {naoVerificado && (
+              <div style={{ marginBottom: 8, fontSize: 10, color: "var(--text-dim)", lineHeight: 1.5 }}>
+                O servidor não conseguiu consultar o DNS deste domínio. O registro
+                pode existir normalmente — refaça o scan em alguns minutos.
+              </div>
+            )}
             {c.record && (
               <div style={{ marginBottom: 8 }}>
                 <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", display: "block", marginBottom: 3 }}>REGISTRO</span>
@@ -5947,8 +5992,13 @@ export default function App() {
   const takeoverVuln  = r?.subdomainTakeover?.filter(t => t.status === "VULNERABLE") ?? [];
   const takeoverColor = takeoverVuln.length > 0 ? "var(--critical)" : (r?.subdomainTakeover?.length ?? 0) > 0 ? "var(--warning)" : "var(--secure)";
   const dns           = r?.dnsSecurityResult;
-  const reconProbs    = dns ? [!dns.spfPresent, !dns.dmarcPresent, !dns.caaPresent].filter(Boolean).length : 0;
-  const reconColor    = reconProbs >= 2 ? "var(--critical)" : reconProbs >= 1 ? "var(--warning)" : "var(--secure)";
+  // Consulta que não chegou não conta como registro faltando: contar mostraria
+  // "0/3" em vermelho para um domínio que pode estar perfeitamente configurado.
+  const reconIndisponivel = dns?.lookupFailed === true;
+  const reconProbs    = (dns && !reconIndisponivel)
+    ? [!dns.spfPresent, !dns.dmarcPresent, !dns.caaPresent].filter(Boolean).length : 0;
+  const reconColor    = reconIndisponivel ? "var(--warning)"
+    : reconProbs >= 2 ? "var(--critical)" : reconProbs >= 1 ? "var(--warning)" : "var(--secure)";
   const changeCount   = r?.changes?.length ?? 0;
   const changesColor  = (r?.changes ?? []).some(c => c.changeType === "DEGRADED") ? "var(--critical)" : changeCount > 0 ? "var(--warning)" : "var(--secure)";
   // Permissões de plano (equipe da plataforma já recebe tudo pelo backend; guest = sem user)
@@ -6187,8 +6237,10 @@ export default function App() {
                     <div className={styles.sidebarNavGroup}>DNS &amp; Domínio</div>
                     <SidebarNavItem icon="◉" title="Reconnaissance"
                       color={reconColor}
-                      metric={dns ? `${[dns.spfPresent, dns.dmarcPresent, dns.caaPresent].filter(Boolean).length}/3` : "—"}
-                      label={dns?.emailSpoofingRisk ? `SPOOFING: ${dns.emailSpoofingRisk}` : "UNKNOWN"}
+                      metric={reconIndisponivel ? "—"
+                        : dns ? `${[dns.spfPresent, dns.dmarcPresent, dns.caaPresent].filter(Boolean).length}/3` : "—"}
+                      label={reconIndisponivel ? "NÃO VERIFICADO"
+                        : dns?.emailSpoofingRisk ? `SPOOFING: ${dns.emailSpoofingRisk}` : "UNKNOWN"}
                       active={openModule === "recon"}
                       locked={modGated("recon")}
                       onClick={() => selectModule("recon")}/>
