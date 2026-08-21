@@ -1,0 +1,7 @@
+# Política de divulgação responsável — RFC 9116
+# https://www.rfc-editor.org/rfc/rfc9116
+
+Contact: mailto:seguranca@cyberauditapp.com
+Expires: 2027-08-21T00:00:00.000Z
+Preferred-Languages: pt-BR, en
+Canonical: https://www.cyberauditapp.com/.well-known/security.txt

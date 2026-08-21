@@ -1,5 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 /**
  * Injeta a CSP como <meta> no index.html — mas SÓ no build.
@@ -31,6 +33,10 @@ function cspPlugin(apiOrigin: string): Plugin {
     'upgrade-insecure-requests',
   ].join('; ')
 
+  // Versão para HEADER: mesma política + frame-ancestors, que é ignorado em
+  // <meta> e só vale como header.
+  const cspHeader = `${csp}; frame-ancestors 'none'`
+
   return {
     name: 'cyberaudit-csp',
     apply: 'build',
@@ -39,6 +45,37 @@ function cspPlugin(apiOrigin: string): Plugin {
         '<head>',
         `<head>\n    <meta http-equiv="Content-Security-Policy" content="${csp}" />`,
       )
+    },
+
+    /**
+     * Escreve a política completa também no `_headers`.
+     *
+     * O arquivo trazia só `frame-ancestors 'none'`, contando com a <meta> para o
+     * resto. Só que a <meta> não é visível para quem inspeciona a resposta HTTP:
+     * um scanner (o nosso inclusive) lê o header, encontra uma política sem
+     * `default-src` nem `script-src` e classifica como fraca — corretamente, já
+     * que um cliente que não executa HTML não recebe proteção nenhuma.
+     *
+     * Gerado aqui, e não escrito à mão no public/_headers, porque a política
+     * depende de VITE_API_URL: duplicar levaria os dois a divergirem no primeiro
+     * ajuste de origem da API.
+     */
+    closeBundle() {
+      const arquivo = resolve(__dirname, 'dist/_headers')
+      if (!existsSync(arquivo)) {
+        console.warn('[cyberaudit] dist/_headers não encontrado — CSP não foi para o header.')
+        return
+      }
+      const original = readFileSync(arquivo, 'utf8')
+      const atualizado = original.replace(
+        /^(\s*)Content-Security-Policy:.*$/m,
+        `$1Content-Security-Policy: ${cspHeader}`,
+      )
+      if (original === atualizado) {
+        console.warn('[cyberaudit] nenhuma linha Content-Security-Policy em _headers para substituir.')
+        return
+      }
+      writeFileSync(arquivo, atualizado)
     },
   }
 }

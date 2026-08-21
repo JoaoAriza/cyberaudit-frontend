@@ -4,6 +4,10 @@
 # A CSP em <meta> (injetada pelo vite.config.ts) cobre o essencial em qualquer
 # host, mas `frame-ancestors` e HSTS SÓ funcionam como header — por isso este
 # arquivo. Em Vercel use o vercel.json; em nginx/Caddy, replique os valores.
+#
+# ATENÇÃO: a linha Content-Security-Policy abaixo é SUBSTITUÍDA no build pelo
+# vite.config.ts, que injeta a política completa (ela depende de VITE_API_URL).
+# O valor aqui é só o piso para quem servir este arquivo sem passar pelo build.
 /*
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
