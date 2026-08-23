@@ -1420,11 +1420,22 @@ const PLAN_DEFS: PlanDef[] = [
 ];
 
 function PlansModal({ onClose }: { onClose: () => void }) {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
-  // Determina o plano atual do usuário logado
+  // Esta é a tela que afirma "Seu plano atual", então é a que menos pode estar
+  // desatualizada. O plano pode ter mudado desde o login sem passar por aqui —
+  // webhook confirmando a assinatura, cancelamento, pagamento recusado.
+  useEffect(() => { void refreshUser(); }, [refreshUser]);
+
+  /**
+   * O card atual sai do PLANO, nunca do tipo da conta. Toda conta nasce em
+   * Plan.FREE — COMPANY inclusive (AuthService.buildAccountFromRegister) — então
+   * derivar do tipo marcava o card Empresa como atual numa conta que ainda era
+   * FREE, e o guard `!current` escondia o botão: a empresa não tinha como assinar
+   * o plano Empresa. O tipo da conta vale para CNPJ e equipe, não para plano.
+   */
   const currentPlan: PlanKey =
-    user?.account?.type === "COMPANY" ? "EMPRESA" :
+    user?.account?.plan === "ENTERPRISE" ? "EMPRESA" :
       user?.account?.plan === "PRO" ? "PESSOAL_PRO" :
         "PESSOAL_FREE";
 

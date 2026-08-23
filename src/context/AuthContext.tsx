@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { api, getToken, setToken, clearToken } from "../api/client";
 
@@ -62,6 +62,8 @@ interface AuthContextValue {
   register: (payload: RegisterPayload) => Promise<void>;
   verify2fa: (code: string, method: string) => Promise<void>;
   resendEmailOtp: () => Promise<void>;
+  /** Refaz /auth/me e reaplica o usuário — ver a implementação para o porquê. */
+  refreshUser: () => Promise<void>;
   logout: () => void;
   isOwner: () => boolean;
   isAdmin: () => boolean;
@@ -130,6 +132,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await api.post("/auth/2fa/send-email-otp");
   };
 
+  /**
+   * O `user` vive em memória e só era montado no login e no boot. Tudo que muda o
+   * plano por fora — webhook do Mercado Pago confirmando a assinatura, cancelamento,
+   * pagamento recusado que rebaixa a conta — não chegava à tela, que seguia
+   * mostrando o plano antigo até um reload. Isto refaz /auth/me sob demanda.
+   *
+   * useCallback porque a referência é dependência de efeito em quem chama; sem ela
+   * o efeito rearma a cada render do provider e vira laço.
+   */
+  const refreshUser = useCallback(async (): Promise<void> => {
+    if (!getToken()) return;   // visitante não tem o que reconferir
+    try {
+      const res = await api.get<UserDto>("/auth/me");
+      setUser(res.data);
+    } catch {
+      // 401 já dispara "auth:logout" no interceptor; qualquer outra falha só
+      // mantém o que estava na tela — recarregar o plano não vale derrubar a sessão.
+    }
+  }, []);
+
   const logout = () => {
     clearToken();
     setUser(null);
@@ -137,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, loading, login, register, verify2fa, resendEmailOtp, logout,
+      user, loading, login, register, verify2fa, resendEmailOtp, refreshUser, logout,
       isOwner:         () => user?.role === "OWNER",
       isAdmin:         () => user?.role === "OWNER" || user?.role === "ADMIN",
       isAuthenticated: () => user !== null,
