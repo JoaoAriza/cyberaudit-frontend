@@ -1403,25 +1403,35 @@ function PlansModal({ onClose }: { onClose: () => void }) {
       user?.account?.plan === "PRO" ? "PESSOAL_PRO" :
         "PESSOAL_FREE";
 
-  // Plano pago que ESTE usuário pode assinar (individual → Pro; empresa → Empresa).
-  const targetKey: PlanKey = user?.account?.type === "COMPANY" ? "EMPRESA" : "PESSOAL_PRO";
-  const isFree   = (user?.account?.plan ?? "FREE") === "FREE";
   const loggedIn = !!user;
-  const [subscribing, setSubscribing] = useState(false);
+  const [subscribing, setSubscribing] = useState<string | null>(null);
   const [subError, setSubError] = useState<string | null>(null);
 
-  async function subscribe() {
-    setSubscribing(true); setSubError(null);
+  /**
+   * Nome do plano na API. O card usa rótulos de produto (PESSOAL_PRO/EMPRESA);
+   * o backend fala em PRO/ENTERPRISE. Traduzir aqui evita vazar o vocabulário
+   * interno para a tela e vice-versa.
+   */
+  function planoDaApi(key: PlanKey): string | null {
+    if (key === "PESSOAL_PRO") return "PRO";
+    if (key === "EMPRESA")     return "ENTERPRISE";
+    return null;   // FREE não se assina
+  }
+
+  async function subscribe(key: PlanKey) {
+    const plano = planoDaApi(key);
+    if (!plano) return;
+    setSubscribing(key); setSubError(null);
     try {
-      const res = await api.post<{ initPoint: string }>("/billing/subscribe");
+      const res = await api.post<{ initPoint: string }>("/billing/subscribe", { plan: plano });
       if (res.data?.initPoint) {
         window.location.href = res.data.initPoint; // → checkout do Mercado Pago
       } else {
-        setSubError("Não foi possível iniciar o checkout."); setSubscribing(false);
+        setSubError("Não foi possível iniciar o checkout."); setSubscribing(null);
       }
     } catch (e: any) {
       setSubError(e?.response?.data?.message ?? e?.response?.data?.error ?? "Erro ao iniciar assinatura.");
-      setSubscribing(false);
+      setSubscribing(null);
     }
   }
 
@@ -1453,22 +1463,24 @@ function PlansModal({ onClose }: { onClose: () => void }) {
                   ))}
                 </ul>
                 {!current && (
-                  plan.key === targetKey && isFree ? (
+                  planoDaApi(plan.key) ? (
                     loggedIn ? (
+                      // Qualquer plano pago é assinável, não só o sugerido pelo tipo
+                      // de conta: empresa pequena pode querer o Pro, e pessoa física
+                      // pode querer os recursos do Empresa. O backend recusa o que
+                      // não faz sentido (mesmo plano, ou downgrade sem cancelar).
                       <button
                         className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`}
-                        disabled={subscribing}
-                        onClick={subscribe}
+                        disabled={subscribing !== null}
+                        onClick={() => subscribe(plan.key)}
                       >
-                        {subscribing ? "Redirecionando..." : `Assinar ${plan.price} →`}
+                        {subscribing === plan.key ? "Redirecionando..." : `Assinar ${plan.price} →`}
                       </button>
                     ) : (
                       <div className={styles.planCta}>Faça login para assinar</div>
                     )
                   ) : (
-                    <div className={styles.planCta}>
-                      {plan.key === "PESSOAL_FREE" ? "Grátis" : "—"}
-                    </div>
+                    <div className={styles.planCta}>Grátis</div>
                   )
                 )}
               </div>
