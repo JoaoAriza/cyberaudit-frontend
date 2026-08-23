@@ -1347,8 +1347,23 @@ interface PlanDef {
   price: string;
   doc: string;
   features: { label: string; ok: boolean | "partial" }[];
+  /** Observação que não é diferença de plano — hoje só o recado de conta Empresa. */
+  note?: string;
 }
 
+/**
+ * Fonte da verdade: Plan.java no Backend, mais o gating de detalhe do
+ * ScanEntitlementService. É uma lista paralela mantida à mão — qualquer recurso
+ * novo com trava de plano precisa aparecer aqui também, senão o cliente paga sem
+ * saber o que está comprando.
+ *
+ * Multi-usuário NÃO está na lista de propósito: convite de usuário é liberado por
+ * AccountType.COMPANY (InviteService), não por plano. Uma conta Empresa no FREE já
+ * monta o time — por isso virou nota do card, não linha de comparação.
+ *
+ * A ordem das linhas é igual nos três cards para que a comparação seja na
+ * horizontal, e abre no detalhe do achado: é o principal diferencial pago.
+ */
 const PLAN_DEFS: PlanDef[] = [
   {
     key:   "PESSOAL_FREE",
@@ -1356,12 +1371,15 @@ const PLAN_DEFS: PlanDef[] = [
     price: "Grátis",
     doc:   "CPF opcional",
     features: [
-      { label: "10 scans por dia",     ok: true  },
-      { label: "Exportar PDF",         ok: true  },
-      { label: "Módulo Changes",       ok: false },
-      { label: "Gráfico histórico",    ok: false },
-      { label: "Active Scan",          ok: false },
-      { label: "Multi-usuário",        ok: false },
+      { label: "Impacto e correção de cada achado", ok: false },
+      { label: "10 scans por dia",                  ok: true  },
+      { label: "PDF do scan",                       ok: true  },
+      { label: "Módulo Changes",                    ok: false },
+      { label: "Gráfico histórico",                 ok: false },
+      { label: "Agendamentos",                      ok: false },
+      { label: "Cadastro de domínio",               ok: false },
+      { label: "Relatórios da conta e PDF executivo", ok: false },
+      { label: "Active Scan",                       ok: false },
     ],
   },
   {
@@ -1370,12 +1388,15 @@ const PLAN_DEFS: PlanDef[] = [
     price: "R$ 29,90/mês",
     doc:   "CPF opcional",
     features: [
-      { label: "Scans ilimitados",     ok: true  },
-      { label: "Exportar PDF",         ok: true  },
-      { label: "Módulo Changes",       ok: true  },
-      { label: "Gráfico histórico",    ok: true  },
-      { label: "Active Scan (só domínios vinculados)", ok: "partial" as const },
-      { label: "Multi-usuário", ok: false },
+      { label: "Impacto e correção de cada achado", ok: true  },
+      { label: "Scans ilimitados",                  ok: true  },
+      { label: "PDF do scan",                       ok: true  },
+      { label: "Módulo Changes",                    ok: true  },
+      { label: "Gráfico histórico",                 ok: true  },
+      { label: "10 agendamentos",                   ok: true  },
+      { label: "Cadastro de domínio",               ok: true  },
+      { label: "Relatórios da conta e PDF executivo", ok: true },
+      { label: "Active Scan (só domínios verificados)", ok: "partial" as const },
     ],
   },
   {
@@ -1384,13 +1405,17 @@ const PLAN_DEFS: PlanDef[] = [
     price: "R$ 99,90/mês",
     doc:   "CNPJ obrigatório",
     features: [
-      { label: "Scans ilimitados",     ok: true },
-      { label: "Exportar PDF",         ok: true },
-      { label: "Módulo Changes",       ok: true },
-      { label: "Gráfico histórico",    ok: true },
-      { label: "Active Scan",          ok: true },
-      { label: "Multi-usuário",        ok: true },
+      { label: "Impacto e correção de cada achado", ok: true },
+      { label: "Scans ilimitados",                  ok: true },
+      { label: "PDF do scan",                       ok: true },
+      { label: "Módulo Changes",                    ok: true },
+      { label: "Gráfico histórico",                 ok: true },
+      { label: "Agendamentos ilimitados",           ok: true },
+      { label: "Cadastro de domínio",               ok: true },
+      { label: "Relatórios da equipe e PDF executivo", ok: true },
+      { label: "Active Scan em qualquer domínio",   ok: true },
     ],
+    note: "Equipe, convites e 2FA obrigatório vêm da conta Empresa — valem em qualquer plano.",
   },
 ];
 
@@ -1462,6 +1487,7 @@ function PlansModal({ onClose }: { onClose: () => void }) {
                     </li>
                   ))}
                 </ul>
+                {plan.note && <div className={styles.planNote}>{plan.note}</div>}
                 {!current && (
                   planoDaApi(plan.key) ? (
                     loggedIn ? (

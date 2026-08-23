@@ -1455,6 +1455,22 @@
   border-right: none;
 }
 
+/* Três colunas fixas davam ~145px por card no celular. Com o cardápio passando de
+   seis para nove linhas, os rótulos viravam texto picado — abaixo de 720px os
+   cards empilham. */
+@media (max-width: 720px) {
+  .plansGrid {
+    grid-template-columns: 1fr;
+  }
+  .planCard {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .planCard:last-child {
+    border-bottom: none;
+  }
+}
+
 .planCardCurrent {
   background: color-mix(in srgb, var(--accent) 6%, var(--surface));
   outline: 1px solid var(--accent);
@@ -1535,6 +1551,16 @@
 .partial {
   color: var(--warning);
   font-size: 13px;
+}
+
+/* Recado do card que não é diferença de plano (ver PLAN_DEFS.note). */
+.planNote {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-muted);
 }
 
 .planCta {
