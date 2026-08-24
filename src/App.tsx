@@ -1339,92 +1339,106 @@ function LoginPage({ onBack }: { onBack: () => void }) {
 
 // ── Plans Modal ───────────────────────────────────────────────────────────────
 
-type PlanKey = "PESSOAL_FREE" | "PESSOAL_PRO" | "EMPRESA";
+/**
+ * O cardápio vem de GET /billing/plans, montado a partir do enum Plan do Backend.
+ *
+ * Antes era uma lista paralela mantida aqui à mão, e ela envelheceu em silêncio:
+ * quatro recursos criados no Backend nunca chegaram a esta tela — um deles o
+ * principal diferencial pago — e os preços ficavam chumbados enquanto o Backend
+ * já os lia de configuração.
+ *
+ * A API manda ESTADO (id + state + limit). O texto continua aqui porque é redação
+ * de produto, e é o que a internacionalização vai traduzir depois.
+ */
 
-interface PlanDef {
-  key: PlanKey;
-  name: string;
-  price: string;
-  doc: string;
-  features: { label: string; ok: boolean | "partial" }[];
-  /** Observação que não é diferença de plano — hoje só o recado de conta Empresa. */
-  note?: string;
+type PlanKey     = "FREE" | "PRO" | "ENTERPRISE";
+type FeatureState = "YES" | "NO" | "VERIFIED_DOMAINS_ONLY";
+
+interface ApiFeature {
+  id: string;
+  state: FeatureState;
+  /** Quantidade quando o recurso é contável: -1 = ilimitado. null = liga/desliga. */
+  limit: number | null;
 }
 
-/**
- * Fonte da verdade: Plan.java no Backend, mais o gating de detalhe do
- * ScanEntitlementService e a regra de entrega do PlanLimitService. É uma lista
- * paralela mantida à mão — qualquer recurso novo com trava de plano precisa
- * aparecer aqui também, senão o cliente paga sem saber o que está comprando.
- *
- * O ◑ marca recurso que o plano libera mas o domínio limita: no Pessoal Pro, o
- * PDF e o e-mail só saem sobre domínio verificado da conta, mesma fronteira do
- * Active Scan. Ver PlanLimitService.checkReportDelivery.
- *
- * Multi-usuário NÃO está na lista de propósito: convite de usuário é liberado por
- * AccountType.COMPANY (InviteService), não por plano. Uma conta Empresa no FREE já
- * monta o time — por isso virou nota do card, não linha de comparação.
- *
- * A ordem das linhas é igual nos três cards para que a comparação seja na
- * horizontal, e abre no detalhe do achado: é o principal diferencial pago.
- */
-const PLAN_DEFS: PlanDef[] = [
-  {
-    key:   "PESSOAL_FREE",
-    name:  "Pessoal Free",
-    price: "Grátis",
-    doc:   "CPF opcional",
-    features: [
-      { label: "Impacto e correção de cada achado", ok: false },
-      { label: "10 scans por dia",                  ok: true  },
-      { label: "PDF do scan",                       ok: false },
-      { label: "Notificação por e-mail",            ok: false },
-      { label: "Módulo Changes",                    ok: false },
-      { label: "Gráfico histórico",                 ok: false },
-      { label: "Agendamentos",                      ok: false },
-      { label: "Cadastro de domínio",               ok: false },
-      { label: "Relatórios da conta e PDF executivo", ok: false },
-      { label: "Active Scan",                       ok: false },
-    ],
-  },
-  {
-    key:   "PESSOAL_PRO",
-    name:  "Pessoal Pro",
-    price: "R$ 29,90/mês",
-    doc:   "CPF opcional",
-    features: [
-      { label: "Impacto e correção de cada achado", ok: true  },
-      { label: "Scans ilimitados",                  ok: true  },
-      { label: "PDF do scan (só domínios verificados)",          ok: "partial" as const },
-      { label: "Notificação por e-mail (só domínios verificados)", ok: "partial" as const },
-      { label: "Módulo Changes",                    ok: true  },
-      { label: "Gráfico histórico",                 ok: true  },
-      { label: "10 agendamentos",                   ok: true  },
-      { label: "Cadastro de domínio",               ok: true  },
-      { label: "Relatórios da conta e PDF executivo", ok: true },
-      { label: "Active Scan (só domínios verificados)", ok: "partial" as const },
-    ],
-  },
-  {
-    key: "EMPRESA",
-    name:  "Empresa",
-    price: "R$ 99,90/mês",
-    doc:   "CNPJ obrigatório",
-    features: [
-      { label: "Impacto e correção de cada achado", ok: true },
-      { label: "Scans ilimitados",                  ok: true },
-      { label: "PDF de qualquer domínio",           ok: true },
-      { label: "Notificação por e-mail",            ok: true },
-      { label: "Módulo Changes",                    ok: true },
-      { label: "Gráfico histórico",                 ok: true },
-      { label: "Agendamentos ilimitados",           ok: true },
-      { label: "Cadastro de domínio",               ok: true },
-      { label: "Relatórios da equipe e PDF executivo", ok: true },
-      { label: "Active Scan em qualquer domínio",   ok: true },
-    ],
+interface ApiPlan {
+  plan: PlanKey;
+  /** null no FREE, que não se assina. */
+  amount: number | null;
+  currency: string;
+  features: ApiFeature[];
+}
+
+/** Identidade do card. Nome, documento e recado não são diferença de plano. */
+const PLAN_CARDS: Record<PlanKey, { name: string; doc: string; note?: string }> = {
+  FREE:       { name: "Pessoal Free", doc: "CPF opcional" },
+  PRO:        { name: "Pessoal Pro",  doc: "CPF opcional" },
+  ENTERPRISE: {
+    name: "Empresa",
+    doc:  "CNPJ obrigatório",
+    // Multi-usuário fica fora da comparação de propósito: convite é liberado por
+    // tipo de conta (InviteService), não por plano — uma conta Empresa no FREE já
+    // monta o time. Por isso é nota do card, não linha de comparação.
     note: "Equipe, convites e 2FA obrigatório vêm da conta Empresa — valem em qualquer plano.",
   },
-];
+};
+
+/**
+ * Rótulo de cada recurso. A chave vem do Backend; o texto é daqui.
+ *
+ * Id desconhecido cai no próprio id, de propósito: recurso novo aparece feio na
+ * tela em vez de sumir dela. Sumir em silêncio foi o problema original.
+ */
+function rotuloDoRecurso(f: ApiFeature, plano: PlanKey): string {
+  const soVerificado = f.state === "VERIFIED_DOMAINS_ONLY";
+  switch (f.id) {
+    case "FINDING_DETAIL":
+      return "Impacto e correção de cada achado";
+    case "DAILY_SCANS":
+      return f.limit === -1 ? "Scans ilimitados" : `${f.limit} scans por dia`;
+    case "PDF_EXPORT":
+      return soVerificado      ? "PDF do scan (só domínios verificados)"
+           : f.state === "YES" ? "PDF de qualquer domínio"
+           :                     "PDF do scan";
+    case "EMAIL_NOTIFY":
+      return soVerificado ? "Notificação por e-mail (só domínios verificados)"
+                          : "Notificação por e-mail";
+    case "CHANGES_MODULE":
+      return "Módulo Changes";
+    case "HISTORY_CHART":
+      return "Gráfico histórico";
+    case "SCHEDULED_SCANS":
+      return f.limit === -1                 ? "Agendamentos ilimitados"
+           : f.limit != null && f.limit > 0  ? `${f.limit} agendamentos`
+           :                                   "Agendamentos";
+    case "DOMAIN_REGISTRATION":
+      return "Cadastro de domínio";
+    // Na Empresa o relatório é da equipe; nos cards pessoais, da conta.
+    case "ACCOUNT_REPORTS":
+      return plano === "ENTERPRISE" ? "Relatórios da equipe e PDF executivo"
+                                    : "Relatórios da conta e PDF executivo";
+    case "ACTIVE_SCAN":
+      return soVerificado      ? "Active Scan (só domínios verificados)"
+           : f.state === "YES" ? "Active Scan em qualquer domínio"
+           :                     "Active Scan";
+    default:
+      return f.id;
+  }
+}
+
+/** Preço formatado na moeda que a API informou. */
+function precoDoPlano(p: ApiPlan): string {
+  if (p.amount == null) return "Grátis";
+  const valor = new Intl.NumberFormat("pt-BR", {
+    style: "currency", currency: p.currency || "BRL",
+  }).format(p.amount);
+  return `${valor}/mês`;
+}
+
+/** FREE não se assina. */
+function ehPago(plano: PlanKey): boolean {
+  return plano !== "FREE";
+}
 
 function PlansModal({ onClose }: { onClose: () => void }) {
   const { user, refreshUser } = useAuth();
@@ -1434,6 +1448,24 @@ function PlansModal({ onClose }: { onClose: () => void }) {
   // webhook confirmando a assinatura, cancelamento, pagamento recusado.
   useEffect(() => { void refreshUser(); }, [refreshUser]);
 
+  const [planos, setPlanos]           = useState<ApiPlan[] | null>(null);
+  const [erroCardapio, setErroCardapio] = useState(false);
+
+  const carregarCardapio = useCallback(async () => {
+    setErroCardapio(false);
+    try {
+      const res = await api.get<ApiPlan[]>("/billing/plans");
+      setPlanos(res.data);
+    } catch {
+      // Sem lista de reserva de propósito. Um cardápio estático aqui voltaria a
+      // envelhecer, e mostraria preço velho como se fosse o atual justamente
+      // quando a API está fora. Errar em voz alta é melhor que mentir baixinho.
+      setErroCardapio(true);
+    }
+  }, []);
+
+  useEffect(() => { void carregarCardapio(); }, [carregarCardapio]);
+
   /**
    * O card atual sai do PLANO, nunca do tipo da conta. Toda conta nasce em
    * Plan.FREE — COMPANY inclusive (AuthService.buildAccountFromRegister) — então
@@ -1441,26 +1473,12 @@ function PlansModal({ onClose }: { onClose: () => void }) {
    * FREE, e o guard `!current` escondia o botão: a empresa não tinha como assinar
    * o plano Empresa. O tipo da conta vale para CNPJ e equipe, não para plano.
    */
-  const currentPlan: PlanKey =
-    user?.account?.plan === "ENTERPRISE" ? "EMPRESA" :
-      user?.account?.plan === "PRO" ? "PESSOAL_PRO" :
-        "PESSOAL_FREE";
+  const currentPlan: PlanKey = user?.account?.plan ?? "FREE";
 
   const loggedIn = !!user;
   const [subscribing, setSubscribing] = useState<string | null>(null);
   const [subError, setSubError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
-
-  /**
-   * Nome do plano na API. O card usa rótulos de produto (PESSOAL_PRO/EMPRESA);
-   * o backend fala em PRO/ENTERPRISE. Traduzir aqui evita vazar o vocabulário
-   * interno para a tela e vice-versa.
-   */
-  function planoDaApi(key: PlanKey): string | null {
-    if (key === "PESSOAL_PRO") return "PRO";
-    if (key === "EMPRESA")     return "ENTERPRISE";
-    return null;   // FREE não se assina
-  }
 
   /**
    * O endpoint existia desde sempre e nenhuma tela chamava: quem assinava não
@@ -1485,10 +1503,9 @@ function PlansModal({ onClose }: { onClose: () => void }) {
     }
   }
 
-  async function subscribe(key: PlanKey) {
-    const plano = planoDaApi(key);
-    if (!plano) return;
-    setSubscribing(key); setSubError(null);
+  async function subscribe(plano: PlanKey) {
+    if (!ehPago(plano)) return;
+    setSubscribing(plano); setSubError(null);
     try {
       const res = await api.post<{ initPoint: string }>("/billing/subscribe", { plan: plano });
       if (res.data?.initPoint) {
@@ -1509,61 +1526,81 @@ function PlansModal({ onClose }: { onClose: () => void }) {
           <span className={styles.plansModalTitle}>◈ PLANOS & FUNCIONALIDADES</span>
           <button className={styles.modalClose} onClick={onClose}>✕</button>
         </div>
-        <div className={styles.plansGrid}>
-          {PLAN_DEFS.map(plan => {
-            const current = plan.key === currentPlan;
-            return (
-              <div key={plan.key} className={`${styles.planCard} ${current ? styles.planCardCurrent : ""}`}>
-                {current && <div className={styles.planCurrentBadge}>Seu plano atual</div>}
-                <div className={styles.planName}>{plan.name}</div>
-                <div className={styles.planPrice}>{plan.price}</div>
-                <div className={styles.planDoc}>{plan.doc}</div>
-                <ul className={styles.planFeatures}>
-                  {plan.features.map(f => (
-                    <li key={f.label} className={styles.planFeatureRow}>
-                      {f.ok === "partial"
-                        ? <span className={styles.partial}>◑</span>
-                        : <span className={f.ok ? styles.ok : styles.bad}>{f.ok ? "✓" : "✗"}</span>
-                      }
-                      <span className={f.ok === "partial" ? styles.planFeaturePartial : f.ok ? styles.planFeatureOn : styles.planFeatureOff}>{f.label}</span>
-                    </li>
-                  ))}
-                </ul>
-                {plan.note && <div className={styles.planNote}>{plan.note}</div>}
-                {current && planoDaApi(plan.key) && loggedIn && (
-                  <button
-                    className={`${styles.btn} ${styles.btnDanger} ${styles.btnFull}`}
-                    disabled={cancelling}
-                    onClick={cancelar}
-                  >
-                    {cancelling ? "Cancelando..." : "Cancelar assinatura"}
-                  </button>
-                )}
-                {!current && (
-                  planoDaApi(plan.key) ? (
-                    loggedIn ? (
-                      // Qualquer plano pago é assinável, não só o sugerido pelo tipo
-                      // de conta: empresa pequena pode querer o Pro, e pessoa física
-                      // pode querer os recursos do Empresa. O backend recusa o que
-                      // não faz sentido (mesmo plano, ou downgrade sem cancelar).
-                      <button
-                        className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`}
-                        disabled={subscribing !== null}
-                        onClick={() => subscribe(plan.key)}
-                      >
-                        {subscribing === plan.key ? "Redirecionando..." : `Assinar ${plan.price} →`}
-                      </button>
+
+        {erroCardapio ? (
+          <div className={styles.empty} style={{ padding: 32 }}>
+            Não foi possível carregar os planos.{" "}
+            <button className={styles.backLink} onClick={() => void carregarCardapio()}>
+              Tentar de novo
+            </button>
+          </div>
+        ) : planos === null ? (
+          <div className={styles.empty} style={{ padding: 32 }}>Carregando planos...</div>
+        ) : (
+          <div className={styles.plansGrid}>
+            {planos.map(p => {
+              const card    = PLAN_CARDS[p.plan];
+              const current = p.plan === currentPlan;
+              const preco   = precoDoPlano(p);
+              return (
+                <div key={p.plan} className={`${styles.planCard} ${current ? styles.planCardCurrent : ""}`}>
+                  {current && <div className={styles.planCurrentBadge}>Seu plano atual</div>}
+                  <div className={styles.planName}>{card.name}</div>
+                  <div className={styles.planPrice}>{preco}</div>
+                  <div className={styles.planDoc}>{card.doc}</div>
+                  <ul className={styles.planFeatures}>
+                    {p.features.map(f => {
+                      const parcial = f.state === "VERIFIED_DOMAINS_ONLY";
+                      const ligado  = f.state !== "NO";
+                      return (
+                        <li key={f.id} className={styles.planFeatureRow}>
+                          {parcial
+                            ? <span className={styles.partial}>◑</span>
+                            : <span className={ligado ? styles.ok : styles.bad}>{ligado ? "✓" : "✗"}</span>
+                          }
+                          <span className={parcial ? styles.planFeaturePartial : ligado ? styles.planFeatureOn : styles.planFeatureOff}>
+                            {rotuloDoRecurso(f, p.plan)}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {card.note && <div className={styles.planNote}>{card.note}</div>}
+                  {current && ehPago(p.plan) && loggedIn && (
+                    <button
+                      className={`${styles.btn} ${styles.btnDanger} ${styles.btnFull}`}
+                      disabled={cancelling}
+                      onClick={cancelar}
+                    >
+                      {cancelling ? "Cancelando..." : "Cancelar assinatura"}
+                    </button>
+                  )}
+                  {!current && (
+                    ehPago(p.plan) ? (
+                      loggedIn ? (
+                        // Qualquer plano pago é assinável, não só o sugerido pelo tipo
+                        // de conta: empresa pequena pode querer o Pro, e pessoa física
+                        // pode querer os recursos do Empresa. O backend recusa o que
+                        // não faz sentido (mesmo plano, ou downgrade sem cancelar).
+                        <button
+                          className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`}
+                          disabled={subscribing !== null}
+                          onClick={() => subscribe(p.plan)}
+                        >
+                          {subscribing === p.plan ? "Redirecionando..." : `Assinar ${preco} →`}
+                        </button>
+                      ) : (
+                        <div className={styles.planCta}>Faça login para assinar</div>
+                      )
                     ) : (
-                      <div className={styles.planCta}>Faça login para assinar</div>
+                      <div className={styles.planCta}>Grátis</div>
                     )
-                  ) : (
-                    <div className={styles.planCta}>Grátis</div>
-                  )
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
         {subError && <div className={styles.errorBox} style={{ margin: "0 16px 16px" }}>{subError}</div>}
       </div>
     </div>
