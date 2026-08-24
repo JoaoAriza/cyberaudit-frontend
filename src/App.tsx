@@ -1449,6 +1449,7 @@ function PlansModal({ onClose }: { onClose: () => void }) {
   const loggedIn = !!user;
   const [subscribing, setSubscribing] = useState<string | null>(null);
   const [subError, setSubError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   /**
    * Nome do plano na API. O card usa rótulos de produto (PESSOAL_PRO/EMPRESA);
@@ -1459,6 +1460,29 @@ function PlansModal({ onClose }: { onClose: () => void }) {
     if (key === "PESSOAL_PRO") return "PRO";
     if (key === "EMPRESA")     return "ENTERPRISE";
     return null;   // FREE não se assina
+  }
+
+  /**
+   * O endpoint existia desde sempre e nenhuma tela chamava: quem assinava não
+   * tinha como cancelar pelo produto.
+   *
+   * O texto avisa que o corte é imediato porque é o que BillingService.cancelSubscription
+   * faz — grava CANCELLED e rebaixa a conta para FREE na hora, sem carência até o
+   * fim do período já pago.
+   */
+  async function cancelar() {
+    if (!confirm("Cancelar a assinatura? O acesso aos recursos pagos termina "
+               + "imediatamente, não no fim do período já pago.")) return;
+    setCancelling(true); setSubError(null);
+    try {
+      await api.post("/billing/cancel");
+      // Sem isto o cartão continuaria marcado como plano atual até um reload.
+      await refreshUser();
+    } catch (e: any) {
+      setSubError(e?.response?.data?.message ?? "Não foi possível cancelar a assinatura.");
+    } finally {
+      setCancelling(false);
+    }
   }
 
   async function subscribe(key: PlanKey) {
@@ -1506,6 +1530,15 @@ function PlansModal({ onClose }: { onClose: () => void }) {
                   ))}
                 </ul>
                 {plan.note && <div className={styles.planNote}>{plan.note}</div>}
+                {current && planoDaApi(plan.key) && loggedIn && (
+                  <button
+                    className={`${styles.btn} ${styles.btnDanger} ${styles.btnFull}`}
+                    disabled={cancelling}
+                    onClick={cancelar}
+                  >
+                    {cancelling ? "Cancelando..." : "Cancelar assinatura"}
+                  </button>
+                )}
                 {!current && (
                   planoDaApi(plan.key) ? (
                     loggedIn ? (
