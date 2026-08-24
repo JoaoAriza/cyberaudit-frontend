@@ -1353,9 +1353,13 @@ interface PlanDef {
 
 /**
  * Fonte da verdade: Plan.java no Backend, mais o gating de detalhe do
- * ScanEntitlementService. É uma lista paralela mantida à mão — qualquer recurso
- * novo com trava de plano precisa aparecer aqui também, senão o cliente paga sem
- * saber o que está comprando.
+ * ScanEntitlementService e a regra de entrega do PlanLimitService. É uma lista
+ * paralela mantida à mão — qualquer recurso novo com trava de plano precisa
+ * aparecer aqui também, senão o cliente paga sem saber o que está comprando.
+ *
+ * O ◑ marca recurso que o plano libera mas o domínio limita: no Pessoal Pro, o
+ * PDF e o e-mail só saem sobre domínio verificado da conta, mesma fronteira do
+ * Active Scan. Ver PlanLimitService.checkReportDelivery.
  *
  * Multi-usuário NÃO está na lista de propósito: convite de usuário é liberado por
  * AccountType.COMPANY (InviteService), não por plano. Uma conta Empresa no FREE já
@@ -1373,7 +1377,8 @@ const PLAN_DEFS: PlanDef[] = [
     features: [
       { label: "Impacto e correção de cada achado", ok: false },
       { label: "10 scans por dia",                  ok: true  },
-      { label: "PDF do scan",                       ok: true  },
+      { label: "PDF do scan",                       ok: false },
+      { label: "Notificação por e-mail",            ok: false },
       { label: "Módulo Changes",                    ok: false },
       { label: "Gráfico histórico",                 ok: false },
       { label: "Agendamentos",                      ok: false },
@@ -1390,7 +1395,8 @@ const PLAN_DEFS: PlanDef[] = [
     features: [
       { label: "Impacto e correção de cada achado", ok: true  },
       { label: "Scans ilimitados",                  ok: true  },
-      { label: "PDF do scan",                       ok: true  },
+      { label: "PDF do scan (só domínios verificados)",          ok: "partial" as const },
+      { label: "Notificação por e-mail (só domínios verificados)", ok: "partial" as const },
       { label: "Módulo Changes",                    ok: true  },
       { label: "Gráfico histórico",                 ok: true  },
       { label: "10 agendamentos",                   ok: true  },
@@ -1407,7 +1413,8 @@ const PLAN_DEFS: PlanDef[] = [
     features: [
       { label: "Impacto e correção de cada achado", ok: true },
       { label: "Scans ilimitados",                  ok: true },
-      { label: "PDF do scan",                       ok: true },
+      { label: "PDF de qualquer domínio",           ok: true },
+      { label: "Notificação por e-mail",            ok: true },
       { label: "Módulo Changes",                    ok: true },
       { label: "Gráfico histórico",                 ok: true },
       { label: "Agendamentos ilimitados",           ok: true },
@@ -1950,6 +1957,10 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
 // ── Schedules Page ────────────────────────────────────────────────────────────
 
 function SchedulesPage() {
+  const { user } = useAuth();
+  // Agendar já é PRO+, então o e-mail está sempre liberado aqui — o que pode
+  // barrar é o domínio: no Pro pessoal, só os verificados.
+  const reportVerifiedOnly = user?.account?.reportOnVerifiedOnly === true;
   const [schedules, setSchedules]   = useState<ScheduledScanDto[]>([]);
   const [loading, setLoading]       = useState(true);
   const [host, setHost]             = useState("");
@@ -2064,7 +2075,9 @@ function SchedulesPage() {
             <option key={i} value={i}>{String(i).padStart(2, "0")}:00 UTC</option>
           ))}
         </select>
-        <label className={styles.toggle} title="Receber email ao concluir">
+        <label className={styles.toggle} title={reportVerifiedOnly
+          ? "No plano Pessoal Pro, o e-mail vale apenas para domínios verificados na sua conta"
+          : "Receber email ao concluir"}>
           <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} disabled={creating} />
           <span className={styles.toggleLabel}>EMAIL</span>
         </label>
@@ -5926,7 +5939,7 @@ export default function App() {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const res = await api.post("/scan/async", null, { params: { url, active, refresh: true, notify: notify && !!user }, signal: controller.signal });
+      const res = await api.post("/scan/async", null, { params: { url, active, refresh: true, notify: notify && canEmailNotify }, signal: controller.signal });
       const scanId = res.data.scanId as string;
       pollRef.current = setInterval(async () => {
         try {
@@ -6058,6 +6071,12 @@ export default function App() {
   // -1 = ilimitado; 0 = plano não agenda
   const canSchedules            = (user?.account?.scheduledScanLimit ?? 0) !== 0;
   const activeScanVerifiedOnly  = user?.account?.activeScanOnVerifiedOnly === true;
+  // Entrega de laudo: paga, e no Pro pessoal só sobre domínio verificado. A tela
+  // não sabe quais domínios são verificados, então avisa da regra — quem recusa
+  // de fato é o PlanLimitService.
+  const canPdf                  = user?.account?.pdfExportAllowed        === true;
+  const canEmailNotify          = user?.account?.emailNotifyAllowed      === true;
+  const reportVerifiedOnly      = user?.account?.reportOnVerifiedOnly    === true;
   // Compliance: EMPRESA (qualquer plano) + PRO PESSOAL (incentivo de upsell) + OWNER/ADMIN
   const canCompliance = isAdmin()
       || user?.account?.type === "COMPANY"
@@ -6109,15 +6128,32 @@ export default function App() {
             </span>
           </label>
           {user && (
-            <label className={styles.toggle} title="Receber email ao concluir o scan">
-              <input type="checkbox" checked={notify} disabled={scanLoading} onChange={e => setNotify(e.target.checked)} />
-              <span className={styles.toggleLabel}>EMAIL</span>
+            <label className={styles.toggle} title={
+              !canEmailNotify
+                ? "Receber o laudo por e-mail requer plano PRO ou superior"
+                : reportVerifiedOnly
+                ? "No plano Pessoal Pro, o e-mail vale apenas para domínios verificados na sua conta"
+                : "Receber email ao concluir o scan"
+            }>
+              <input type="checkbox" checked={notify && canEmailNotify}
+                disabled={scanLoading || !canEmailNotify}
+                onChange={e => setNotify(e.target.checked)} />
+              <span className={`${styles.toggleLabel} ${!canEmailNotify ? styles.disabledLabel : ""}`}>
+                EMAIL{!canEmailNotify ? " ⛔" : ""}
+              </span>
             </label>
           )}
         </div>
         {activeScanVerifiedOnly && active && (
           <div style={{ fontSize: 10, color: "var(--warning)", fontFamily: "var(--mono)", marginTop: 4, letterSpacing: ".3px" }}>
             ⚠ Modo PRO — scan ativo restrito a domínios verificados na aba <strong>Domínios</strong>
+          </div>
+        )}
+        {/* Só aparece quando a entrega é possível: e-mail marcado, ou já há
+            resultado na tela para exportar em PDF. */}
+        {reportVerifiedOnly && (notify || !!r) && (
+          <div style={{ fontSize: 10, color: "var(--warning)", fontFamily: "var(--mono)", marginTop: 4, letterSpacing: ".3px" }}>
+            ⚠ Modo PRO — PDF e e-mail restritos a domínios verificados na aba <strong>Domínios</strong>
           </div>
         )}
         <div className={styles.actions}>
@@ -6127,8 +6163,14 @@ export default function App() {
           <button
             className={`${styles.btn} ${styles.btnGhost}`}
             onClick={handlePdf}
-            disabled={pdfLoading || scanLoading || (!!user && user.account?.pdfExportAllowed === false)}
-            title={user && user.account?.pdfExportAllowed === false ? "PDF requer plano PRO ou superior" : ""}
+            disabled={pdfLoading || scanLoading || (!!user && !canPdf)}
+            title={
+              user && !canPdf
+                ? "Exportar PDF requer plano PRO ou superior"
+                : reportVerifiedOnly
+                ? "No plano Pessoal Pro, o PDF vale apenas para domínios verificados na sua conta"
+                : ""
+            }
           >{pdfLoading ? "..." : "PDF"}</button>
         </div>
       </div>

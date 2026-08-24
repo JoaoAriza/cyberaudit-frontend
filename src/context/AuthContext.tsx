@@ -20,6 +20,10 @@ export interface AccountDto {
   /** PRO INDIVIDUAL — scan ativo só em domínios verificados */
   activeScanOnVerifiedOnly: boolean;
   pdfExportAllowed: boolean;
+  /** Notificação por e-mail do scan concluído — PRO+ */
+  emailNotifyAllowed: boolean;
+  /** PRO PESSOAL — PDF e e-mail só sobre domínios verificados da conta */
+  reportOnVerifiedOnly: boolean;
   changesModuleAllowed: boolean;
   historyChartAllowed: boolean;
   /** Cadastrar domínio próprio — PRO ou superior */
