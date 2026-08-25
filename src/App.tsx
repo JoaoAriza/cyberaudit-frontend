@@ -1008,6 +1008,7 @@ function TermsModal({ type, onClose }: { type: "terms" | "privacy"; onClose: () 
  * encontrado". Seria um verificador de cadastro.
  */
 function EsqueciSenha({ onVoltar }: { onVoltar: () => void }) {
+  const { t } = useI18n();
   const [email, setEmail]   = useState("");
   const [enviado, setEnviado] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1020,7 +1021,7 @@ function EsqueciSenha({ onVoltar }: { onVoltar: () => void }) {
       await api.post("/auth/forgot-password", { email });
       setEnviado(true);
     } catch (err: any) {
-      setErro(err?.response?.data?.message ?? "Não foi possível processar o pedido.");
+      setErro(err?.response?.data?.message ?? t("senha.esqueci.erro"));
     } finally { setLoading(false); }
   }
 
@@ -1029,13 +1030,12 @@ function EsqueciSenha({ onVoltar }: { onVoltar: () => void }) {
       <div className={styles.loginForm}>
         <div style={{ textAlign: "center", padding: "12px 0" }}>
           <div style={{ fontSize: 32, marginBottom: 8, color: "var(--secure)" }}>✓</div>
-          <div style={{ color: "var(--text)", fontWeight: 600, marginBottom: 6 }}>Verifique seu e-mail</div>
+          <div style={{ color: "var(--text)", fontWeight: 600, marginBottom: 6 }}>{t("senha.esqueci.enviadoTitulo")}</div>
           <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6 }}>
-            Se houver uma conta com este e-mail, enviamos um link de redefinição.
-            Ele vale por 30 minutos.
+            {t("senha.esqueci.enviadoTexto")}
           </div>
         </div>
-        <button type="button" className={styles.backLink} onClick={onVoltar}>← Voltar ao login</button>
+        <button type="button" className={styles.backLink} onClick={onVoltar}>{t("comum.voltarLogin")}</button>
       </div>
     );
   }
@@ -1043,24 +1043,25 @@ function EsqueciSenha({ onVoltar }: { onVoltar: () => void }) {
   return (
     <form className={styles.loginForm} onSubmit={enviar}>
       <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4, lineHeight: 1.6 }}>
-        Informe o e-mail da conta. Enviaremos um link para você criar uma senha nova.
+        {t("senha.esqueci.instrucao")}
       </div>
       <div className={styles.formGroup}>
-        <label className={styles.formLabel}>EMAIL</label>
+        <label className={styles.formLabel}>{t("comum.email")}</label>
         <input className={styles.formInput} type="email" value={email}
-               onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" required />
+               onChange={e => setEmail(e.target.value)} placeholder={t("comum.phEmail")} required />
       </div>
       {erro && <div className={styles.errorBox}>{erro}</div>}
       <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading}>
-        {loading ? "Enviando..." : "Enviar link de redefinição"}
+        {loading ? t("comum.enviando") : t("senha.esqueci.enviar")}
       </button>
-      <button type="button" className={styles.backLink} onClick={onVoltar}>← Voltar ao login</button>
+      <button type="button" className={styles.backLink} onClick={onVoltar}>{t("comum.voltarLogin")}</button>
     </form>
   );
 }
 
 /** Tela aberta pelo link do e-mail: /redefinir-senha?token=... */
 function RedefinirSenha({ token }: { token: string }) {
+  const { t } = useI18n();
   const [senha, setSenha]         = useState("");
   const [confirma, setConfirma]   = useState("");
   const [pronto, setPronto]       = useState(false);
@@ -1069,13 +1070,13 @@ function RedefinirSenha({ token }: { token: string }) {
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
-    if (senha !== confirma) { setErro("As senhas não conferem."); return; }
+    if (senha !== confirma) { setErro(t("senha.redefinir.naoConferem")); return; }
     setLoading(true); setErro(null);
     try {
       await api.post("/auth/reset-password", { token, password: senha });
       setPronto(true);
     } catch (err: any) {
-      setErro(err?.response?.data?.message ?? "Não foi possível redefinir a senha.");
+      setErro(err?.response?.data?.message ?? t("senha.redefinir.erro"));
     } finally { setLoading(false); }
   }
 
@@ -1088,41 +1089,41 @@ function RedefinirSenha({ token }: { token: string }) {
     <div className={styles.loginPage}>
       <div className={styles.loginCard}>
         <div className={styles.loginLogo}>◈ CYBERAUDIT</div>
-        <div className={styles.loginTitle}>Redefinir senha</div>
+        <div className={styles.loginTitle}>{t("senha.redefinir.titulo")}</div>
 
         {pronto ? (
           <div className={styles.loginForm}>
             <div style={{ textAlign: "center", padding: "12px 0" }}>
               <div style={{ fontSize: 32, marginBottom: 8, color: "var(--secure)" }}>✓</div>
-              <div style={{ color: "var(--text)", fontWeight: 600, marginBottom: 6 }}>Senha redefinida</div>
+              <div style={{ color: "var(--text)", fontWeight: 600, marginBottom: 6 }}>{t("senha.redefinir.prontoTitulo")}</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                Use a senha nova para entrar.
+                {t("senha.redefinir.prontoTexto")}
               </div>
             </div>
             <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} onClick={irParaLogin}>
-              Ir para o login
+              {t("senha.redefinir.irLogin")}
             </button>
           </div>
         ) : (
           <form className={styles.loginForm} onSubmit={enviar}>
             <div className={styles.formGroup}>
-              <label className={styles.formLabel}>NOVA SENHA</label>
+              <label className={styles.formLabel}>{t("senha.redefinir.nova")}</label>
               <input className={styles.formInput} type="password" value={senha} minLength={8}
-                     onChange={e => setSenha(e.target.value)} placeholder="••••••••" required />
+                     onChange={e => setSenha(e.target.value)} placeholder={t("comum.phSenha")} required />
             </div>
             <div className={styles.formGroup}>
-              <label className={styles.formLabel}>CONFIRME A NOVA SENHA</label>
+              <label className={styles.formLabel}>{t("senha.redefinir.confirme")}</label>
               <input className={styles.formInput} type="password" value={confirma} minLength={8}
-                     onChange={e => setConfirma(e.target.value)} placeholder="••••••••" required />
+                     onChange={e => setConfirma(e.target.value)} placeholder={t("comum.phSenha")} required />
             </div>
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
-              Mínimo de 8 caracteres.
+              {t("senha.redefinir.minimo")}
             </div>
             {erro && <div className={styles.errorBox}>{erro}</div>}
             <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading}>
-              {loading ? "Salvando..." : "Redefinir senha"}
+              {loading ? t("comum.salvando") : t("senha.redefinir.titulo")}
             </button>
-            <button type="button" className={styles.backLink} onClick={irParaLogin}>← Voltar ao login</button>
+            <button type="button" className={styles.backLink} onClick={irParaLogin}>{t("comum.voltarLogin")}</button>
           </form>
         )}
       </div>
@@ -1130,7 +1131,23 @@ function RedefinirSenha({ token }: { token: string }) {
   );
 }
 
+/**
+ * Monta uma frase que contém links, sem picá-la no catálogo.
+ *
+ * "Li e aceito os {0} e a {1}" chega inteira ao tradutor, que pode reordenar as
+ * partes — em inglês a ordem e as preposições são outras. Concatenar fragmentos
+ * ("Li e aceito os " + link + " e a " + link) travaria a frase na gramática do
+ * português.
+ */
+function fraseComLinks(texto: string, links: React.ReactNode[]): React.ReactNode[] {
+  return texto.split(/(\{\d\})/).map((parte, i) => {
+    const marca = parte.match(/^\{(\d)\}$/);
+    return <span key={i}>{marca ? links[Number(marca[1])] : parte}</span>;
+  });
+}
+
 function LoginPage({ onBack }: { onBack: () => void }) {
+  const { t } = useI18n();
   const { login, register, verify2fa, resendEmailOtp } = useAuth();
   const [authTab, setAuthTab] = useState<"login" | "register" | "forgot">("login");
   const [termsModal, setTermsModal] = useState<"terms" | "privacy" | null>(null);
@@ -1166,7 +1183,7 @@ function LoginPage({ onBack }: { onBack: () => void }) {
         onBack();
       }
     }
-    catch (err: any) { setError(err?.response?.data?.message ?? err?.response?.data?.error ?? "Credenciais inválidas."); }
+    catch (err: any) { setError(err?.response?.data?.message ?? err?.response?.data?.error ?? t("login.credenciaisInvalidas")); }
     finally { setLoading(false); }
   }
 
@@ -1177,26 +1194,26 @@ function LoginPage({ onBack }: { onBack: () => void }) {
       await verify2fa(twoFaCode.replace(/\s/g, ""), twoFaMethod);
       onBack();
     }
-    catch (err: any) { setError(err?.response?.data?.message ?? "Código inválido ou expirado."); }
+    catch (err: any) { setError(err?.response?.data?.message ?? t("login.2fa.codigoInvalido")); }
     finally { setLoading(false); }
   }
 
   async function handleResend() {
     setResendInfo(null); setError(null);
-    try { await resendEmailOtp(); setResendInfo("Código reenviado para seu email."); }
+    try { await resendEmailOtp(); setResendInfo(t("login.2fa.reenviado")); }
     catch (err: any) {
       // O backend agora distingue "não consegui enviar" de erro genérico. Mostrar
       // a mensagem dele importa: antes a tela dizia "reenviado" mesmo quando nada
       // saía, e o usuário ficava tentando um código que não existia.
-      setError(err?.response?.data?.message ?? "Falha ao reenviar código.");
+      setError(err?.response?.data?.message ?? t("login.2fa.falhaReenviar"));
     }
   }
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
-    if (rPassword !== rConfirm) { setError("As senhas não coincidem."); return; }
-    if (rPassword.length < 8) { setError("Senha deve ter no mínimo 8 caracteres."); return; }
-    if (!rTerms) { setError("Você precisa aceitar os Termos de Uso."); return; }
+    if (rPassword !== rConfirm) { setError(t("login.senhasNaoCoincidem")); return; }
+    if (rPassword.length < 8) { setError(t("login.senhaMinima")); return; }
+    if (!rTerms) { setError(t("login.precisaAceitar")); return; }
     setLoading(true); setError(null);
     try {
       await register({
@@ -1208,7 +1225,7 @@ function LoginPage({ onBack }: { onBack: () => void }) {
       });
       onBack();
     }
-    catch (err: any) { setError(err?.response?.data?.message ?? "Erro ao criar conta."); }
+    catch (err: any) { setError(err?.response?.data?.message ?? t("login.erroCriarConta")); }
     finally { setLoading(false); }
   }
 
@@ -1219,11 +1236,11 @@ function LoginPage({ onBack }: { onBack: () => void }) {
       <div className={styles.loginPage}>
         <div className={styles.loginCard}>
           <div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
-          <div className={styles.loginTitle}>Verificação em 2 etapas</div>
+          <div className={styles.loginTitle}>{t("login.2fa.titulo")}</div>
           <div className={styles.loginSub}>
             {twoFaMethod === "EMAIL"
-              ? "Insira o código enviado para seu email."
-              : "Insira o código do seu app autenticador."}
+              ? t("login.2fa.subEmail")
+              : t("login.2fa.subApp")}
           </div>
           {hasBoth && (
             <div className={styles.tfMethodRow}>
@@ -1231,14 +1248,14 @@ function LoginPage({ onBack }: { onBack: () => void }) {
                 <button key={m}
                   className={`${styles.tfMethodBtn} ${twoFaMethod === m ? styles.tfMethodBtnActive : ""}`}
                   onClick={() => { setTwoFaMethod(m); setError(null); }}>
-                  {m === "TOTP" ? "📱 Autenticador" : "📧 Email"}
+                  {m === "TOTP" ? t("login.2fa.metodoApp") : t("login.2fa.metodoEmail")}
                 </button>
               ))}
             </div>
           )}
           <form className={styles.loginForm} onSubmit={handle2faSubmit}>
             <div className={styles.formGroup}>
-              <label className={styles.formLabel}>CÓDIGO</label>
+              <label className={styles.formLabel}>{t("login.2fa.codigo")}</label>
               <input className={`${styles.formInput} ${styles.tfCodeInput}`}
                 type="text" inputMode="numeric" pattern="[\d ]{6,7}"
                 value={twoFaCode} onChange={e => setTwoFaCode(e.target.value)}
@@ -1248,16 +1265,16 @@ function LoginPage({ onBack }: { onBack: () => void }) {
             {error && <div className={styles.errorBox}>{error}</div>}
             {resendInfo && <div className={styles.infoBox}>{resendInfo}</div>}
             <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading}>
-              {loading ? "Verificando..." : "Confirmar"}
+              {loading ? t("login.2fa.verificando") : t("login.2fa.confirmar")}
             </button>
             {twoFaMethod === "EMAIL" && (
               <button type="button" className={styles.backLink} onClick={handleResend}>
-                Reenviar código por email
+                {t("login.2fa.reenviar")}
               </button>
             )}
           </form>
           <button className={styles.backLink} onClick={() => { setPending2fa(null); setTwoFaCode(""); setError(null); }}>
-            ← Voltar ao login
+            {t("comum.voltarLogin")}
           </button>
         </div>
       </div>
@@ -1276,22 +1293,22 @@ function LoginPage({ onBack }: { onBack: () => void }) {
             <button
               className={`${styles.authTab} ${authTab === "login" ? styles.authTabActive : ""}`}
               onClick={() => { setAuthTab("login"); setError(null); }}
-            >Entrar</button>
+            >{t("login.entrar")}</button>
             <button
               className={`${styles.authTab} ${authTab === "register" ? styles.authTabActive : ""}`}
               onClick={() => { setAuthTab("register"); setError(null); }}
-            >Criar conta</button>
+            >{t("login.criarConta")}</button>
           </div>
 
           {/* ── Login form ── */}
           {authTab === "login" && (
             <form className={styles.loginForm} onSubmit={handleSubmit}>
-              <div className={styles.formGroup}><label className={styles.formLabel}>EMAIL</label><input className={styles.formInput} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" required /></div>
-              <div className={styles.formGroup}><label className={styles.formLabel}>SENHA</label><input className={styles.formInput} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required /></div>
+              <div className={styles.formGroup}><label className={styles.formLabel}>{t("comum.email")}</label><input className={styles.formInput} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t("comum.phEmail")} required /></div>
+              <div className={styles.formGroup}><label className={styles.formLabel}>{t("comum.senha")}</label><input className={styles.formInput} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t("comum.phSenha")} required /></div>
               {error && <div className={styles.errorBox}>{error}</div>}
-              <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button>
-              <button type="button" className={styles.backLink} onClick={() => setAuthTab("forgot")}>Esqueci minha senha</button>
-              <button type="button" className={styles.backLink} onClick={onBack}>← Voltar sem autenticação</button>
+              <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading}>{loading ? t("login.entrando") : t("login.entrar")}</button>
+              <button type="button" className={styles.backLink} onClick={() => setAuthTab("forgot")}>{t("login.esqueci")}</button>
+              <button type="button" className={styles.backLink} onClick={onBack}>{t("comum.voltarSemAuth")}</button>
             </form>
           )}
 
@@ -1301,36 +1318,36 @@ function LoginPage({ onBack }: { onBack: () => void }) {
           {authTab === "register" && (
             <form className={styles.loginForm} onSubmit={handleRegister}>
               <div className={styles.formGroup}>
-                <label className={styles.formLabel}>NOME COMPLETO *</label>
-                <input className={styles.formInput} value={rName} onChange={e => setRName(e.target.value)} placeholder="Seu nome" required />
+                <label className={styles.formLabel}>{t("login.nomeCompleto")}</label>
+                <input className={styles.formInput} value={rName} onChange={e => setRName(e.target.value)} placeholder={t("login.phNome")} required />
               </div>
               <div className={styles.formGroup}>
-                <label className={styles.formLabel}>EMAIL *</label>
-                <input className={styles.formInput} type="email" value={rEmail} onChange={e => setREmail(e.target.value)} placeholder="seu@email.com" required />
+                <label className={styles.formLabel}>{t("login.emailObrig")}</label>
+                <input className={styles.formInput} type="email" value={rEmail} onChange={e => setREmail(e.target.value)} placeholder={t("comum.phEmail")} required />
               </div>
               <div className={styles.formGroup}>
-                <label className={styles.formLabel}>SENHA *</label>
-                <input className={styles.formInput} type="password" value={rPassword} onChange={e => setRPassword(e.target.value)} placeholder="Mínimo 8 caracteres" required />
+                <label className={styles.formLabel}>{t("login.senhaObrig")}</label>
+                <input className={styles.formInput} type="password" value={rPassword} onChange={e => setRPassword(e.target.value)} placeholder={t("login.phSenhaMinima")} required />
               </div>
               <div className={styles.formGroup}>
-                <label className={styles.formLabel}>CONFIRMAR SENHA *</label>
-                <input className={styles.formInput} type="password" value={rConfirm} onChange={e => setRConfirm(e.target.value)} placeholder="Repita a senha" required />
+                <label className={styles.formLabel}>{t("login.confirmarSenha")}</label>
+                <input className={styles.formInput} type="password" value={rConfirm} onChange={e => setRConfirm(e.target.value)} placeholder={t("login.phRepitaSenha")} required />
               </div>
               <label className={styles.termsRow}>
                 <input type="checkbox" checked={rTerms} onChange={e => setRTerms(e.target.checked)} required />
                 <span>
-                  Li e aceito os{" "}
-                  <button type="button" className={styles.termsLink} onClick={() => setTermsModal("terms")}>Termos de Uso</button>
-                  {" "}e a{" "}
-                  <button type="button" className={styles.termsLink} onClick={() => setTermsModal("privacy")}>Política de Privacidade</button>
+                  {fraseComLinks(t("login.aceitoTermos"), [
+                    <button type="button" className={styles.termsLink} onClick={() => setTermsModal("terms")}>{t("login.termosDeUso")}</button>,
+                    <button type="button" className={styles.termsLink} onClick={() => setTermsModal("privacy")}>{t("login.politica")}</button>,
+                  ])}
                 </span>
               </label>
               {error && <div className={styles.errorBox}>{error}</div>}
               <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`}
                 disabled={loading || !rTerms}>
-                {loading ? "Criando conta..." : "Criar conta"}
+                {loading ? t("login.criandoConta") : t("login.criarConta")}
               </button>
-              <button type="button" className={styles.backLink} onClick={onBack}>← Voltar sem autenticação</button>
+              <button type="button" className={styles.backLink} onClick={onBack}>{t("comum.voltarSemAuth")}</button>
             </form>
           )}
         </div>
@@ -1346,17 +1363,26 @@ function LoginPage({ onBack }: { onBack: () => void }) {
  * e o scan público são justamente o que o cliente estrangeiro vê antes de existir
  * conta dele.
  *
+ * `flutuante` é para as telas que NÃO desenham o header — login, setup, convite,
+ * redefinição de senha, página de status pública. Todas retornam antes dele, e
+ * são justamente as primeiras que um estrangeiro vê: sem isto, ele chegaria numa
+ * tela em português sem nenhuma forma de trocar.
+ *
  * Trocar o idioma recarrega a página. Parece grosseiro, mas é o certo aqui: o
  * resultado do scan que já está na tela veio do Backend no idioma anterior, e
  * re-renderizar só a moldura deixaria metade em cada idioma — exatamente o
  * meio-termo que este bloco existe para evitar. O reload refaz as chamadas com o
  * header novo.
  */
-function LanguagePicker() {
+function LanguagePicker({ flutuante = false }: { flutuante?: boolean }) {
   const { lang, setLang, t } = useI18n();
 
   return (
-    <div className={styles.langPicker} role="group" aria-label={t("idioma.seletor")}>
+    <div
+      className={`${styles.langPicker} ${flutuante ? styles.langPickerFloat : ""}`}
+      role="group"
+      aria-label={t("idioma.seletor")}
+    >
       {IDIOMAS.map(i => (
         <button
           key={i.code}
@@ -1654,6 +1680,7 @@ function formatCnpj(raw: string): string {
 }
 
 function SetupPage() {
+  const { t } = useI18n();
   const [step, setStep]               = useState<1 | 2 | 3>(1);
   const [accountType, setAccountType] = useState<"COMPANY" | "INDIVIDUAL" | null>(null);
 
@@ -1693,8 +1720,8 @@ function SetupPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (password !== confirm)  { setError("As senhas não coincidem."); return; }
-    if (password.length < 8)   { setError("Senha deve ter no mínimo 8 caracteres."); return; }
+    if (password !== confirm)  { setError(t("login.senhasNaoCoincidem")); return; }
+    if (password.length < 8)   { setError(t("login.senhaMinima")); return; }
     setLoading(true); setError(null);
     try {
       const payload: Record<string, unknown> = {
@@ -1718,13 +1745,13 @@ function SetupPage() {
       setToken(res.data.token);
       window.location.href = "/";
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Erro ao configurar o sistema.");
+      setError(err?.response?.data?.message ?? t("setup.erro"));
     } finally {
       setLoading(false);
     }
   }
 
-  const stepLabels = ["Tipo de conta", "Detalhes", "Acesso"];
+  const stepLabels = [t("setup.passo1"), t("setup.passo2"), t("setup.passo3")];
 
   return (
     <div className={styles.loginPage}>
@@ -1754,8 +1781,8 @@ function SetupPage() {
         {/* Passo 1: Tipo de conta */}
         {step === 1 && (
           <>
-            <div className={styles.loginTitle}>Configuração inicial</div>
-            <div className={styles.loginSub}>Escolha o tipo de conta para sua organização</div>
+            <div className={styles.loginTitle}>{t("setup.titulo")}</div>
+            <div className={styles.loginSub}>{t("setup.subtitulo")}</div>
             <div className={styles.setupTypeGrid}>
               <button
                 type="button"
@@ -1763,8 +1790,8 @@ function SetupPage() {
                 onClick={() => setAccountType("COMPANY")}
               >
                 <div className={styles.setupTypeIcon}>🏢</div>
-                <div className={styles.setupTypeName}>Empresa</div>
-                <div className={styles.setupTypeDesc}>Multi-usuário, CNPJ, domínios corporativos</div>
+                <div className={styles.setupTypeName}>{t("setup.empresa")}</div>
+                <div className={styles.setupTypeDesc}>{t("setup.empresaDesc")}</div>
               </button>
               <button
                 type="button"
@@ -1772,8 +1799,8 @@ function SetupPage() {
                 onClick={() => setAccountType("INDIVIDUAL")}
               >
                 <div className={styles.setupTypeIcon}>👤</div>
-                <div className={styles.setupTypeName}>Individual</div>
-                <div className={styles.setupTypeDesc}>Uso pessoal ou profissional solo</div>
+                <div className={styles.setupTypeName}>{t("setup.individual")}</div>
+                <div className={styles.setupTypeDesc}>{t("setup.individualDesc")}</div>
               </button>
             </div>
             <button
@@ -1781,7 +1808,7 @@ function SetupPage() {
               disabled={!accountType}
               onClick={goNext}
             >
-              Continuar
+              {t("setup.continuar")}
             </button>
           </>
         )}
@@ -1790,42 +1817,42 @@ function SetupPage() {
         {step === 2 && (
           <form onSubmit={e => { e.preventDefault(); if (step2Valid()) goNext(); }}>
             <div className={styles.loginTitle}>
-              {accountType === "COMPANY" ? "Dados da empresa" : "Dados profissionais"}
+              {accountType === "COMPANY" ? t("setup.dadosEmpresa") : t("setup.dadosProfissionais")}
             </div>
             {accountType === "COMPANY" ? (
               <>
-                <div className={styles.formGroup}><label className={styles.formLabel}>NOME DA EMPRESA *</label><input className={styles.formInput} value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Ex: Acme Security Ltda" required /></div>
-                <div className={styles.formGroup}><label className={styles.formLabel}>CNPJ *</label><input className={styles.formInput} value={cnpj} onChange={e => setCnpj(formatCnpj(e.target.value))} placeholder="XX.XXX.XXX/XXXX-XX" maxLength={18} required /></div>
-                <div className={styles.formGroup}><label className={styles.formLabel}>DOMÍNIO PRINCIPAL</label><input className={styles.formInput} value={companyDomain} onChange={e => setCompanyDomain(e.target.value)} placeholder="empresa.com.br" /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>{t("setup.nomeEmpresa")}</label><input className={styles.formInput} value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder={t("setup.phNomeEmpresa")} required /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>{t("setup.cnpj")}</label><input className={styles.formInput} value={cnpj} onChange={e => setCnpj(formatCnpj(e.target.value))} placeholder="XX.XXX.XXX/XXXX-XX" maxLength={18} required /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>{t("setup.dominioPrincipal")}</label><input className={styles.formInput} value={companyDomain} onChange={e => setCompanyDomain(e.target.value)} placeholder="empresa.com.br" /></div>
                 <div className={styles.formGroup}>
-                  <label className={styles.formLabel}>TAMANHO DA EMPRESA</label>
+                  <label className={styles.formLabel}>{t("setup.tamanhoEmpresa")}</label>
                   <select className={styles.formInput} value={companySize} onChange={e => setCompanySize(e.target.value)}>
-                    <option value="1-10">1–10 funcionários</option>
-                    <option value="11-50">11–50 funcionários</option>
-                    <option value="51-200">51–200 funcionários</option>
-                    <option value="201+">201+ funcionários</option>
+                    <option value="1-10">{t("setup.funcionarios", "1–10")}</option>
+                    <option value="11-50">{t("setup.funcionarios", "11–50")}</option>
+                    <option value="51-200">{t("setup.funcionarios", "51–200")}</option>
+                    <option value="201+">{t("setup.funcionarios", "201+")}</option>
                   </select>
                 </div>
               </>
             ) : (
               <>
-                <div className={styles.formGroup}><label className={styles.formLabel}>PROFISSÃO</label><input className={styles.formInput} value={profession} onChange={e => setProfession(e.target.value)} placeholder="Ex: Security Researcher" /></div>
-                <div className={styles.formGroup}><label className={styles.formLabel}>WEBSITE / PORTFÓLIO</label><input className={styles.formInput} value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://meusite.com.br" /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>{t("setup.profissao")}</label><input className={styles.formInput} value={profession} onChange={e => setProfession(e.target.value)} placeholder={t("setup.phProfissao")} /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>{t("setup.website")}</label><input className={styles.formInput} value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://meusite.com.br" /></div>
               </>
             )}
             <div className={styles.formGroup}>
-              <label className={styles.formLabel}>PAÍS</label>
+              <label className={styles.formLabel}>{t("setup.pais")}</label>
               <select className={styles.formInput} value={country} onChange={e => setCountry(e.target.value)}>
                 <option value="BR">Brasil</option>
                 <option value="PT">Portugal</option>
                 <option value="US">United States</option>
-                <option value="OTHER">Outro</option>
+                <option value="OTHER">{t("setup.paisOutro")}</option>
               </select>
             </div>
             {error && <div className={styles.errorBox}>{error}</div>}
             <div className={styles.setupBtnRow}>
-              <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={goBack}>← Voltar</button>
-              <button type="submit" className={`${styles.btn} ${styles.btnScan}`} disabled={!step2Valid()}>Continuar →</button>
+              <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={goBack}>{t("setup.voltar")}</button>
+              <button type="submit" className={`${styles.btn} ${styles.btnScan}`} disabled={!step2Valid()}>{t("setup.continuarSeta")}</button>
             </div>
           </form>
         )}
@@ -1833,22 +1860,25 @@ function SetupPage() {
         {/* Passo 3: Dados de acesso */}
         {step === 3 && (
           <form className={styles.loginForm} onSubmit={handleSubmit}>
-            <div className={styles.loginTitle}>Dados de acesso</div>
-            <div className={styles.loginSub}>Credenciais do administrador principal (OWNER)</div>
-            <div className={styles.formGroup}><label className={styles.formLabel}>NOME COMPLETO *</label><input className={styles.formInput} value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome completo" required /></div>
-            <div className={styles.formGroup}><label className={styles.formLabel}>EMAIL *</label><input className={styles.formInput} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@empresa.com" required /></div>
-            <div className={styles.formGroup}><label className={styles.formLabel}>SENHA *</label><input className={styles.formInput} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" required /></div>
-            <div className={styles.formGroup}><label className={styles.formLabel}>CONFIRMAR SENHA *</label><input className={styles.formInput} type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repita a senha" required /></div>
+            <div className={styles.loginTitle}>{t("setup.dadosAcesso")}</div>
+            <div className={styles.loginSub}>{t("setup.subAcesso")}</div>
+            <div className={styles.formGroup}><label className={styles.formLabel}>{t("login.nomeCompleto")}</label><input className={styles.formInput} value={name} onChange={e => setName(e.target.value)} placeholder={t("setup.phNomeCompleto")} required /></div>
+            <div className={styles.formGroup}><label className={styles.formLabel}>{t("login.emailObrig")}</label><input className={styles.formInput} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t("setup.phEmailAdmin")} required /></div>
+            <div className={styles.formGroup}><label className={styles.formLabel}>{t("login.senhaObrig")}</label><input className={styles.formInput} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t("login.phSenhaMinima")} required /></div>
+            <div className={styles.formGroup}><label className={styles.formLabel}>{t("login.confirmarSenha")}</label><input className={styles.formInput} type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder={t("login.phRepitaSenha")} required /></div>
             <label className={styles.termsCheck}>
               <input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)} required />
-              <span>Li e aceito os <strong>Termos de Uso</strong> e a <strong>Política de Privacidade</strong> (LGPD)</span>
+              <span>{fraseComLinks(t("setup.aceiteLgpd"), [
+                <strong>{t("login.termosDeUso")}</strong>,
+                <strong>{t("login.politica")}</strong>,
+              ])}</span>
             </label>
             {error && <div className={styles.errorBox}>{error}</div>}
             <div className={styles.setupBtnRow}>
-              <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={goBack} disabled={loading}>← Voltar</button>
+              <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={goBack} disabled={loading}>{t("setup.voltar")}</button>
               <button type="submit" className={`${styles.btn} ${styles.btnScan}`}
                 disabled={loading || !name.trim() || !email.trim() || !password || !confirm || !termsAccepted}>
-                {loading ? "Configurando..." : "Finalizar setup"}
+                {loading ? t("setup.configurando") : t("setup.finalizar")}
               </button>
             </div>
           </form>
@@ -1861,6 +1891,7 @@ function SetupPage() {
 // ── Accept Invite Page ────────────────────────────────────────────────────────
 
 function AcceptInvitePage({ token }: { token: string }) {
+  const { t } = useI18n();
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -1870,30 +1901,33 @@ function AcceptInvitePage({ token }: { token: string }) {
   const [success, setSuccess] = useState(false);
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (password !== confirm) { setError("As senhas não coincidem."); return; }
-    if (password.length < 6) { setError("Senha deve ter no mínimo 6 caracteres."); return; }
-    if (!termsAccepted) { setError("É necessário aceitar os Termos de Uso."); return; }
+    if (password !== confirm) { setError(t("login.senhasNaoCoincidem")); return; }
+    if (password.length < 6) { setError(t("convite.senhaMinima")); return; }
+    if (!termsAccepted) { setError(t("convite.precisaAceitar")); return; }
     setLoading(true); setError(null);
     try { await api.post(`/auth/accept-invite/${token}`, { name, password, termsAccepted }); setSuccess(true); setTimeout(() => { window.location.href = "/"; }, 2000); }
-    catch (err: any) { setError(err?.response?.data?.message ?? "Convite inválido ou expirado."); }
+    catch (err: any) { setError(err?.response?.data?.message ?? t("convite.invalido")); }
     finally { setLoading(false); }
   }
-  if (success) return (<div className={styles.loginPage}><div className={styles.loginCard}><div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div><div className={styles.loginTitle} style={{ color: "var(--secure)" }}>✓ Conta criada!</div><div className={styles.loginSub}>Redirecionando para o login...</div></div></div>);
+  if (success) return (<div className={styles.loginPage}><div className={styles.loginCard}><div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div><div className={styles.loginTitle} style={{ color: "var(--secure)" }}>{t("convite.criadaTitulo")}</div><div className={styles.loginSub}>{t("convite.redirecionando")}</div></div></div>);
   return (
     <div className={styles.loginPage}><div className={styles.loginCard}>
       <div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
-      <div className={styles.loginTitle}>Criar sua conta</div>
-      <div className={styles.loginSub}>Você foi convidado. Defina sua senha para continuar.</div>
+      <div className={styles.loginTitle}>{t("convite.titulo")}</div>
+      <div className={styles.loginSub}>{t("convite.subtitulo")}</div>
       <form className={styles.loginForm} onSubmit={handleSubmit}>
-        <div className={styles.formGroup}><label className={styles.formLabel}>NOME COMPLETO</label><input className={styles.formInput} value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome" /></div>
-        <div className={styles.formGroup}><label className={styles.formLabel}>SENHA *</label><input className={styles.formInput} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" required /></div>
-        <div className={styles.formGroup}><label className={styles.formLabel}>CONFIRMAR SENHA *</label><input className={styles.formInput} type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repita a senha" required /></div>
+        <div className={styles.formGroup}><label className={styles.formLabel}>{t("convite.nomeCompleto")}</label><input className={styles.formInput} value={name} onChange={e => setName(e.target.value)} placeholder={t("login.phNome")} /></div>
+        <div className={styles.formGroup}><label className={styles.formLabel}>{t("login.senhaObrig")}</label><input className={styles.formInput} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t("convite.phSenhaMinima")} required /></div>
+        <div className={styles.formGroup}><label className={styles.formLabel}>{t("login.confirmarSenha")}</label><input className={styles.formInput} type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder={t("login.phRepitaSenha")} required /></div>
         <label className={styles.termsCheck}>
           <input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)} required />
-          <span>Li e aceito os <strong>Termos de Uso</strong> e a <strong>Política de Privacidade</strong> (LGPD)</span>
+          <span>{fraseComLinks(t("setup.aceiteLgpd"), [
+            <strong>{t("login.termosDeUso")}</strong>,
+            <strong>{t("login.politica")}</strong>,
+          ])}</span>
         </label>
         {error && <div className={styles.errorBox}>{error}</div>}
-        <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading || !termsAccepted}>{loading ? "Criando conta..." : "Criar conta e entrar"}</button>
+        <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading || !termsAccepted}>{loading ? t("login.criandoConta") : t("convite.criar")}</button>
       </form>
     </div></div>
   );
@@ -6103,15 +6137,15 @@ export default function App() {
   }
 
   const inviteToken = getInviteTokenFromUrl();
-  if (inviteToken) return <div className={styles.app}><AcceptInvitePage token={inviteToken} /></div>;
+  if (inviteToken) return <div className={styles.app}><LanguagePicker flutuante /><AcceptInvitePage token={inviteToken} /></div>;
 
   const statusToken = getStatusTokenFromUrl();
-  if (statusToken) return <PublicStatusPage token={statusToken} />;
+  if (statusToken) return (<><LanguagePicker flutuante /><PublicStatusPage token={statusToken} /></>);
 
   // Antes de qualquer checagem de sessão: quem chega por este link está
   // justamente sem conseguir entrar.
   const resetToken = getResetTokenFromUrl();
-  if (resetToken) return <RedefinirSenha token={resetToken} />;
+  if (resetToken) return (<><LanguagePicker flutuante /><RedefinirSenha token={resetToken} /></>);
 
   if (isBillingReturnPath()) return <BillingReturnPage />;
 
@@ -6121,9 +6155,9 @@ export default function App() {
 
   // Wizard de configuração inicial (apenas quando não há usuários no sistema)
   if (!setupConfigured)
-    return <div className={styles.app}><SetupPage /></div>;
+    return <div className={styles.app}><LanguagePicker flutuante /><SetupPage /></div>;
 
-  if (view === "login") return <div className={styles.app}><LoginPage onBack={() => setView("scan")} /></div>;
+  if (view === "login") return <div className={styles.app}><LanguagePicker flutuante /><LoginPage onBack={() => setView("scan")} /></div>;
 
   const r = result;
   const risk = r?.score?.riskLevel;

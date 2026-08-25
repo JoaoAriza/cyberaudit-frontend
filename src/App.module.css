@@ -339,6 +339,16 @@
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
+/* Telas sem header (login, setup, convite, redefinição, status público): o
+   seletor precisa existir mesmo assim — são as primeiras que um estrangeiro vê. */
+.langPickerFloat {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 60;
+  background: var(--surface);
+}
+
 .activeWarning {
   margin-top: 12px;
   padding: 8px 12px;
