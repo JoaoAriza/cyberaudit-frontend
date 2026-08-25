@@ -175,6 +175,125 @@ export const pt: Catalogo = {
   "convite.criar": "Criar conta e entrar",
   "convite.criadaTitulo": "✓ Conta criada!",
   "convite.redirecionando": "Redirecionando para o login...",
+
+  // ── Navegação e header ────────────────────────────────────────────────────
+  "nav.voltarInicio": "Voltar ao início",
+  "nav.scanner": "Scanner",
+  "nav.admin": "Admin",
+  "nav.agendamentos": "Agendamentos",
+  "nav.dominios": "Domínios",
+  "nav.historico": "Histórico",
+  "nav.seguranca": "⚙ Segurança",
+  "nav.temaClaro": "Mudar para tema claro",
+  "nav.temaEscuro": "Mudar para tema escuro",
+  "nav.alternarTema": "Alternar tema claro/escuro",
+  "nav.verPlanos": "Ver planos",
+  "nav.scansRestantes": "Scans restantes hoje",
+  "nav.sair": "Sair",
+  "app.carregando": "Carregando...",
+
+  // ── Painel de scan ────────────────────────────────────────────────────────
+  "scan.placeholder": "example.com",
+  "scan.botao": "◈ Scan",
+  "scan.cancelar": "✕ Cancel",
+  "scan.pdf": "PDF",
+  "scan.cancelado": "Scan cancelado.",
+  "scan.falhaStatus": "Falha ao consultar status do scan. Tente novamente.",
+  "scan.erroDesconhecido": "Erro desconhecido — verifique o log do backend",
+  "scan.activeRequerPro": "Scan ativo requer plano PRO ou superior",
+  "scan.activeSoVerificados": "Scan ativo permitido apenas em domínios verificados na sua conta",
+  "scan.activeDescricao": "Executa probes ativos: WAF, CORS, portas abertas e mais",
+  "scan.emailRequerPro": "Receber o laudo por e-mail requer plano PRO ou superior",
+  "scan.emailSoVerificados":
+    "No plano Pessoal Pro, o e-mail vale apenas para domínios verificados na sua conta",
+  "scan.emailDescricao": "Receber email ao concluir o scan",
+  "scan.pdfRequerPro": "Exportar PDF requer plano PRO ou superior",
+  "scan.pdfSoVerificados":
+    "No plano Pessoal Pro, o PDF vale apenas para domínios verificados na sua conta",
+  "scan.avisoModoAtivo": "⚠ Modo ativo: Use apenas em domínios autorizados.",
+  // {0} é o nome da aba, destacado — frase inteira para o tradutor reordenar.
+  "scan.avisoActiveVerificado":
+    "⚠ Modo PRO — scan ativo restrito a domínios verificados na aba {0}",
+  "scan.avisoEntregaVerificada":
+    "⚠ Modo PRO — PDF e e-mail restritos a domínios verificados na aba {0}",
+
+  // ── Cabeçalhos do resultado ───────────────────────────────────────────────
+  "resultado.breakdown": "SCORE BREAKDOWN",
+  "resultado.distribuicao": "DISTRIBUIÇÃO DE SEVERIDADE",
+  "resultado.issuesTotais": "{0} issues totais",
+  "resultado.issuesGraves": "{0} críticos/altos",
+  "resultado.selecioneModulo": "◈ Selecione um módulo para ver os detalhes",
+  "resultado.semIssues": "◈ Nenhuma issue detectada",
+  "resultado.naoAnalisado": "◈ Não analisado",
+  "resultado.saibaMais": "ⓘ Saiba mais",
+  "resultado.saibaMaisTitulo": "Saiba mais sobre este módulo",
+  "resultado.contestar": "⚑ Contestar",
+  "resultado.contestarTitulo": "Contestar um resultado deste scan",
+
+  // ── Grupos da barra lateral ───────────────────────────────────────────────
+  "grupo.visaoGeral": "Visão Geral",
+  "grupo.aplicacao": "Aplicação",
+  "grupo.compliance": "Compliance",
+  "grupo.monitoramento": "Monitoramento",
+  "grupo.dns": "DNS & Domínio",
+  "grupo.httpHeaders": "HTTP & Headers",
+  "grupo.active": "Active",
+  "scan.requerAuth": "Scan ativo requer autenticação.",
+
+  // ── Selos de estado ───────────────────────────────────────────────────────
+  "selo.certInvalido": "INVALID CERT",
+  "selo.protocoloFraco": "WEAK PROTOCOL",
+  "selo.naoVerificado": "NÃO VERIFICADO",
+  "selo.issuerAlerta": "ISSUER ALERT",
+  "selo.issuesEncontradas": "ISSUES FOUND",
+  "selo.wafDetectado": "WAF DETECTED",
+  "selo.limpo": "✓ Clean",
+  "selo.exposto": "⚠ Exposed",
+  "selo.presente": "✓ Presente",
+  "selo.sim": "⚠ Sim",
+  "selo.nao": "✓ Não",
+
+  // ── Estados vazios por módulo ─────────────────────────────────────────────
+  "vazio.httpMethods": "Nenhum método HTTP perigoso detectado",
+  "vazio.openRedirect": "Nenhum open redirect detectado",
+  "vazio.directoryListing": "Nenhum directory listing detectado",
+  "vazio.apiDocs": "Nenhuma documentação de API exposta detectada",
+  "vazio.graphql": "Nenhum endpoint GraphQL vulnerável detectado",
+  "vazio.jwt": "Nenhum JWT com problemas de segurança detectado",
+  "vazio.pathTraversal": "Nenhum path traversal / LFI detectado",
+  "vazio.ssrf": "Nenhum SSRF detectado",
+  "vazio.crlf": "Nenhuma injeção CRLF detectada",
+  "vazio.sourceMap": "Nenhum source map ou debug endpoint exposto",
+  "vazio.hostHeader": "Nenhuma reflexão de Host header detectada",
+  "vazio.takeover": "Nenhum subdomínio vulnerável a takeover detectado",
+
+  // ── Cabeçalhos de tabela do resultado ─────────────────────────────────────
+  "col.parametro": "PARÂMETRO",
+  "col.evidencia": "EVIDÊNCIA",
+  "col.refletidoEm": "REFLETIDO EM",
+  "col.valorInjetado": "VALOR INJETADO",
+  "col.subdominio": "SUBDOMÍNIO",
+  "col.servico": "SERVIÇO",
+  "col.endpointGraphql": "Endpoint GraphQL exposto",
+
+  // ── Certificate Transparency ──────────────────────────────────────────────
+  "ct.certificados": "Certificados",
+  "ct.subdominiosHistoricos": "Subdomínios históricos",
+  "ct.emitidoRecente": "Emitido (7 dias)",
+  "ct.commonName": "Common Name",
+  "ct.validoDe": "Válido de",
+  "ct.validoAte": "Válido até",
+
+  // ── Páginas travadas por plano ────────────────────────────────────────────
+  "trava.agendamentos": "Agendamentos são do plano PRO",
+  "trava.agendamentosDesc":
+    "Reexecute scans automaticamente e receba alerta quando algo mudar. Disponível a partir do plano PRO.",
+  "trava.dominios": "Cadastro de domínio é do plano PRO",
+  "trava.dominiosDesc":
+    "Verifique a posse dos seus domínios para liberar o scan ativo e o acompanhamento contínuo. Disponível a partir do plano PRO.",
+  "trava.historico": "Histórico é do plano PRO",
+  "trava.historicoDesc":
+    "Acompanhe a evolução do score, compare scans e veja exatamente o que mudou entre execuções. Disponível a partir do plano PRO.",
 };
 
 export const en: Catalogo = {
@@ -286,6 +405,115 @@ export const en: Catalogo = {
   "convite.criar": "Create account and sign in",
   "convite.criadaTitulo": "✓ Account created!",
   "convite.redirecionando": "Redirecting to sign in...",
+
+  "nav.voltarInicio": "Back to start",
+  "nav.scanner": "Scanner",
+  "nav.admin": "Admin",
+  "nav.agendamentos": "Schedules",
+  "nav.dominios": "Domains",
+  "nav.historico": "History",
+  "nav.seguranca": "⚙ Security",
+  "nav.temaClaro": "Switch to light theme",
+  "nav.temaEscuro": "Switch to dark theme",
+  "nav.alternarTema": "Toggle light/dark theme",
+  "nav.verPlanos": "View plans",
+  "nav.scansRestantes": "Scans left today",
+  "nav.sair": "Sign out",
+  "app.carregando": "Loading...",
+
+  "scan.placeholder": "example.com",
+  "scan.botao": "◈ Scan",
+  "scan.cancelar": "✕ Cancel",
+  "scan.pdf": "PDF",
+  "scan.cancelado": "Scan cancelled.",
+  "scan.falhaStatus": "Could not check the scan status. Try again.",
+  "scan.erroDesconhecido": "Unknown error — check the backend log",
+  "scan.activeRequerPro": "Active scan requires the PRO plan or above",
+  "scan.activeSoVerificados": "Active scan is allowed only on domains verified in your account",
+  "scan.activeDescricao": "Runs active probes: WAF, CORS, open ports and more",
+  "scan.emailRequerPro": "Receiving the report by email requires the PRO plan or above",
+  "scan.emailSoVerificados":
+    "On the Personal Pro plan, email applies only to domains verified in your account",
+  "scan.emailDescricao": "Get an email when the scan finishes",
+  "scan.pdfRequerPro": "Exporting a PDF requires the PRO plan or above",
+  "scan.pdfSoVerificados":
+    "On the Personal Pro plan, the PDF applies only to domains verified in your account",
+  "scan.avisoModoAtivo": "⚠ Active mode: use only on domains you are authorised to test.",
+  "scan.avisoActiveVerificado":
+    "⚠ PRO mode — active scan limited to domains verified under {0}",
+  "scan.avisoEntregaVerificada":
+    "⚠ PRO mode — PDF and email limited to domains verified under {0}",
+
+  "resultado.breakdown": "SCORE BREAKDOWN",
+  "resultado.distribuicao": "SEVERITY DISTRIBUTION",
+  "resultado.issuesTotais": "{0} issues total",
+  "resultado.issuesGraves": "{0} critical/high",
+  "resultado.selecioneModulo": "◈ Select a module to see the details",
+  "resultado.semIssues": "◈ No issue detected",
+  "resultado.naoAnalisado": "◈ Not analysed",
+  "resultado.saibaMais": "ⓘ Learn more",
+  "resultado.saibaMaisTitulo": "Learn more about this module",
+  "resultado.contestar": "⚑ Dispute",
+  "resultado.contestarTitulo": "Dispute a result from this scan",
+
+  "grupo.visaoGeral": "Overview",
+  "grupo.aplicacao": "Application",
+  "grupo.compliance": "Compliance",
+  "grupo.monitoramento": "Monitoring",
+  "grupo.dns": "DNS & Domain",
+  "grupo.httpHeaders": "HTTP & Headers",
+  "grupo.active": "Active",
+  "scan.requerAuth": "Active scan requires authentication.",
+
+  "selo.certInvalido": "INVALID CERT",
+  "selo.protocoloFraco": "WEAK PROTOCOL",
+  "selo.naoVerificado": "UNVERIFIED",
+  "selo.issuerAlerta": "ISSUER ALERT",
+  "selo.issuesEncontradas": "ISSUES FOUND",
+  "selo.wafDetectado": "WAF DETECTED",
+  "selo.limpo": "✓ Clean",
+  "selo.exposto": "⚠ Exposed",
+  "selo.presente": "✓ Present",
+  "selo.sim": "⚠ Yes",
+  "selo.nao": "✓ No",
+
+  "vazio.httpMethods": "No dangerous HTTP method detected",
+  "vazio.openRedirect": "No open redirect detected",
+  "vazio.directoryListing": "No directory listing detected",
+  "vazio.apiDocs": "No exposed API documentation detected",
+  "vazio.graphql": "No vulnerable GraphQL endpoint detected",
+  "vazio.jwt": "No JWT with security problems detected",
+  "vazio.pathTraversal": "No path traversal / LFI detected",
+  "vazio.ssrf": "No SSRF detected",
+  "vazio.crlf": "No CRLF injection detected",
+  "vazio.sourceMap": "No source map or debug endpoint exposed",
+  "vazio.hostHeader": "No Host header reflection detected",
+  "vazio.takeover": "No subdomain vulnerable to takeover detected",
+
+  "col.parametro": "PARAMETER",
+  "col.evidencia": "EVIDENCE",
+  "col.refletidoEm": "REFLECTED IN",
+  "col.valorInjetado": "INJECTED VALUE",
+  "col.subdominio": "SUBDOMAIN",
+  "col.servico": "SERVICE",
+  "col.endpointGraphql": "Exposed GraphQL endpoint",
+
+  "ct.certificados": "Certificates",
+  "ct.subdominiosHistoricos": "Historical subdomains",
+  "ct.emitidoRecente": "Issued (7 days)",
+  "ct.commonName": "Common Name",
+  "ct.validoDe": "Valid from",
+  "ct.validoAte": "Valid until",
+
+  "trava.agendamentos": "Schedules are a PRO feature",
+  "trava.agendamentosDesc":
+    "Re-run scans automatically and get an alert when something changes. Available from the PRO plan.",
+  "trava.dominios": "Domain registration is a PRO feature",
+  "trava.dominiosDesc":
+    "Verify ownership of your domains to unlock active scanning and continuous monitoring. Available from the PRO plan.",
+  "trava.historico": "History is a PRO feature",
+  "trava.historicoDesc":
+    "Track how the score evolves, compare scans and see exactly what changed between runs. Available from the PRO plan.",
 };
 
 const CATALOGOS: Record<Lang, Catalogo> = { "pt-BR": pt, en };

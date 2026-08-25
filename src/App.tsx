@@ -5991,6 +5991,7 @@ function BillingReturnPage() {
 const FREE_MODULES = ["transport", "tech", "cert"];
 
 export default function App() {
+  const { t } = useI18n();
   const { user, loading, logout, isAdmin, isAuthenticated } = useAuth();
   const [view, setView] = useState<View>("scan");
   const [url, setUrl] = useState("github.com");
@@ -6090,15 +6091,15 @@ export default function App() {
             const isUnreachable = msg.includes("UnknownHostException") || msg.includes("Name or service not known") || msg.includes("nodename nor servname provided") || msg.includes("No address associated");
             setError(isUnreachable ? `⚠ Domínio não encontrado ou inacessível: "${url}". Verifique o endereço e tente novamente.` : `Erro ao processar scan: ${msg}`);
           }
-        } catch { stopPoll(); stopSlowTimer(); setError("Falha ao consultar status do scan. Tente novamente."); setScanLoading(false); }
+        } catch { stopPoll(); stopSlowTimer(); setError(t("scan.falhaStatus")); setScanLoading(false); }
       }, 2000);
     } catch (err: any) { stopSlowTimer(); handleError(err); setScanLoading(false); }
   }
 
   function handleError(err: any) {
     const aborted = err?.name === "CanceledError" || err?.code === "ERR_CANCELED";
-    if (aborted) { setError("Scan cancelado."); return; }
-    if (err?.response?.status === 401) { setError("Scan ativo requer autenticação."); setView("login"); return; }
+    if (aborted) { setError(t("scan.cancelado")); return; }
+    if (err?.response?.status === 401) { setError(t("scan.requerAuth")); setView("login"); return; }
     const data = err?.response?.data;
     const isOwnership = err?.response?.status === 403 && (data?.error === "OWNERSHIP_REQUIRED" || data?.message?.includes("proprietário verificado") || data?.message?.includes("OWNERSHIP"));
     if (isOwnership) {
@@ -6131,7 +6132,7 @@ export default function App() {
       if (e?.response?.data instanceof Blob) {
         const text = await e.response.data.text();
         try { const json = JSON.parse(text); setError(`PDF erro: ${json.message ?? json.error ?? text}`); }
-        catch { setError(`PDF erro: ${text || "Erro desconhecido — verifique o log do backend"}`); }
+        catch { setError(`PDF erro: ${text || t("scan.erroDesconhecido")}`); }
       } else { setError(`PDF erro: ${e?.response?.status} — ${e.message}`); }
     } finally { setPdfLoading(false); }
   }
@@ -6151,7 +6152,7 @@ export default function App() {
 
   // Aguarda tanto a verificação de setup quanto a validação de auth
   if (setupConfigured === null || loading)
-    return (<div className={styles.app}><div className={styles.loadingScreen}><span className={styles.logoIcon}>◈</span> Carregando...</div></div>);
+    return (<div className={styles.app}><div className={styles.loadingScreen}><span className={styles.logoIcon}>◈</span> {t("app.carregando")}</div></div>);
 
   // Wizard de configuração inicial (apenas quando não há usuários no sistema)
   if (!setupConfigured)
@@ -6249,15 +6250,15 @@ export default function App() {
       <div className={styles.scanForm}>
         <div className={styles.inputWrap}>
           <span className={styles.inputPrefix}>https://</span>
-          <input className={styles.urlInput} value={url} onChange={e => setUrl(e.target.value)} placeholder="example.com" onKeyDown={e => e.key === "Enter" && !scanLoading && handleScan()} />
+          <input className={styles.urlInput} value={url} onChange={e => setUrl(e.target.value)} placeholder={t("scan.placeholder")} onKeyDown={e => e.key === "Enter" && !scanLoading && handleScan()} />
         </div>
         <div className={styles.toggles}>
           <label className={styles.toggle} title={
             user && !canActiveScan
-              ? "Scan ativo requer plano PRO ou superior"
+              ? t("scan.activeRequerPro")
               : activeScanVerifiedOnly
-              ? "Scan ativo permitido apenas em domínios verificados na sua conta"
-              : "Executa probes ativos: WAF, CORS, portas abertas e mais"
+              ? t("scan.activeSoVerificados")
+              : t("scan.activeDescricao")
           }>
             <input type="checkbox" checked={active}
               disabled={scanLoading || (!!user && !canActiveScan)}
@@ -6269,10 +6270,10 @@ export default function App() {
           {user && (
             <label className={styles.toggle} title={
               !canEmailNotify
-                ? "Receber o laudo por e-mail requer plano PRO ou superior"
+                ? t("scan.emailRequerPro")
                 : reportVerifiedOnly
-                ? "No plano Pessoal Pro, o e-mail vale apenas para domínios verificados na sua conta"
-                : "Receber email ao concluir o scan"
+                ? t("scan.emailSoVerificados")
+                : t("scan.emailDescricao")
             }>
               <input type="checkbox" checked={notify && canEmailNotify}
                 disabled={scanLoading || !canEmailNotify}
@@ -6285,35 +6286,35 @@ export default function App() {
         </div>
         {activeScanVerifiedOnly && active && (
           <div style={{ fontSize: 10, color: "var(--warning)", fontFamily: "var(--mono)", marginTop: 4, letterSpacing: ".3px" }}>
-            ⚠ Modo PRO — scan ativo restrito a domínios verificados na aba <strong>Domínios</strong>
+            {fraseComLinks(t("scan.avisoActiveVerificado"), [<strong>{t("nav.dominios")}</strong>])}
           </div>
         )}
         {/* Só aparece quando a entrega é possível: e-mail marcado, ou já há
             resultado na tela para exportar em PDF. */}
         {reportVerifiedOnly && (notify || !!r) && (
           <div style={{ fontSize: 10, color: "var(--warning)", fontFamily: "var(--mono)", marginTop: 4, letterSpacing: ".3px" }}>
-            ⚠ Modo PRO — PDF e e-mail restritos a domínios verificados na aba <strong>Domínios</strong>
+            {fraseComLinks(t("scan.avisoEntregaVerificada"), [<strong>{t("nav.dominios")}</strong>])}
           </div>
         )}
         <div className={styles.actions}>
           {scanLoading
-            ? <button className={`${styles.btn} ${styles.btnCancel}`} onClick={() => { abortRef.current?.abort(); stopPoll(); stopSlowTimer(); setScanLoading(false); }}>✕ Cancel</button>
-            : <button className={`${styles.btn} ${styles.btnScan}`} onClick={handleScan}>◈ Scan</button>}
+            ? <button className={`${styles.btn} ${styles.btnCancel}`} onClick={() => { abortRef.current?.abort(); stopPoll(); stopSlowTimer(); setScanLoading(false); }}>{t("scan.cancelar")}</button>
+            : <button className={`${styles.btn} ${styles.btnScan}`} onClick={handleScan}>{t("scan.botao")}</button>}
           <button
             className={`${styles.btn} ${styles.btnGhost}`}
             onClick={handlePdf}
             disabled={pdfLoading || scanLoading || (!!user && !canPdf)}
             title={
               user && !canPdf
-                ? "Exportar PDF requer plano PRO ou superior"
+                ? t("scan.pdfRequerPro")
                 : reportVerifiedOnly
-                ? "No plano Pessoal Pro, o PDF vale apenas para domínios verificados na sua conta"
+                ? t("scan.pdfSoVerificados")
                 : ""
             }
-          >{pdfLoading ? "..." : "PDF"}</button>
+          >{pdfLoading ? "..." : t("scan.pdf")}</button>
         </div>
       </div>
-      {active && <div className={styles.activeWarning}>⚠ Modo ativo: Use apenas em domínios autorizados.</div>}
+      {active && <div className={styles.activeWarning}>{t("scan.avisoModoAtivo")}</div>}
       {scanLoading && <div className={styles.progressBar}><div className={styles.progressFill} /></div>}
       {error && <div className={styles.errorBox}>{error}</div>}
     </div>
@@ -6326,22 +6327,22 @@ export default function App() {
       {feedbackTarget && <FeedbackModal target={feedbackTarget} onClose={() => setFeedbackTarget(null)} />}
 
       <header className={styles.header}>
-        <div className={styles.logo} onClick={goHome} title="Voltar ao início" role="button" style={{ cursor: "pointer" }}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
+        <div className={styles.logo} onClick={goHome} title={t("nav.voltarInicio")} role="button" style={{ cursor: "pointer" }}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
         <nav className={styles.headerNav}>
-          <button className={`${styles.navBtn} ${view === "scan" ? styles.navBtnActive : ""}`} onClick={() => setView("scan")}>Scanner</button>
-          {canViewAdmin && (<button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`} onClick={() => setView("admin")}>Admin</button>)}
-          {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "schedules" ? styles.navBtnActive : ""}`} onClick={() => setView("schedules")}>Agendamentos</button>)}
-          {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "domains" ? styles.navBtnActive : ""}`} onClick={() => setView("domains")}>Domínios</button>)}
-          {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "changes" ? styles.navBtnActive : ""}`} onClick={() => setView("changes")}>Histórico</button>)}
-          {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "settings" ? styles.navBtnActive : ""}`} onClick={() => setView("settings")}>⚙ Segurança</button>)}
+          <button className={`${styles.navBtn} ${view === "scan" ? styles.navBtnActive : ""}`} onClick={() => setView("scan")}>{t("nav.scanner")}</button>
+          {canViewAdmin && (<button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`} onClick={() => setView("admin")}>{t("nav.admin")}</button>)}
+          {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "schedules" ? styles.navBtnActive : ""}`} onClick={() => setView("schedules")}>{t("nav.agendamentos")}</button>)}
+          {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "domains" ? styles.navBtnActive : ""}`} onClick={() => setView("domains")}>{t("nav.dominios")}</button>)}
+          {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "changes" ? styles.navBtnActive : ""}`} onClick={() => setView("changes")}>{t("nav.historico")}</button>)}
+          {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "settings" ? styles.navBtnActive : ""}`} onClick={() => setView("settings")}>{t("nav.seguranca")}</button>)}
         </nav>
         <div className={styles.headerRight}>
           <LanguagePicker />
           <button
             className={styles.themeToggle}
             onClick={toggleTheme}
-            title={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
-            aria-label="Alternar tema claro/escuro"
+            title={theme === "dark" ? t("nav.temaClaro") : t("nav.temaEscuro")}
+            aria-label={t("nav.alternarTema")}
           >
             {theme === "dark" ? "☀" : "☾"}
           </button>
@@ -6354,19 +6355,19 @@ export default function App() {
                     user.account.plan === "PRO"        ? styles.info   : styles.tagFree
                   }`}
                   onClick={() => setShowPlans(true)}
-                  title="Ver planos"
+                  title={t("nav.verPlanos")}
                 >
                   {user.account.plan}
                 </button>
               )}
               {user?.dailyLimit != null && user?.remainingScans != null && (
-                <span className={styles.scanQuota} title="Scans restantes hoje">
+                <span className={styles.scanQuota} title={t("nav.scansRestantes")}>
                   {user.remainingScans}/{user.dailyLimit}
                 </span>
               )}
               <span className={`${styles.tag} ${user?.role === "OWNER" ? styles.secure : styles.info}`}>{user?.role}</span>
               <span className={styles.userName}>{user?.name}</span>
-              <button className={`${styles.btn} ${styles.btnGhost}`} onClick={logout}>Sair</button>
+              <button className={`${styles.btn} ${styles.btnGhost}`} onClick={logout}>{t("nav.sair")}</button>
             </div>
           ) : (
             <button className={`${styles.btn} ${styles.btnScan}`} onClick={() => setView("login")}>Login</button>
@@ -6381,20 +6382,20 @@ export default function App() {
         {view === "schedules" && isAuthenticated() && (canSchedules
           ? <SchedulesPage />
           : <PagePlanLocked
-              titulo="Agendamentos são do plano PRO"
-              descricao="Reexecute scans automaticamente e receba alerta quando algo mudar. Disponível a partir do plano PRO."
+              titulo={t("trava.agendamentos")}
+              descricao={t("trava.agendamentosDesc")}
               onUpgrade={() => setShowPlans(true)} />)}
         {view === "domains" && isAuthenticated() && (canDomains
           ? <DomainsPage />
           : <PagePlanLocked
-              titulo="Cadastro de domínio é do plano PRO"
-              descricao="Verifique a posse dos seus domínios para liberar o scan ativo e o acompanhamento contínuo. Disponível a partir do plano PRO."
+              titulo={t("trava.dominios")}
+              descricao={t("trava.dominiosDesc")}
               onUpgrade={() => setShowPlans(true)} />)}
         {view === "changes" && isAuthenticated() && (canChanges
           ? <ChangesPage />
           : <PagePlanLocked
-              titulo="Histórico é do plano PRO"
-              descricao="Acompanhe a evolução do score, compare scans e veja exatamente o que mudou entre execuções. Disponível a partir do plano PRO."
+              titulo={t("trava.historico")}
+              descricao={t("trava.historicoDesc")}
               onUpgrade={() => setShowPlans(true)} />)}
         {view === "settings" && isAuthenticated() && <SettingsPage />}
 
@@ -6421,7 +6422,7 @@ export default function App() {
                         <div className={styles.sidebarTargetUrl}>{badgeHost}</div>
                       </div>
                     </div>
-                    <div className={styles.sidebarNavGroup}>Visão Geral</div>
+                    <div className={styles.sidebarNavGroup}>{t("grupo.visaoGeral")}</div>
                     <SidebarNavItem icon="⚠" title="Issues"
                       color={issueColor}
                       metric={issueCount === 0 ? "✓" : issueCount}
@@ -6429,7 +6430,7 @@ export default function App() {
                       active={openModule === "issues"}
                       onClick={() => selectModule("issues")}/>
 
-                    <div className={styles.sidebarNavGroup}>HTTP &amp; Headers</div>
+                    <div className={styles.sidebarNavGroup}>{t("grupo.httpHeaders")}</div>
                     <SidebarNavItem icon="⬡" title="Security Headers"
                       color={headerColor}
                       metric={missingH + weakH === 0 ? "✓" : missingH + weakH}
@@ -6440,7 +6441,7 @@ export default function App() {
                     <SidebarNavItem icon="⬟" title="Transport Security"
                       color={tlsColor}
                       metric={r.sslInfo?.valid ? (r.sslInfo.daysRemaining ?? "?") + "d" : "✗"}
-                      label={!r.sslInfo?.valid ? "INVALID CERT" : r.tlsDetails?.weakProtocol ? "WEAK PROTOCOL" : "SECURE"}
+                      label={!r.sslInfo?.valid ? t("selo.certInvalido") : r.tlsDetails?.weakProtocol ? t("selo.protocoloFraco") : "SECURE"}
                       active={openModule === "transport"}
                       onClick={() => selectModule("transport")}/>
                     <SidebarNavItem icon="⚙" title="HTTP Methods"
@@ -6465,12 +6466,12 @@ export default function App() {
                       locked={modGated("dirlist")}
                       onClick={() => selectModule("dirlist")}/>
 
-                    <div className={styles.sidebarNavGroup}>DNS &amp; Domínio</div>
+                    <div className={styles.sidebarNavGroup}>{t("grupo.dns")}</div>
                     <SidebarNavItem icon="◉" title="Reconnaissance"
                       color={reconColor}
                       metric={reconIndisponivel ? "—"
                         : dns ? `${[dns.spfPresent, dns.dmarcPresent, dns.caaPresent].filter(Boolean).length}/3` : "—"}
-                      label={reconIndisponivel ? "NÃO VERIFICADO"
+                      label={reconIndisponivel ? t("selo.naoVerificado")
                         : dns?.emailSpoofingRisk ? `SPOOFING: ${dns.emailSpoofingRisk}` : "UNKNOWN"}
                       active={openModule === "recon"}
                       locked={modGated("recon")}
@@ -6478,7 +6479,7 @@ export default function App() {
                     <SidebarNavItem icon="◑" title="Cert Transparency"
                       color={certColor}
                       metric={ct ? ct.totalCertificates : "—"}
-                      label={!ct ? "N/A" : ct.unexpectedIssuer ? "ISSUER ALERT" : ct.wildcardDetected ? "WILDCARD" : "INFO"}
+                      label={!ct ? "N/A" : ct.unexpectedIssuer ? t("selo.issuerAlerta") : ct.wildcardDetected ? "WILDCARD" : "INFO"}
                       active={openModule === "cert"}
                       onClick={() => selectModule("cert")}/>
                     <SidebarNavItem icon="◎" title="Subdomain Takeover"
@@ -6489,7 +6490,7 @@ export default function App() {
                       locked={modGated("takeover")}
                       onClick={() => selectModule("takeover")}/>
 
-                    <div className={styles.sidebarNavGroup}>Aplicação</div>
+                    <div className={styles.sidebarNavGroup}>{t("grupo.aplicacao")}</div>
                     <SidebarNavItem icon="⟨⟩" title="Technology"
                       color="var(--info)"
                       metric={techFirst}
@@ -6499,7 +6500,7 @@ export default function App() {
                     <SidebarNavItem icon="☰" title="Cookie Security"
                       color={cookieColor}
                       metric={cookieCount === 0 ? "✓" : cookieCount}
-                      label={cookieCount === 0 ? "SECURE" : "ISSUES FOUND"}
+                      label={cookieCount === 0 ? "SECURE" : t("selo.issuesEncontradas")}
                       active={openModule === "cookies"}
                       locked={modGated("cookies")}
                       onClick={() => selectModule("cookies")}/>
@@ -6520,7 +6521,7 @@ export default function App() {
                     <SidebarNavItem icon="◈" title="JWT Security"
                       color={jwtColor}
                       metric={jwtFindings.length === 0 ? "✓" : jwtFindings.length}
-                      label={jwtFindings.length === 0 ? "SECURE" : jwtFindings.some(f => f.severity === "CRITICAL") ? "CRITICAL" : "ISSUES FOUND"}
+                      label={jwtFindings.length === 0 ? "SECURE" : jwtFindings.some(f => f.severity === "CRITICAL") ? "CRITICAL" : t("selo.issuesEncontradas")}
                       active={openModule === "jwt"}
                       locked={modGated("jwt")}
                       onClick={() => selectModule("jwt")}/>
@@ -6569,7 +6570,7 @@ export default function App() {
 
                     {/* ── Compliance ── */}
                     {canCompliance && r.compliance && (<>
-                      <div className={styles.sidebarNavGroup}>Compliance</div>
+                      <div className={styles.sidebarNavGroup}>{t("grupo.compliance")}</div>
                       <SidebarNavItem icon="⊕" title="LGPD / ISO 27001"
                         color={
                           r.compliance.riskLevel === "COMPLIANT" ? "var(--secure)" :
@@ -6585,7 +6586,7 @@ export default function App() {
                     </>)}
 
                     {changeCount > 0 && canChanges && (<>
-                      <div className={styles.sidebarNavGroup}>Monitoramento</div>
+                      <div className={styles.sidebarNavGroup}>{t("grupo.monitoramento")}</div>
                       <SidebarNavItem icon="△" title="Changes"
                         color={changesColor}
                         metric={changeCount}
@@ -6595,11 +6596,11 @@ export default function App() {
                         onClick={() => selectModule("changes")}/>
                     </>)}
 
-                    <div className={styles.sidebarNavGroup}>Active</div>
+                    <div className={styles.sidebarNavGroup}>{t("grupo.active")}</div>
                     <SidebarNavItem icon="▣" title="Active Checks"
                       color={r.activeMode ? "var(--info)" : "var(--accent)"}
                       metric={!r.activeMode ? "🔒" : r.wafDetectionResult?.detected ? "WAF" : `${r.openPorts?.length ?? 0}p`}
-                      label={!r.activeMode ? "PASSIVE" : r.wafDetectionResult?.detected ? "WAF DETECTED" : "ACTIVE"}
+                      label={!r.activeMode ? "PASSIVE" : r.wafDetectionResult?.detected ? t("selo.wafDetectado") : "ACTIVE"}
                       active={openModule === "active"}
                       locked={modGated("active")}
                       onClick={() => selectModule("active")}/>
@@ -6623,14 +6624,14 @@ export default function App() {
                             <KV label="HTTP"           value={r.httpStatus} />
                             <KV label="HTTPS REDIRECT" value={boolIcon(r.redirectsToHttps)} />
                             <KV label="ACTIVE MODE"    value={boolIcon(r.activeMode)} />
-                            <KV label="SERVER EXPOSED" value={boolIcon(!r.serverVersionExposed, "✓ Clean", "⚠ Exposed")} />
+                            <KV label="SERVER EXPOSED" value={boolIcon(!r.serverVersionExposed, t("selo.limpo"), t("selo.exposto"))} />
                             <div className={styles.badgePreview}>
                               <img src={badgeUrl} alt="security badge" className={styles.badgeImg} />
                             </div>
                           </div>
                         </div>
                       </Card>
-                      <Card title="SCORE BREAKDOWN">
+                      <Card title={t("resultado.breakdown")}>
                         {r.detailsLocked ? <LockedGhost onUpgrade={() => setShowPlans(true)} /> : (
                         <div className={styles.notesList}>
                           {(r.score?.notes ?? []).map((n, i) => (
@@ -6641,7 +6642,7 @@ export default function App() {
                         </div>
                         )}
                       </Card>
-                      <Card title="DISTRIBUIÇÃO DE SEVERIDADE">
+                      <Card title={t("resultado.distribuicao")}>
                         <div className={styles.sevDist}>
                           {(["CRITICAL","HIGH","MEDIUM","LOW"] as const).map(sev => {
                             const count = (r.score?.issues ?? []).filter(i => (i.severity ?? "").toUpperCase() === sev).length;
@@ -6659,8 +6660,8 @@ export default function App() {
                             );
                           })}
                           <div className={styles.sevDistTotal}>
-                            <span>{r.score?.issues?.length ?? 0} issues totais</span>
-                            <span>{(r.score?.issues ?? []).filter(i => ["CRITICAL","HIGH"].includes((i.severity ?? "").toUpperCase())).length} críticos/altos</span>
+                            <span>{t("resultado.issuesTotais", r.score?.issues?.length ?? 0)}</span>
+                            <span>{t("resultado.issuesGraves", (r.score?.issues ?? []).filter(i => ["CRITICAL","HIGH"].includes((i.severity ?? "").toUpperCase())).length)}</span>
                           </div>
                         </div>
                       </Card>
@@ -6671,7 +6672,7 @@ export default function App() {
                     <div className={styles.sidebarContent} ref={moduleContentRef}>
 
                     {!openModule && (
-                      <div className={styles.sidebarEmpty}>◈ Selecione um módulo para ver os detalhes</div>
+                      <div className={styles.sidebarEmpty}>{t("resultado.selecioneModulo")}</div>
                     )}
 
                     {openModule === "issues" && (
@@ -6680,14 +6681,14 @@ export default function App() {
                           <span className={styles.sidebarContentIcon}>⚠</span>
                           <span className={styles.sidebarContentTitleText}>Issues</span>
                         
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("issues")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("issues")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                           {isAuthenticated() && (
-                            <button className={styles.moduleInfoTrigger} onClick={() => setFeedbackTarget({ host: badgeHost, scanId: lastScanId, module: null, findingLabel: null })} title="Contestar um resultado deste scan">⚑ Contestar</button>
+                            <button className={styles.moduleInfoTrigger} onClick={() => setFeedbackTarget({ host: badgeHost, scanId: lastScanId, module: null, findingLabel: null })} title={t("resultado.contestarTitulo")}>{t("resultado.contestar")}</button>
                           )}
                         </div>
                         {issueCount
                           ? <div className={styles.issuesList}>{r.score.issues.map((i, idx) => <IssueItem key={`${i.id}-${idx}`} issue={i} locked={r.detailsLocked} onUpgrade={() => setShowPlans(true)} onContest={isAuthenticated() ? (label) => setFeedbackTarget({ host: badgeHost, scanId: lastScanId, module: null, findingLabel: label }) : undefined} />)}</div>
-                          : <div className={styles.empty}>◈ Nenhuma issue detectada</div>}
+                          : <div className={styles.empty}>{t("resultado.semIssues")}</div>}
                       </>
                     )}
 
@@ -6701,7 +6702,7 @@ export default function App() {
                           <span className={styles.sidebarContentIcon}>⬡</span>
                           <span className={styles.sidebarContentTitleText}>Security Headers</span>
                         
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("headers")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("headers")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <HeaderCardsPanel headers={r.headers ?? {}} host={r.analyzedHost ?? (r.finalUrl ?? r.url ?? "").replace(/^https?:\/\//, "").split("/")[0]} related={r.relatedHostHeaders} />
                       </>
@@ -6713,7 +6714,7 @@ export default function App() {
                           <span className={styles.sidebarContentIcon}>⬟</span>
                           <span className={styles.sidebarContentTitleText}>Transport Security</span>
                         
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("transport")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("transport")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <TransportCardsPanel r={r} />
                       </>
@@ -6725,7 +6726,7 @@ export default function App() {
                           <span className={styles.sidebarContentIcon}>⟨⟩</span>
                           <span className={styles.sidebarContentTitleText}>Technology Fingerprint</span>
                         
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("tech")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("tech")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <TechCardsPanel tf={tf} />
                       </>
@@ -6740,7 +6741,7 @@ export default function App() {
                         } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>⊕</span>
                           <span className={styles.sidebarContentTitleText}>LGPD / ISO 27001:2022</span>
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("compliance")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("compliance")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <CompliancePanel compliance={r.compliance} />
                       </>
@@ -6752,7 +6753,7 @@ export default function App() {
                           <span className={styles.sidebarContentIcon}>△</span>
                           <span className={styles.sidebarContentTitleText}>Changes Since Last Scan</span>
                         
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("changes")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("changes")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <div className={styles.changesList}>
                           {(r.changes ?? []).map((c, i) => (
@@ -6783,7 +6784,7 @@ export default function App() {
                           <span className={styles.sidebarContentIcon}>☰</span>
                           <span className={styles.sidebarContentTitleText}>Cookie Security</span>
                         
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("cookies")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("cookies")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <CookieCardsPanel cookies={r.cookieIssues ?? []} />
                       </>
@@ -6795,10 +6796,10 @@ export default function App() {
                           <span className={styles.sidebarContentIcon}>⚙</span>
                           <span className={styles.sidebarContentTitleText}>HTTP Methods</span>
                         
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("http")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("http")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg="Nenhum método HTTP perigoso detectado"
+                          emptyMsg={t("vazio.httpMethods")}
                           items={(r.dangerousHttpMethods ?? []).map((m: any, i: number) => ({
                             id: `${m.method}-${i}`, title: m.method, subtitle: `HTTP ${m.statusCode}`,
                             severity: m.severity, summary: m.risk,
@@ -6814,14 +6815,14 @@ export default function App() {
                           <span className={styles.sidebarContentIcon}>↪</span>
                           <span className={styles.sidebarContentTitleText}>Open Redirect</span>
                         
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("redirect")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("redirect")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg="Nenhum open redirect detectado"
+                          emptyMsg={t("vazio.openRedirect")}
                           items={redirectVuln.map((f: any, i: number) => ({
                             id: `redirect-${i}`, title: `?${f.parameter}=`, severity: "HIGH",
                             summary: `Redireciona para: ${f.redirectedTo}`,
-                            details: [{ label: "PARÂMETRO", value: `?${f.parameter}=` }, { label: "DESTINO", value: f.redirectedTo }],
+                            details: [{ label: t("col.parametro"), value: `?${f.parameter}=` }, { label: "DESTINO", value: f.redirectedTo }],
                           }))}
                         />
                       </>
@@ -6833,14 +6834,14 @@ export default function App() {
                           <span className={styles.sidebarContentIcon}>◫</span>
                           <span className={styles.sidebarContentTitleText}>Directory Listing</span>
                         
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("dirlist")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("dirlist")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg="Nenhum directory listing detectado"
+                          emptyMsg={t("vazio.directoryListing")}
                           items={dirExposed.map((f: any, i: number) => ({
                             id: `dir-${i}`, title: f.path, severity: f.severity,
                             summary: `Listagem de diretório exposta publicamente`,
-                            details: [{ label: "PATH", value: f.path }, { label: "EVIDÊNCIA", value: f.evidence }],
+                            details: [{ label: "PATH", value: f.path }, { label: t("col.evidencia"), value: f.evidence }],
                           }))}
                         />
                       </>
@@ -6851,7 +6852,7 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": reconColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◉</span>
                           <span className={styles.sidebarContentTitleText}>Reconnaissance</span>
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("recon")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("recon")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <DnsCardsPanel r={r} />
                       </>
@@ -6863,7 +6864,7 @@ export default function App() {
                           <span className={styles.sidebarContentIcon}>◈</span>
                           <span className={styles.sidebarContentTitleText}>CVE Correlation</span>
                         
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("cve")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("cve")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <CveCardsPanel cves={r.cveFindings ?? []} />
                       </>
@@ -6874,15 +6875,15 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": apiDocsColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◈</span>
                           <span className={styles.sidebarContentTitleText}>API Docs Exposure</span>
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("apidocs")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("apidocs")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg="Nenhuma documentação de API exposta detectada"
+                          emptyMsg={t("vazio.apiDocs")}
                           items={(r?.apiDocsExposure ?? []).map((f: any, i: number) => ({
                             id: `apidoc-${i}`, title: f.path, severity: f.severity,
                             extraTags: [{ label: f.type, color: "var(--info)" }],
                             summary: f.description,
-                            details: [{ label: "PATH", value: f.path }, { label: "TIPO", value: f.type }, ...(f.evidence ? [{ label: "EVIDÊNCIA", value: f.evidence }] : [])],
+                            details: [{ label: "PATH", value: f.path }, { label: "TIPO", value: f.type }, ...(f.evidence ? [{ label: t("col.evidencia"), value: f.evidence }] : [])],
                           }))}
                         />
                       </>
@@ -6893,21 +6894,21 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": gqlColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◈</span>
                           <span className={styles.sidebarContentTitleText}>GraphQL Introspection</span>
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("graphql")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("graphql")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg="Nenhum endpoint GraphQL vulnerável detectado"
+                          emptyMsg={t("vazio.graphql")}
                           items={gqlFindings.map((f: any, i: number) => ({
                             id: `gql-${i}`, title: f.endpoint, severity: f.severity,
                             extraTags: [
                               ...(f.playgroundExposed ? [{ label: "PLAYGROUND", color: "var(--critical)" }] : []),
                               ...(f.introspectionEnabled ? [{ label: "INTROSPECTION", color: "var(--warning)" }] : []),
                             ],
-                            summary: f.typeCount > 0 ? `${f.typeCount} tipos expostos via introspection` : "Endpoint GraphQL exposto",
+                            summary: f.typeCount > 0 ? `${f.typeCount} tipos expostos via introspection` : t("col.endpointGraphql"),
                             details: [
                               { label: "ENDPOINT", value: f.endpoint },
                               ...(f.typeCount > 0 ? [{ label: "TIPOS", value: `${f.typeCount}` }] : []),
-                              ...(f.evidence ? [{ label: "EVIDÊNCIA", value: f.evidence }] : []),
+                              ...(f.evidence ? [{ label: t("col.evidencia"), value: f.evidence }] : []),
                             ],
                           }))}
                         />
@@ -6919,19 +6920,19 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": jwtColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◈</span>
                           <span className={styles.sidebarContentTitleText}>JWT Security</span>
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("jwt")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("jwt")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg="Nenhum JWT com problemas de segurança detectado"
+                          emptyMsg={t("vazio.jwt")}
                           items={jwtFindings.map((jwt: any, i: number) => ({
                             id: `jwt-${i}`, title: jwt.source, severity: jwt.severity,
                             summary: (jwt.issues ?? []).join(" · "),
                             details: [
                               { label: "ALG", value: jwt.algorithm },
-                              { label: "EXP", value: !jwt.hasExpiry ? "MISSING" : jwt.expired ? "EXPIRED" : "✓ Presente" },
+                              { label: "EXP", value: !jwt.hasExpiry ? "MISSING" : jwt.expired ? "EXPIRED" : t("selo.presente") },
                               { label: "ISS", value: jwt.hasIssuer ? "✓" : "Ausente" },
                               { label: "AUD", value: jwt.hasAudience ? "✓" : "Ausente" },
-                              ...(jwt.evidence ? [{ label: "EVIDÊNCIA", value: jwt.evidence }] : []),
+                              ...(jwt.evidence ? [{ label: t("col.evidencia"), value: jwt.evidence }] : []),
                             ],
                           }))}
                         />
@@ -6943,18 +6944,18 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": ptColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◈</span>
                           <span className={styles.sidebarContentTitleText}>Path Traversal / LFI</span>
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("traversal")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("traversal")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg="Nenhum path traversal / LFI detectado"
+                          emptyMsg={t("vazio.pathTraversal")}
                           items={ptFindings.map((pt: any, i: number) => ({
                             id: `pt-${i}`, title: `?${pt.parameter}=`, severity: "CRITICAL",
                             summary: `Arquivo alvo: ${pt.target}`,
                             details: [
-                              { label: "PARÂMETRO", value: `?${pt.parameter}=` },
+                              { label: t("col.parametro"), value: `?${pt.parameter}=` },
                               { label: "ALVO", value: pt.target },
                               { label: "PAYLOAD", value: pt.payload },
-                              ...(pt.evidence ? [{ label: "EVIDÊNCIA", value: pt.evidence }] : []),
+                              ...(pt.evidence ? [{ label: t("col.evidencia"), value: pt.evidence }] : []),
                             ],
                           }))}
                         />
@@ -6966,18 +6967,18 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": "var(--critical)" } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◈</span>
                           <span className={styles.sidebarContentTitleText}>SSRF</span>
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("ssrf")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("ssrf")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg="Nenhum SSRF detectado"
+                          emptyMsg={t("vazio.ssrf")}
                           items={ssrfFindings.map((f: any, i: number) => ({
                             id: `ssrf-${i}`, title: `param: ${f.parameter}`, severity: "CRITICAL",
                             summary: `Indicador: ${f.indicator}`,
                             details: [
-                              { label: "PARÂMETRO", value: f.parameter },
+                              { label: t("col.parametro"), value: f.parameter },
                               { label: "INDICADOR", value: f.indicator },
                               { label: "PAYLOAD", value: f.payload },
-                              ...(f.evidence ? [{ label: "EVIDÊNCIA", value: f.evidence }] : []),
+                              ...(f.evidence ? [{ label: t("col.evidencia"), value: f.evidence }] : []),
                             ],
                           }))}
                         />
@@ -6988,18 +6989,18 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": "var(--high)" } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◈</span>
                           <span className={styles.sidebarContentTitleText}>CRLF Injection</span>
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("crlf")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("crlf")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg="Nenhuma injeção CRLF detectada"
+                          emptyMsg={t("vazio.crlf")}
                           items={crlfFindings.map((f: any, i: number) => ({
                             id: `crlf-${i}`, title: `param: ${f.parameter}`, severity: "HIGH",
                             subtitle: `Tipo: ${f.injectionType}`,
                             details: [
-                              { label: "PARÂMETRO", value: f.parameter },
+                              { label: t("col.parametro"), value: f.parameter },
                               { label: "TIPO", value: f.injectionType },
                               { label: "PAYLOAD", value: f.payload },
-                              ...(f.evidence ? [{ label: "EVIDÊNCIA", value: f.evidence }] : []),
+                              ...(f.evidence ? [{ label: t("col.evidencia"), value: f.evidence }] : []),
                             ],
                           }))}
                         />
@@ -7010,17 +7011,17 @@ export default function App() {
                       <div className={styles.sidebarContentTitle} style={{ "--mc-color": smFindings.length ? "var(--high)" : "var(--secure)" } as React.CSSProperties}>
                         <span className={styles.sidebarContentIcon}>◈</span>
                         <span className={styles.sidebarContentTitleText}>Source Map / Debug</span>
-                        <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("sourcemap")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                        <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("sourcemap")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                       </div>
                       <FindingCardsPanel
-                        emptyMsg="Nenhum source map ou debug endpoint exposto"
+                        emptyMsg={t("vazio.sourceMap")}
                         items={smFindings.map((f: any, i: number) => ({
                           id: `sm-${i}`, title: `[${f.type}]`, severity: f.severity,
                           summary: f.url,
                           details: [
                             { label: "TIPO", value: f.type },
                             { label: "URL", value: f.url },
-                            ...(f.evidence ? [{ label: "EVIDÊNCIA", value: f.evidence }] : []),
+                            ...(f.evidence ? [{ label: t("col.evidencia"), value: f.evidence }] : []),
                           ],
                         }))}
                       />
@@ -7031,18 +7032,18 @@ export default function App() {
                       <div className={styles.sidebarContentTitle} style={{ "--mc-color": hhFindings.length ? "var(--high)" : "var(--secure)" } as React.CSSProperties}>
                         <span className={styles.sidebarContentIcon}>◈</span>
                         <span className={styles.sidebarContentTitleText}>Host Header Injection</span>
-                        <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("hostheader")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                        <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("hostheader")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                       </div>
                       <FindingCardsPanel
-                        emptyMsg="Nenhuma reflexão de Host header detectada"
+                        emptyMsg={t("vazio.hostHeader")}
                         items={hhFindings.map((f: any, i: number) => ({
                           id: `hh-${i}`, title: f.injectedHeader, severity: "HIGH",
                           summary: `Refletido em: ${f.reflectionPoint}`,
                           details: [
                             { label: "HEADER", value: f.injectedHeader },
-                            { label: "REFLETIDO EM", value: f.reflectionPoint },
-                            { label: "VALOR INJETADO", value: f.injectedValue },
-                            ...(f.evidence ? [{ label: "EVIDÊNCIA", value: f.evidence }] : []),
+                            { label: t("col.refletidoEm"), value: f.reflectionPoint },
+                            { label: t("col.valorInjetado"), value: f.injectedValue },
+                            ...(f.evidence ? [{ label: t("col.evidencia"), value: f.evidence }] : []),
                           ],
                         }))}
                       />
@@ -7054,17 +7055,17 @@ export default function App() {
                           <span className={styles.sidebarContentIcon}>◑</span>
                           <span className={styles.sidebarContentTitleText}>Certificate Transparency</span>
                         
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("cert")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("cert")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         {ct ? (
                           <>
                             {/* Stats as interactive cards */}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 8, marginBottom: 12 }}>
                               {[
-                                { label: "Certificados", value: ct.totalCertificates, color: "var(--info)", icon: "◑", detail: "Total de certificados emitidos para este domínio registrados nos logs públicos de Certificate Transparency." },
-                                { label: "Subdomínios históricos", value: ct.uniqueSubdomains, color: ct.uniqueSubdomains > 20 ? "var(--warning)" : "var(--info)", icon: "◎", detail: "Subdomínios descobertos via CT logs. Muitos subdomínios podem indicar superfície de ataque ampla — verifique os que não estão mais em uso." },
-                                { label: "Wildcard", value: ct.wildcardDetected ? "⚠ Sim" : "✓ Não", color: ct.wildcardDetected ? "var(--warning)" : "var(--secure)", icon: ct.wildcardDetected ? "⚠" : "✓", detail: ct.wildcardDetected ? "Certificado wildcard detectado (*.dominio). Compromisso de um subdomínio pode afetar todos os outros cobertos pelo wildcard." : "Nenhum certificado wildcard detectado." },
-                                { label: "Emitido (7 dias)", value: ct.recentlyIssued ? "⚠ Sim" : "—", color: ct.recentlyIssued ? "var(--warning)" : "var(--secure)", icon: ct.recentlyIssued ? "⚠" : "✓", detail: ct.recentlyIssued ? "Certificado emitido nos últimos 7 dias. Verifique se a emissão foi esperada — emissões inesperadas podem indicar comprometimento." : "Nenhum certificado emitido recentemente nos logs CT." },
+                                { label: t("ct.certificados"), value: ct.totalCertificates, color: "var(--info)", icon: "◑", detail: "Total de certificados emitidos para este domínio registrados nos logs públicos de Certificate Transparency." },
+                                { label: t("ct.subdominiosHistoricos"), value: ct.uniqueSubdomains, color: ct.uniqueSubdomains > 20 ? "var(--warning)" : "var(--info)", icon: "◎", detail: "Subdomínios descobertos via CT logs. Muitos subdomínios podem indicar superfície de ataque ampla — verifique os que não estão mais em uso." },
+                                { label: "Wildcard", value: ct.wildcardDetected ? t("selo.sim") : t("selo.nao"), color: ct.wildcardDetected ? "var(--warning)" : "var(--secure)", icon: ct.wildcardDetected ? "⚠" : "✓", detail: ct.wildcardDetected ? "Certificado wildcard detectado (*.dominio). Compromisso de um subdomínio pode afetar todos os outros cobertos pelo wildcard." : "Nenhum certificado wildcard detectado." },
+                                { label: t("ct.emitidoRecente"), value: ct.recentlyIssued ? t("selo.sim") : "—", color: ct.recentlyIssued ? "var(--warning)" : "var(--secure)", icon: ct.recentlyIssued ? "⚠" : "✓", detail: ct.recentlyIssued ? "Certificado emitido nos últimos 7 dias. Verifique se a emissão foi esperada — emissões inesperadas podem indicar comprometimento." : "Nenhum certificado emitido recentemente nos logs CT." },
                               ].map((stat, i) => (
                                 <div key={i} style={{ background: "var(--surface)", border: `1px solid var(--border)`, borderLeft: `3px solid ${stat.color}`, borderRadius: "var(--radius)", padding: "10px 12px" }}>
                                   <div style={{ fontFamily: "var(--mono)", fontSize: 18, color: stat.color, fontWeight: 700 }}>{stat.value}</div>
@@ -7093,7 +7094,7 @@ export default function App() {
                             {ct.recentCerts?.length > 0 && (
                               <Section title={`Certificados recentes [${ct.recentCerts.length}]`} defaultOpen={false}>
                                 <table className={styles.table}>
-                                  <thead><tr><th>Common Name</th><th>Issuer</th><th>Válido de</th><th>Válido até</th></tr></thead>
+                                  <thead><tr><th>{t("ct.commonName")}</th><th>Issuer</th><th>{t("ct.validoDe")}</th><th>{t("ct.validoAte")}</th></tr></thead>
                                   <tbody>
                                     {ct.recentCerts.map((c, i) => (
                                       <tr key={i}>
@@ -7113,7 +7114,7 @@ export default function App() {
                               </Section>
                             )}
                           </>
-                        ) : <div className={styles.empty}>◈ Não analisado</div>}
+                        ) : <div className={styles.empty}>{t("resultado.naoAnalisado")}</div>}
                       </>
                     )}
 
@@ -7123,22 +7124,22 @@ export default function App() {
                           <span className={styles.sidebarContentIcon}>◎</span>
                           <span className={styles.sidebarContentTitleText}>Subdomain Takeover</span>
                         
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("takeover")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("takeover")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg="Nenhum subdomínio vulnerável a takeover detectado"
+                          emptyMsg={t("vazio.takeover")}
                           cols={1}
-                          items={(r.subdomainTakeover ?? []).map((t: any, i: number) => ({
-                            id: `takeover-${i}`, title: t.subdomain, severity: t.severity,
-                            extraTags: [{ label: t.status, color: t.status === "VULNERABLE" ? "var(--critical)" : "var(--warning)" }],
-                            summary: `${t.vulnerability} — via ${t.service}`,
+                          items={(r.subdomainTakeover ?? []).map((tk: any, i: number) => ({
+                            id: `takeover-${i}`, title: tk.subdomain, severity: tk.severity,
+                            extraTags: [{ label: tk.status, color: tk.status === "VULNERABLE" ? "var(--critical)" : "var(--warning)" }],
+                            summary: `${tk.vulnerability} — via ${tk.service}`,
                             details: [
-                              { label: "SUBDOMÍNIO", value: t.subdomain },
-                              { label: "STATUS", value: t.status },
-                              { label: "SERVIÇO", value: t.service },
-                              { label: "CNAME →", value: t.cnameTarget },
-                              { label: "VULNERAB.", value: t.vulnerability },
-                              ...(t.evidence ? [{ label: "EVIDÊNCIA", value: t.evidence }] : []),
+                              { label: t("col.subdominio"), value: tk.subdomain },
+                              { label: "STATUS", value: tk.status },
+                              { label: t("col.servico"), value: tk.service },
+                              { label: "CNAME →", value: tk.cnameTarget },
+                              { label: "VULNERAB.", value: tk.vulnerability },
+                              ...(tk.evidence ? [{ label: t("col.evidencia"), value: tk.evidence }] : []),
                             ],
                           }))}
                         />
@@ -7150,7 +7151,7 @@ export default function App() {
                         <div className={styles.sidebarContentTitle} style={{ "--mc-color": "var(--info)" } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>▣</span>
                           <span className={styles.sidebarContentTitleText}>Active Checks</span>
-                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("active")} title="Saiba mais sobre este módulo">ⓘ Saiba mais</button>
+                          <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("active")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <ActiveChecksPanel r={r} onShowPlans={() => setShowPlans(true)} />
                       </>
