@@ -1,4 +1,5 @@
 import axios from "axios";
+import { idiomaAtual } from "../i18n/catalog";
 
 const TOKEN_KEY = "cyberaudit.token";
 
@@ -21,6 +22,14 @@ export const api = axios.create({
 api.interceptors.request.use(config => {
   const token = localStorage.getItem("cyberaudit.token")
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  // Idioma escolhido na tela. Explícito de propósito: sem isto o Backend decide
+  // pelo Accept-Language do navegador, e a interface em português entregaria
+  // laudo em inglês para quem tem o navegador em inglês.
+  //
+  // Este header exige `Accept-Language` na allowlist do CORS do Backend — a
+  // requisição já leva Authorization, então há preflight, e o preflight recusa
+  // inteiro se um header pedido não estiver lá.
+  config.headers["Accept-Language"] = idiomaAtual();
   return config;
 });
 

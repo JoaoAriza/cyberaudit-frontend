@@ -3,6 +3,8 @@ import styles from "./App.module.css";
 import { api, setToken } from "./api/client";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useAuth } from "./context/AuthContext";
+import { useI18n } from "./i18n/I18nContext";
+import { IDIOMAS } from "./i18n/catalog";
 import type { TwoFactorPending } from "./context/AuthContext";
 
 // ── Backend Types ─────────────────────────────────────────────────────────────
@@ -1334,6 +1336,39 @@ function LoginPage({ onBack }: { onBack: () => void }) {
         </div>
       </div>
     </>
+  );
+}
+
+// ── Seletor de idioma ─────────────────────────────────────────────────────────
+
+/**
+ * Fica ao lado do tema, no header, e vale para VISITANTE também: a tela de planos
+ * e o scan público são justamente o que o cliente estrangeiro vê antes de existir
+ * conta dele.
+ *
+ * Trocar o idioma recarrega a página. Parece grosseiro, mas é o certo aqui: o
+ * resultado do scan que já está na tela veio do Backend no idioma anterior, e
+ * re-renderizar só a moldura deixaria metade em cada idioma — exatamente o
+ * meio-termo que este bloco existe para evitar. O reload refaz as chamadas com o
+ * header novo.
+ */
+function LanguagePicker() {
+  const { lang, setLang, t } = useI18n();
+
+  return (
+    <div className={styles.langPicker} role="group" aria-label={t("idioma.seletor")}>
+      {IDIOMAS.map(i => (
+        <button
+          key={i.code}
+          className={`${styles.langBtn} ${i.code === lang ? styles.langBtnActive : ""}`}
+          onClick={() => { if (i.code !== lang) { setLang(i.code); window.location.reload(); } }}
+          title={t("idioma.mudarPara", i.label)}
+          aria-pressed={i.code === lang}
+        >
+          {i.short}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -6267,6 +6302,7 @@ export default function App() {
           {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "settings" ? styles.navBtnActive : ""}`} onClick={() => setView("settings")}>⚙ Segurança</button>)}
         </nav>
         <div className={styles.headerRight}>
+          <LanguagePicker />
           <button
             className={styles.themeToggle}
             onClick={toggleTheme}
