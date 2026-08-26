@@ -51,6 +51,39 @@ export function salvarIdioma(lang: Lang) {
   localStorage.setItem(CHAVE_ARMAZENADA, lang);
 }
 
+// ── Data, hora e número ──────────────────────────────────────────────────────
+
+/**
+ * Formatação que segue o idioma ativo.
+ *
+ * Existe porque `pt-BR` estava chumbado em 19 pontos do App: um cliente em inglês
+ * via `24/08/2026 14:30` no meio de uma tela em inglês. Data e número não são
+ * texto — não passam pelo catálogo — mas são o mesmo idioma.
+ *
+ * Lê `idiomaAtual()` a cada chamada, como o interceptor HTTP faz com o token:
+ * trocar o idioma recarrega a página, então não há estado a sincronizar.
+ *
+ * O locale dos RELATÓRIOS EXPORTÁVEIS não passa por aqui. Eles são monolíngues em
+ * inglês por decisão de produto, e a prévia do cabeçalho do PDF no Frontend fixa
+ * "en" de propósito — a data ali tem de bater com o documento, não com a tela.
+ */
+export function formatarData(valor: string | number | Date, opcoes?: Intl.DateTimeFormatOptions) {
+  return new Date(valor).toLocaleDateString(idiomaAtual(), opcoes);
+}
+
+export function formatarHora(valor: string | number | Date, opcoes?: Intl.DateTimeFormatOptions) {
+  return new Date(valor).toLocaleTimeString(idiomaAtual(), opcoes);
+}
+
+export function formatarDataHora(valor: string | number | Date, opcoes?: Intl.DateTimeFormatOptions) {
+  return new Date(valor).toLocaleString(idiomaAtual(), opcoes);
+}
+
+/** Preço na moeda que o Backend informou, formatado no idioma ativo. */
+export function formatarMoeda(valor: number, moeda: string) {
+  return new Intl.NumberFormat(idiomaAtual(), { style: "currency", currency: moeda }).format(valor);
+}
+
 export type Catalogo = Record<string, string>;
 
 /**
@@ -402,6 +435,8 @@ export const pt: Catalogo = {
   "achado.correcao": "CORREÇÃO",
   "achado.contestar": "Contestar este achado",
   "bloqueio.verPlanos": "Ver planos →",
+  "plano.gratis": "Grátis",
+  "plano.porMes": "{0}/mês",
   "bloqueio.detalheModulo": "DETALHE DO MÓDULO BLOQUEADO",
   "modulo.info": "Informações do módulo",
   "modulo.escopo": "ESCOPO DO MÓDULO",
@@ -628,6 +663,7 @@ export const pt: Catalogo = {
   "marca.selecionarLogo": "Selecionar logo",
   "marca.salvo": "✓ Salvo",
   "marca.salvar": "Salvar branding",
+  "marca.previaCabecalho": "Prévia do cabeçalho do PDF",
 
   // ── Headers de segurança (tabela HEADER_META) ─────────────────────────────
   "hdr.csp.desc": "Define quais origens podem carregar scripts, estilos e outros recursos — principal defesa contra XSS.",
@@ -1144,6 +1180,8 @@ export const en: Catalogo = {
   "achado.correcao": "FIX",
   "achado.contestar": "Dispute this finding",
   "bloqueio.verPlanos": "View plans →",
+  "plano.gratis": "Free",
+  "plano.porMes": "{0}/month",
   "bloqueio.detalheModulo": "MODULE DETAIL LOCKED",
   "modulo.info": "Module information",
   "modulo.escopo": "MODULE SCOPE",
@@ -1359,6 +1397,7 @@ export const en: Catalogo = {
   "marca.selecionarLogo": "Select logo",
   "marca.salvo": "✓ Saved",
   "marca.salvar": "Save branding",
+  "marca.previaCabecalho": "Preview of the PDF header",
 
   "hdr.csp.desc": "Defines which origins may load scripts, styles and other resources — the main defence against XSS.",
   "hdr.csp.risk": "Without a CSP, malicious scripts from any origin can run in the user's browser.",

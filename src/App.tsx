@@ -4,7 +4,7 @@ import { api, setToken } from "./api/client";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useAuth } from "./context/AuthContext";
 import { useI18n } from "./i18n/I18nContext";
-import { IDIOMAS } from "./i18n/catalog";
+import { IDIOMAS, formatarData, formatarHora, formatarDataHora, formatarMoeda } from "./i18n/catalog";
 import type { TwoFactorPending } from "./context/AuthContext";
 
 // ── Backend Types ─────────────────────────────────────────────────────────────
@@ -627,7 +627,7 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
         <span style={{ fontSize: 10, fontWeight: 700, color: fbStatusColor(f.status) }}>{t(fbStatusKey(f.status))}</span>
       </div>
       <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
-        {f.submittedByName ?? f.submittedByEmail ?? "—"} · {new Date(f.createdAt).toLocaleString("pt-BR")}
+        {f.submittedByName ?? f.submittedByEmail ?? "—"} · {formatarDataHora(f.createdAt)}
       </div>
       <div style={{ fontSize: 13, color: "var(--text)", marginBottom: 10, whiteSpace: "pre-wrap" }}>{f.message}</div>
       <textarea
@@ -1500,12 +1500,10 @@ function rotuloDoRecurso(f: ApiFeature, plano: PlanKey): string {
 }
 
 /** Preço formatado na moeda que a API informou. */
-function precoDoPlano(p: ApiPlan): string {
-  if (p.amount == null) return "Grátis";
-  const valor = new Intl.NumberFormat("pt-BR", {
-    style: "currency", currency: p.currency || "BRL",
-  }).format(p.amount);
-  return `${valor}/mês`;
+function precoDoPlano(p: ApiPlan, t: (c: string, ...a: unknown[]) => string): string {
+  if (p.amount == null) return t("plano.gratis");
+  const valor = formatarMoeda(p.amount, p.currency || "BRL");
+  return t("plano.porMes", valor);
 }
 
 /** FREE não se assina. */
@@ -1515,6 +1513,7 @@ function ehPago(plano: PlanKey): boolean {
 
 function PlansModal({ onClose }: { onClose: () => void }) {
   const { user, refreshUser } = useAuth();
+  const { t } = useI18n();
 
   // Esta é a tela que afirma "Seu plano atual", então é a que menos pode estar
   // desatualizada. O plano pode ter mudado desde o login sem passar por aqui —
@@ -1614,7 +1613,7 @@ function PlansModal({ onClose }: { onClose: () => void }) {
             {planos.map(p => {
               const card    = PLAN_CARDS[p.plan];
               const current = p.plan === currentPlan;
-              const preco   = precoDoPlano(p);
+              const preco   = precoDoPlano(p, t);
               return (
                 <div key={p.plan} className={`${styles.planCard} ${current ? styles.planCardCurrent : ""}`}>
                   {current && <div className={styles.planCurrentBadge}>Seu plano atual</div>}
@@ -1959,7 +1958,7 @@ function InviteItemRow({ inv, onRevoke, roleBadge }: { inv: InviteDto; onRevoke:
         <div className={styles.inviteItemLeft}>
           <div className={styles.inviteItemName}>{inv.name}</div>
           <code className={styles.code}>{inv.email}</code>
-          <div className={styles.inviteItemMeta}>{roleBadge(inv.role)}<span className={styles.muted}>· expira {new Date(inv.expiresAt).toLocaleDateString()}</span></div>
+          <div className={styles.inviteItemMeta}>{roleBadge(inv.role)}<span className={styles.muted}>· expira {formatarData(inv.expiresAt)}</span></div>
         </div>
         <div className={styles.actionBtns} onClick={e => e.stopPropagation()}>
           <span className={`${styles.chevron} ${expanded ? styles.chevronOpen : ""}`} style={{ fontSize: 20, color: "var(--text-dim)", cursor: "pointer", padding: "0 6px" }} onClick={() => setExpanded(o => !o)}>›</span>
@@ -2186,7 +2185,7 @@ function SchedulesPage() {
 
   function fmtDate(d: string | null) {
     if (!d) return "—";
-    return new Date(d).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    return formatarDataHora(d, { dateStyle: "short", timeStyle: "short" });
   }
 
   function scoreBadgeCls(score: number) {
@@ -2522,7 +2521,7 @@ function AuditLogsTab() {
                   {logs.map(log => (
                     <tr key={log.id} className={log.success ? "" : styles.inactiveRow}>
                       <td className={styles.muted} style={{ whiteSpace: "nowrap", fontSize: 11 }}>
-                        {new Date(log.timestamp).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "medium" })}
+                        {formatarDataHora(log.timestamp, { dateStyle: "short", timeStyle: "medium" })}
                       </td>
                       <td>
                         <div style={{ lineHeight: 1.3 }}>
@@ -2926,7 +2925,7 @@ function ScanTimelineRow({
           <div className={styles.changesScanInfo}>
             <span className={styles.changesScanDate}>
               {showHost && <code className={styles.code} style={{ fontSize: 11, marginRight: 6 }}>{s.host}</code>}
-              {new Date(s.scannedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+              {formatarDataHora(s.scannedAt, { dateStyle: "short", timeStyle: "short" })}
               {isFirst && <span className={styles.changesLatestBadge}>{t("changes.maisRecente")}</span>}
               {s.activeMode && <span className={`${styles.tag} ${styles.info}`} style={{ fontSize: 9 }}>ACTIVE</span>}
               {s.origin === "SCHEDULED" && <span className={`${styles.tag} ${styles.warning}`} style={{ fontSize: 9 }}>AGENDADO</span>}
@@ -3157,8 +3156,8 @@ function ChangesPage() {
                   : "var(--critical)";
                 const pct = Math.max(2, s.score);
                 const dt  = new Date(s.scannedAt);
-                const dateStr = dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-                const timeStr = dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                const dateStr = formatarData(dt, { day: "2-digit", month: "2-digit", year: "numeric" });
+                const timeStr = formatarHora(dt, { hour: "2-digit", minute: "2-digit" });
                 return (
                   <button
                     key={s.id}
@@ -3660,7 +3659,7 @@ function DomainsPage() {
                   </span>
                   {d.verifiedAt && (
                     <span className={styles.muted} style={{ fontSize: 11 }}>
-                      em {new Date(d.verifiedAt).toLocaleDateString("pt-BR")}
+                      em {formatarData(d.verifiedAt)}
                     </span>
                   )}
                 </div>
@@ -3820,12 +3819,12 @@ function IntradayChart({ host }: { host: string }) {
       ts:    dt.getTime(),
       score: s.score,
       risk:  s.riskLevel,
-      label: dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      label: formatarHora(dt, { hour: "2-digit", minute: "2-digit" }),
     };
   });
 
   const dateLabel = selectedDate
-    ? new Date(selectedDate + "T12:00:00").toLocaleDateString("pt-BR", {
+    ? formatarData(selectedDate + "T12:00:00", {
         weekday: "short", day: "2-digit", month: "2-digit", year: "numeric",
       })
     : "";
@@ -3874,7 +3873,7 @@ function IntradayChart({ host }: { host: string }) {
                   domain={["dataMin", "dataMax"]}
                   tickCount={Math.min(points.length, 6)}
                   tickFormatter={(v: number) =>
-                    new Date(v).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                    formatarHora(v, { hour: "2-digit", minute: "2-digit" })
                   }
                   tick={{ fill: "var(--text-muted)", fontSize: 10, fontFamily: "var(--mono)" }}
                   axisLine={false}
@@ -5009,7 +5008,7 @@ function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFil
   // Um ponto por dia — último scan do dia
   const pointsMap = new Map<string, typeof data[0]>();
   for (const d of data) {
-    const day = new Date(d.scannedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const day = formatarData(d.scannedAt, { day: "2-digit", month: "2-digit", year: "numeric" });
     pointsMap.set(day, d);
   }
   const points = Array.from(pointsMap.values()).map(d => {
@@ -5018,8 +5017,8 @@ function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFil
       ts: dt.getTime(),
       score: d.score,
       risk: d.riskLevel,
-      fullLabel: dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " " +
-                 dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      fullLabel: formatarData(dt, { day: "2-digit", month: "2-digit" }) + " " +
+                 formatarHora(dt, { hour: "2-digit", minute: "2-digit" }),
     };
   });
 
@@ -5100,7 +5099,7 @@ function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFil
                     domain={["dataMin", "dataMax"]}
                     tickCount={Math.min(points.length, 6)}
                     tickFormatter={(v: number) =>
-                      new Date(v).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+                      formatarData(v, { day: "2-digit", month: "2-digit" })
                     }
                     tick={{ fill: "var(--text-muted)", fontSize: 10, fontFamily: "var(--mono)" }}
                     axisLine={false}
@@ -5544,8 +5543,8 @@ function ApiKeysSection() {
               <tr key={k.id} style={{ opacity: k.active ? 1 : .45 }}>
                 <td><span style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{k.name}</span></td>
                 <td><code style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--accent)" }}>{k.keyPrefix}...</code></td>
-                <td><span className={styles.muted} style={{ fontSize: 10 }}>{new Date(k.createdAt).toLocaleDateString("pt-BR")}</span></td>
-                <td><span className={styles.muted} style={{ fontSize: 10 }}>{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString("pt-BR") : "—"}</span></td>
+                <td><span className={styles.muted} style={{ fontSize: 10 }}>{formatarData(k.createdAt)}</span></td>
+                <td><span className={styles.muted} style={{ fontSize: 10 }}>{k.lastUsedAt ? formatarData(k.lastUsedAt) : "—"}</span></td>
                 <td>
                   <span style={{
                     fontFamily: "var(--mono)", fontSize: 9, fontWeight: 700,
@@ -5766,12 +5765,12 @@ function BrandingSection() {
                 <div style={{ fontSize: 9, color: "#fff", marginTop: 2 }}>Web Security Report</div>
               </div>
               <div style={{ marginLeft: "auto", fontSize: 8, color: "#4A5568" }}>
-                <div>Generated: {new Date().toLocaleDateString("pt-BR")}</div>
+                <div>Generated: {new Date().toLocaleDateString("en")}</div> {/* "en" fixo: o PDF é monolíngue em inglês, e a prévia tem de bater com ele. */}
                 <div style={{ fontWeight: 700 }}>CONFIDENTIAL</div>
               </div>
             </div>
             <div style={{ background: "var(--surface)", padding: "5px 16px", fontSize: 9, color: "var(--text-muted)" }}>
-              Prévia do cabeçalho do PDF
+              {t("marca.previaCabecalho")}
             </div>
           </div>
 
