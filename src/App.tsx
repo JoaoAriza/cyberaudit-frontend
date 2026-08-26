@@ -385,8 +385,9 @@ interface FeedbackTarget {
   findingLabel?: string | null;
 }
 
-function fbStatusLabel(s: FeedbackStatus) {
-  return s === "OPEN" ? "Aberto" : s === "REVIEWING" ? "Em análise" : "Resolvido";
+/** Devolve a CHAVE do catálogo; quem renderiza resolve — a função vive fora de componente. */
+function fbStatusKey(s: FeedbackStatus) {
+  return s === "OPEN" ? "feedback.aberto" : s === "REVIEWING" ? "feedback.emAnalise" : "feedback.resolvido";
 }
 function fbStatusColor(s: FeedbackStatus) {
   return s === "OPEN" ? "var(--warning, #f5a623)"
@@ -424,6 +425,7 @@ function lerVistas(): string[] {
  * que já está na API (/feedback/mine).
  */
 function AvisoRespostasFeedback() {
+  const { t } = useI18n();
   const [itens, setItens]   = useState<FeedbackDto[]>([]);
   const [aberto, setAberto] = useState(false);
   const [vistas, setVistas] = useState<string[]>(lerVistas);
@@ -449,7 +451,7 @@ function AvisoRespostasFeedback() {
         <span style={{ fontSize: 15 }}>✉</span>
         <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
           {naoLidas.length === 1
-            ? "Sua contestação foi respondida"
+            ? t("feedback.respondida")
             : `${naoLidas.length} contestações suas foram respondidas`}
         </span>
         <button
@@ -470,12 +472,12 @@ function AvisoRespostasFeedback() {
             <div key={f.id} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 12px" }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>
                 <code className={styles.code}>{f.host}</code>
-                <span style={{ marginLeft: 6 }}>{f.findingLabel || f.module || "scan inteiro"}</span>
+                <span style={{ marginLeft: 6 }}>{f.findingLabel || f.module || t("feedback.scanInteiro")}</span>
               </div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Você escreveu:</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>{t("feedback.voceEscreveu")}</div>
               <div style={{ fontSize: 12, color: "var(--text-dim)", whiteSpace: "pre-wrap", marginBottom: 8 }}>{f.message}</div>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
-                {f.deletionReason ? "A equipe encerrou esta contestação:" : "Resposta da equipe:"}
+                {f.deletionReason ? t("feedback.equipeEncerrou") : t("feedback.respostaEquipe")}
               </div>
               <div style={{ fontSize: 13, color: "var(--text)", whiteSpace: "pre-wrap" }}>
                 {f.deletionReason ?? f.adminResponse}
@@ -490,13 +492,14 @@ function AvisoRespostasFeedback() {
 
 /** Modal do cliente: contesta um achado/módulo/scan e vê respostas anteriores. */
 function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: () => void }) {
+  const { t } = useI18n();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mine, setMine] = useState<FeedbackDto[]>([]);
 
-  const targetLabel = target.findingLabel || target.module || "scan inteiro";
+  const targetLabel = target.findingLabel || target.module || t("feedback.scanInteiro");
 
   useEffect(() => {
     api.get<FeedbackDto[]>("/feedback/mine")
@@ -505,7 +508,7 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
   }, [target.host, sent]);
 
   async function submit() {
-    if (!message.trim()) { setError("Descreva o que está errado."); return; }
+    if (!message.trim()) { setError(t("feedback.descreva")); return; }
     setSending(true); setError(null);
     try {
       await api.post("/feedback", {
@@ -517,7 +520,7 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
       });
       setSent(true); setMessage("");
     } catch (e: any) {
-      setError(e?.response?.data?.message ?? "Erro ao enviar feedback.");
+      setError(e?.response?.data?.message ?? t("feedback.erroEnviar"));
     } finally { setSending(false); }
   }
 
@@ -525,15 +528,15 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
     <div className={styles.modalOverlay} onClick={onClose}>
       <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 720, width: "94vw" }}>
         <div className={styles.modalHeader}>
-          <span className={styles.modalTitle}>Contestar resultado</span>
+          <span className={styles.modalTitle}>{t("feedback.contestar")}</span>
           <button className={styles.modalClose} onClick={onClose}>✕</button>
         </div>
         <div className={styles.modalBody}>
           {sent ? (
             <div style={{ textAlign: "center", padding: "12px 0" }}>
               <div style={{ fontSize: 32, marginBottom: 8, color: "var(--secure)" }}>✓</div>
-              <div style={{ color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>Feedback enviado</div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Nossa equipe vai analisar. Obrigado!</div>
+              <div style={{ color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>{t("feedback.enviado")}</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{t("feedback.obrigado")}</div>
               <button className={`${styles.btn} ${styles.btnGhost}`} style={{ marginTop: 16 }} onClick={() => setSent(false)}>
                 Enviar outro
               </button>
@@ -544,7 +547,7 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
                 Contestando <strong style={{ color: "var(--text)" }}>{targetLabel}</strong> em <code className={styles.code}>{target.host}</code>. Explique por que acredita que o resultado está errado.
               </div>
               <div className={styles.formGroup}>
-                <label className={styles.formLabel}>O QUE ESTÁ ERRADO?</label>
+                <label className={styles.formLabel}>{t("feedback.oQueErrado")}</label>
                 <textarea
                   className={styles.formInput}
                   rows={10}
@@ -552,7 +555,7 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
                   maxLength={4000}
                   onChange={e => setMessage(e.target.value)}
                   style={{ minHeight: 180, resize: "vertical", lineHeight: 1.6 }}
-                  placeholder="Ex: este header existe, mas está configurado num subdomínio diferente..."
+                  placeholder={t("feedback.phMensagem")}
                 />
                 <div style={{ fontSize: 10, color: "var(--text-muted)", textAlign: "right", marginTop: 4 }}>
                   {message.length}/4000
@@ -560,20 +563,20 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
               </div>
               {error && <div className={styles.errorBox}>{error}</div>}
               <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={sending} onClick={submit}>
-                {sending ? "Enviando..." : "Enviar contestação"}
+                {sending ? t("comum.enviando") : t("feedback.enviarContestacao")}
               </button>
             </>
           )}
 
           {mine.length > 0 && (
             <div style={{ marginTop: 18, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-              <div className={styles.formLabel} style={{ marginBottom: 8 }}>SEUS FEEDBACKS NESTE HOST</div>
+              <div className={styles.formLabel} style={{ marginBottom: 8 }}>{t("feedback.seusFeedbacks")}</div>
               {mine.map(f => (
                 <div key={f.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "8px 10px", marginBottom: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ fontSize: 12, color: "var(--text)" }}>{f.findingLabel || f.module || "scan inteiro"}</span>
+                    <span style={{ fontSize: 12, color: "var(--text)" }}>{f.findingLabel || f.module || t("feedback.scanInteiro")}</span>
                     <span style={{ fontSize: 10, fontWeight: 700, color: f.deletedAt ? "var(--text-muted)" : fbStatusColor(f.status) }}>
-                      {f.deletedAt ? "ENCERRADA" : fbStatusLabel(f.status)}
+                      {f.deletedAt ? t("feedback.encerrada") : t(fbStatusKey(f.status))}
                     </span>
                   </div>
                   <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3, whiteSpace: "pre-wrap" }}>{f.message}</div>
@@ -584,7 +587,7 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
                   )}
                   {f.deletionReason && (
                     <div style={{ fontSize: 11, color: "var(--text)", marginTop: 6, paddingLeft: 8, borderLeft: "2px solid var(--text-muted)", whiteSpace: "pre-wrap" }}>
-                      <strong>Encerrada pela equipe:</strong> {f.deletionReason}
+                      <strong>{t("feedback.encerradaPelaEquipe")}</strong> {f.deletionReason}
                     </div>
                   )}
                 </div>
@@ -603,6 +606,7 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
   onReply: (id: string, resp: string, status: FeedbackStatus) => Promise<void>;
   onDelete: (id: string, reason: string) => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [resp, setResp] = useState(f.adminResponse ?? "");
   const [status, setStatus] = useState<FeedbackStatus>(f.status);
   const [saving, setSaving] = useState(false);
@@ -618,9 +622,9 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
         <div>
           <code className={styles.code}>{f.host}</code>
-          <span style={{ marginLeft: 8, fontSize: 12, color: "var(--text)" }}>{f.findingLabel || f.module || "scan inteiro"}</span>
+          <span style={{ marginLeft: 8, fontSize: 12, color: "var(--text)" }}>{f.findingLabel || f.module || t("feedback.scanInteiro")}</span>
         </div>
-        <span style={{ fontSize: 10, fontWeight: 700, color: fbStatusColor(f.status) }}>{fbStatusLabel(f.status)}</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: fbStatusColor(f.status) }}>{t(fbStatusKey(f.status))}</span>
       </div>
       <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
         {f.submittedByName ?? f.submittedByEmail ?? "—"} · {new Date(f.createdAt).toLocaleString("pt-BR")}
@@ -632,12 +636,12 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
         value={resp}
         onChange={e => setResp(e.target.value)}
         style={{ minHeight: 140, resize: "vertical", lineHeight: 1.6 }}
-        placeholder="Resposta ao cliente..."
+        placeholder={t("feedback.phResposta")}
       />
       <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
         <select className={styles.roleSelect} value={status} onChange={e => setStatus(e.target.value as FeedbackStatus)}>
           <option value="OPEN">Aberto</option>
-          <option value="REVIEWING">Em análise</option>
+          <option value="REVIEWING">{t("feedback.emAnalise")}</option>
           <option value="RESOLVED">Resolvido</option>
         </select>
         <button
@@ -645,7 +649,7 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
           disabled={saving}
           onClick={async () => { setSaving(true); try { await onReply(f.id, resp, status); } finally { setSaving(false); } }}
         >
-          {saving ? "Salvando..." : "Salvar"}
+          {saving ? t("comum.salvando") : "Salvar"}
         </button>
         {!confirmandoExclusao && (
           <button
@@ -660,9 +664,9 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
 
       {confirmandoExclusao && (
         <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-          <label className={styles.formLabel}>POR QUE ESTÁ EXCLUINDO?</label>
+          <label className={styles.formLabel}>{t("feedback.porQueExcluindo")}</label>
           <div style={{ fontSize: 11, color: "var(--text-muted)", margin: "4px 0 8px" }}>
-            Esta justificativa aparece para {f.submittedByName ?? "quem enviou"} no lugar da contestação.
+            Esta justificativa aparece para {f.submittedByName ?? t("feedback.quemEnviou")} no lugar da contestação.
           </div>
           <textarea
             className={styles.formInput}
@@ -671,7 +675,7 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
             maxLength={4000}
             onChange={e => setMotivo(e.target.value)}
             style={{ minHeight: 110, resize: "vertical", lineHeight: 1.6 }}
-            placeholder="Ex: o achado procede — o header realmente está ausente no host consultado."
+            placeholder={t("feedback.phMotivoExclusao")}
           />
           {erroExclusao && <div className={styles.errorBox} style={{ marginTop: 8 }}>{erroExclusao}</div>}
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
@@ -683,12 +687,12 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
                 setExcluindo(true); setErroExclusao(null);
                 try { await onDelete(f.id, motivo.trim()); }
                 catch (e: any) {
-                  setErroExclusao(e?.response?.data?.message ?? "Erro ao excluir.");
+                  setErroExclusao(e?.response?.data?.message ?? t("feedback.erroExcluir"));
                   setExcluindo(false);
                 }
               }}
             >
-              {excluindo ? "Excluindo..." : "Confirmar exclusão"}
+              {excluindo ? t("feedback.excluindo") : t("feedback.confirmarExclusao")}
             </button>
             <button
               className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
@@ -1944,6 +1948,7 @@ function AcceptInvitePage({ token }: { token: string }) {
 // ── Invite Item Row ───────────────────────────────────────────────────────────
 
 function InviteItemRow({ inv, onRevoke, roleBadge }: { inv: InviteDto; onRevoke: () => void; roleBadge: (r: string) => React.ReactNode; }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const link = inv.acceptLink ? `${window.location.origin}${inv.acceptLink}` : null;
@@ -1964,11 +1969,11 @@ function InviteItemRow({ inv, onRevoke, roleBadge }: { inv: InviteDto; onRevoke:
       {expanded && (
         <div style={{ marginTop: 10, padding: 12, background: "var(--surface3)", borderRadius: "var(--radius)", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--border)" }}>
           <div>
-            <div style={{ fontSize: 10, letterSpacing: 1, color: "var(--text-muted)", marginBottom: 6 }}>LINK DE ACEITE</div>
-            {link ? (<div className={styles.tokenRow}><code className={styles.stepCode} style={{ flex: 1, fontSize: 11, wordBreak: "break-all" }}>{link}</code><button className={styles.copyBtn} onClick={copyLink}>{copied ? "✓" : "Copiar link"}</button></div>) : <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Link não disponível — recrie o convite.</span>}
+            <div style={{ fontSize: 10, letterSpacing: 1, color: "var(--text-muted)", marginBottom: 6 }}>{t("convite.linkAceite")}</div>
+            {link ? (<div className={styles.tokenRow}><code className={styles.stepCode} style={{ flex: 1, fontSize: 11, wordBreak: "break-all" }}>{link}</code><button className={styles.copyBtn} onClick={copyLink}>{copied ? "✓" : "Copiar link"}</button></div>) : <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{t("convite.linkIndisponivel")}</span>}
           </div>
           <div style={{ display: "flex", gap: 20, fontSize: 11, color: "var(--text-dim)", flexWrap: "wrap" }}>
-            <span>Convidado por: <strong style={{ color: "var(--text)" }}>{inv.invitedByName}</strong></span>
+            <span>{t("convite.convidadoPor")} <strong style={{ color: "var(--text)" }}>{inv.invitedByName}</strong></span>
             {inv.jobTitle && <span>Cargo: <strong style={{ color: "var(--text)" }}>{inv.jobTitle}</strong></span>}
           </div>
         </div>
@@ -2382,29 +2387,40 @@ interface AuditLogEntry {
   success: boolean;
 }
 
-const AUDIT_ACTION_LABELS: Record<string, string> = {
-  LOGIN_SUCCESS:       "Login",
-  LOGIN_FAILED:        "Falha no login",
-  LOGIN_2FA_VERIFIED:  "2FA verificado",
-  SCAN_STARTED:        "Scan iniciado",
-  SCAN_COMPLETED:      "Scan concluído",
-  DOMAIN_ADDED:        "Domínio adicionado",
-  DOMAIN_VERIFIED:     "Domínio verificado",
-  DOMAIN_REMOVED:      "Domínio removido",
-  USER_INVITED:        "Convite criado",
-  USER_ROLE_CHANGED:   "Role alterado",
-  USER_DEACTIVATED:    "Usuário desativado",
-  USER_REACTIVATED:    "Usuário reativado",
-  TOTP_ENABLED:        "TOTP ativado",
-  TOTP_DISABLED:       "TOTP desativado",
-  EMAIL_OTP_ENABLED:   "Email OTP ativado",
-  EMAIL_OTP_DISABLED:  "Email OTP desativado",
-  REQUIRE_2FA_CHANGED: "2FA obrigatório alterado",
-  DATA_EXPORTED:       "Dados exportados",
-  ACCOUNT_DELETED:     "Conta excluída",
+/**
+ * Rótulos do log de auditoria.
+ *
+ * Tabela no nível do MÓDULO — fora de componente não existe `t()`. Por isso
+ * guarda CHAVES de catálogo, e quem renderiza resolve. É o mesmo formato do
+ * TECH_RISK, e o padrão para qualquer tabela de módulo com texto de tela.
+ *
+ * Ação desconhecida cai no próprio código da ação (ver AuditLogsTab): ação nova
+ * no Backend aparece crua na tela em vez de sumir dela.
+ */
+const AUDIT_ACTION_KEYS: Record<string, string> = {
+  LOGIN_SUCCESS:       "auditoria.loginOk",
+  LOGIN_FAILED:        "auditoria.loginFalha",
+  LOGIN_2FA_VERIFIED:  "auditoria.2faVerificado",
+  SCAN_STARTED:        "auditoria.scanIniciado",
+  SCAN_COMPLETED:      "auditoria.scanConcluido",
+  DOMAIN_ADDED:        "auditoria.dominioAdicionado",
+  DOMAIN_VERIFIED:     "auditoria.dominioVerificado",
+  DOMAIN_REMOVED:      "auditoria.dominioRemovido",
+  USER_INVITED:        "auditoria.conviteCriado",
+  USER_ROLE_CHANGED:   "auditoria.roleAlterado",
+  USER_DEACTIVATED:    "auditoria.usuarioDesativado",
+  USER_REACTIVATED:    "auditoria.usuarioReativado",
+  TOTP_ENABLED:        "auditoria.totpAtivado",
+  TOTP_DISABLED:       "auditoria.totpDesativado",
+  EMAIL_OTP_ENABLED:   "auditoria.emailOtpAtivado",
+  EMAIL_OTP_DISABLED:  "auditoria.emailOtpDesativado",
+  REQUIRE_2FA_CHANGED: "auditoria.require2faAlterado",
+  DATA_EXPORTED:       "auditoria.dadosExportados",
+  ACCOUNT_DELETED:     "auditoria.contaExcluida",
 };
 
 function AuditLogsTab() {
+  const { t } = useI18n();
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -2436,7 +2452,10 @@ function AuditLogsTab() {
   function clearFilter() { setFilterFrom(""); setFilterTo(""); loadLogs(0); }
 
   function actionBadge(action: string, success: boolean) {
-    const label = AUDIT_ACTION_LABELS[action] ?? action;
+    // Ação sem chave cai no próprio código: ação nova no Backend aparece crua
+    // na tela, em vez de sumir dela.
+    const chave = AUDIT_ACTION_KEYS[action];
+    const label = chave ? t(chave) : action;
     const isFailure = action === "LOGIN_FAILED" || !success;
     const isAuth = action.startsWith("LOGIN") || action.includes("2FA") || action.includes("TOTP") || action.includes("OTP");
     const isScan = action.startsWith("SCAN");
@@ -2454,23 +2473,23 @@ function AuditLogsTab() {
       <Card title={`AUDIT LOG — ${totalElements} evento${totalElements !== 1 ? "s" : ""}${hasFilter ? " (filtrado)" : ""}`}>
         {/* Filtro de datas */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Filtrar por período:</span>
+          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{t("auditoria.filtrarPeriodo")}</span>
           <input
             type="date"
             value={filterFrom}
             onChange={e => setFilterFrom(e.target.value)}
             className={styles.formInput}
             style={{ padding: "4px 8px", fontSize: 12, width: 140 }}
-            placeholder="De"
+            placeholder={t("auditoria.phDe")}
           />
-          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>até</span>
+          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{t("auditoria.ate")}</span>
           <input
             type="date"
             value={filterTo}
             onChange={e => setFilterTo(e.target.value)}
             className={styles.formInput}
             style={{ padding: "4px 8px", fontSize: 12, width: 140 }}
-            placeholder="Até"
+            placeholder={t("auditoria.phAte")}
           />
           <button className={`${styles.btn} ${styles.btnScan} ${styles.btnSm}`} onClick={applyFilter}>
             Filtrar
@@ -2483,9 +2502,9 @@ function AuditLogsTab() {
         </div>
 
         {loading ? (
-          <div className={styles.empty}>Carregando logs...</div>
+          <div className={styles.empty}>{t("auditoria.carregando")}</div>
         ) : logs.length === 0 ? (
-          <div className={styles.empty}>Nenhum evento{hasFilter ? " no período selecionado" : " registrado"}.</div>
+          <div className={styles.empty}>{t("auditoria.semEventos", hasFilter ? t("auditoria.noPeriodo") : t("auditoria.registrado"))}</div>
         ) : (
           <>
             <div className={styles.auditTableWrap}>
@@ -2493,8 +2512,8 @@ function AuditLogsTab() {
                 <thead>
                   <tr>
                     <th>Data/Hora</th>
-                    <th>Usuário</th>
-                    <th>Ação</th>
+                    <th>{t("auditoria.usuario")}</th>
+                    <th>{t("auditoria.acao")}</th>
                     <th>Detalhes</th>
                     <th>IP</th>
                   </tr>
@@ -2523,9 +2542,9 @@ function AuditLogsTab() {
             </div>
             {totalPages > 1 && (
               <div className={styles.auditPagination}>
-                <button className={`${styles.btn} ${styles.btnGhost}`} disabled={page === 0} onClick={() => loadLogs(page - 1, filterFrom || undefined, filterTo || undefined)}>← Anterior</button>
+                <button className={`${styles.btn} ${styles.btnGhost}`} disabled={page === 0} onClick={() => loadLogs(page - 1, filterFrom || undefined, filterTo || undefined)}>{t("auditoria.anterior")}</button>
                 <span className={styles.muted}>Página {page + 1} de {totalPages}</span>
-                <button className={`${styles.btn} ${styles.btnGhost}`} disabled={page >= totalPages - 1} onClick={() => loadLogs(page + 1, filterFrom || undefined, filterTo || undefined)}>Próxima →</button>
+                <button className={`${styles.btn} ${styles.btnGhost}`} disabled={page >= totalPages - 1} onClick={() => loadLogs(page + 1, filterFrom || undefined, filterTo || undefined)}>{t("auditoria.proxima")}</button>
               </div>
             )}
           </>
@@ -2536,6 +2555,7 @@ function AuditLogsTab() {
 }
 
 function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
+  const { t } = useI18n();
   const { user } = useAuth();
   const isCompany = user?.account?.type === "COMPANY";
   const [tab, setTab] = useState<"users" | "invites" | "audit" | "feedback">(
@@ -2584,7 +2604,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
   }
   async function replyFeedback(id: string, adminResponse: string, status: FeedbackStatus) {
     try { await api.put(`/admin/feedback/${id}`, { adminResponse, status }); await loadFeedbacks(); }
-    catch (e: any) { alert(e?.response?.data?.message ?? "Erro ao salvar."); }
+    catch (e: any) { alert(e?.response?.data?.message ?? t("admin.erroSalvar")); }
   }
 
   async function deleteFeedback(id: string, reason: string) {
@@ -2596,14 +2616,14 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
 
   async function loadUsers() { setLoading(true); try { setUsers((await api.get<UserManagementDto[]>("/admin/users")).data); } catch {} finally { setLoading(false); } }
   async function loadInvites() { try { setInvites((await api.get<InviteDto[]>("/admin/invites")).data); } catch {} }
-  async function deactivate(id: string) { if (!confirm("Desativar este usuário?")) return; try { await api.delete(`/admin/users/${id}`); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
+  async function deactivate(id: string) { if (!confirm(t("admin.confirmaDesativar"))) return; try { await api.delete(`/admin/users/${id}`); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
   async function reactivate(id: string) { try { await api.put(`/admin/users/${id}/reactivate`); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
   async function changeRole(id: string, role: string) { try { await api.put(`/admin/users/${id}/role`, { role }); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
-  async function revokeInvite(id: string) { if (!confirm("Revogar este convite?")) return; try { await api.delete(`/admin/invites/${id}`); loadInvites(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
+  async function revokeInvite(id: string) { if (!confirm(t("admin.confirmaRevogar"))) return; try { await api.delete(`/admin/invites/${id}`); loadInvites(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
   async function sendInvite(e: React.FormEvent) {
     e.preventDefault(); setInviting(true); setInvError(null); setNewInvite(null);
     try { const r = await api.post<InviteDto>("/admin/invite", { name: invName, email: invEmail, role: invRole, jobTitle: invJob || null }); setNewInvite(r.data); setInvName(""); setInvEmail(""); setInvJob(""); loadInvites(); }
-    catch (e: any) { setInvError(e?.response?.data?.message ?? "Erro ao criar convite."); }
+    catch (e: any) { setInvError(e?.response?.data?.message ?? t("admin.erroConvite")); }
     finally { setInviting(false); }
   }
   function copyLink() { if (!newInvite?.acceptLink) return; navigator.clipboard.writeText(window.location.origin + newInvite.acceptLink); setCopied(true); setTimeout(() => setCopied(false), 2000); }
@@ -2628,7 +2648,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (e: any) {
-      alert("Erro ao gerar relatório PDF.");
+      alert(t("admin.erroPdf"));
     } finally {
       setDownloadingPdf(false);
     }
@@ -2639,7 +2659,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
       const res = await api.post<{ enabled: boolean; token: string }>("/admin/account/status-page", { enabled: enable });
       setStatusToken(enable ? res.data.token : null);
     } catch (e: any) {
-      alert(e?.response?.data?.message ?? "Erro ao configurar página de status.");
+      alert(e?.response?.data?.message ?? t("admin.erroStatusPage"));
     } finally {
       setStatusLoading(false);
     }
@@ -2659,15 +2679,15 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
     <div className={styles.adminPage}>
       <div className={styles.adminHeader}>
         <div className={styles.adminHeaderLeft}>
-          <div className={styles.adminTitle}>◈ PAINEL ADMIN</div>
+          <div className={styles.adminTitle}>{t("admin.titulo")}</div>
           {canReports && (
             <button
               className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
               onClick={() => setShowPdfModal(true)}
               disabled={downloadingPdf}
-              title="Gerar relatório executivo em PDF"
+              title={t("admin.gerarPdfTitulo")}
             >
-              {downloadingPdf ? "Gerando..." : "↓ Relatório PDF"}
+              {downloadingPdf ? t("admin.gerando") : t("admin.relatorioPdf")}
             </button>
           )}
         </div>
@@ -2677,17 +2697,17 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
           <div className={styles.modalOverlay} onClick={() => setShowPdfModal(false)}>
             <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
               <div className={styles.modalHeader}>
-                <span className={styles.modalTitle}>Relatório Executivo PDF</span>
+                <span className={styles.modalTitle}>{t("admin.relatorioExecutivo")}</span>
                 <button className={styles.modalClose} onClick={() => setShowPdfModal(false)}>✕</button>
               </div>
               <div className={styles.modalBody}>
                 <div className={styles.formGroup}>
-                  <label className={styles.formLabel}>ESCOPO DO RELATÓRIO</label>
+                  <label className={styles.formLabel}>{t("admin.escopoRelatorio")}</label>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
                     {([
-                      ["DOMAINS",    "Domínios cadastrados",  "Apenas os domínios registrados e verificados na conta"],
-                      ["TEAM_SCANS", "Scans da equipe",       "Todos os scans realizados pela equipe (sem domínio registrado)"],
-                      ["BOTH",       "Ambos",                 "Domínios cadastrados + scans extras da equipe"],
+                      ["DOMAINS",    t("admin.escopoDominios"),  t("admin.escopoDominiosDesc")],
+                      ["TEAM_SCANS", t("admin.escopoEquipe"),       t("admin.escopoEquipeDesc")],
+                      ["BOTH",       t("admin.ambos"),                 t("admin.escopoAmbos")],
                     ] as const).map(([val, label, desc]) => (
                       <label key={val} className={styles.roleOption} style={{ cursor: "pointer" }}>
                         <input
@@ -2707,7 +2727,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
                 </div>
 
                 <div className={styles.formGroup} style={{ marginTop: 16 }}>
-                  <label className={styles.formLabel}>FILTRO DE PERÍODO (opcional)</label>
+                  <label className={styles.formLabel}>{t("admin.filtroPeriodo")}</label>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
                     <input
                       type="date"
@@ -2716,7 +2736,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
                       className={styles.formInput}
                       style={{ flex: 1 }}
                     />
-                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>até</span>
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{t("auditoria.ate")}</span>
                     <input
                       type="date"
                       value={pdfTo}
@@ -2736,7 +2756,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
                   onClick={downloadExecutivePdf}
                   disabled={downloadingPdf}
                 >
-                  {downloadingPdf ? "Gerando PDF..." : "↓ Gerar e baixar PDF"}
+                  {downloadingPdf ? t("admin.gerandoPdf") : t("admin.gerarBaixar")}
                 </button>
               </div>
             </div>
@@ -2746,17 +2766,17 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
           <div className={styles.adminTabs}>
             {isCompany && user?.role === "OWNER" && (<button className={`${styles.adminTab} ${tab === "users" ? styles.adminTabActive : ""}`} onClick={() => setTab("users")}>Usuários ({users.length})</button>)}
             {isCompany && (<button className={`${styles.adminTab} ${tab === "invites" ? styles.adminTabActive : ""}`} onClick={() => setTab("invites")}>Convites ({invites.length})</button>)}
-            {(user?.role === "OWNER" || user?.role === "ADMIN") && (<button className={`${styles.adminTab} ${tab === "audit" ? styles.adminTabActive : ""}`} onClick={() => setTab("audit")}>Auditoria{canReports ? "" : " 🔒"}</button>)}
+            {(user?.role === "OWNER" || user?.role === "ADMIN") && (<button className={`${styles.adminTab} ${tab === "audit" ? styles.adminTabActive : ""}`} onClick={() => setTab("audit")}>{t("admin.abaAuditoria")}{canReports ? "" : " 🔒"}</button>)}
             {isStaff && (<button className={`${styles.adminTab} ${tab === "feedback" ? styles.adminTabActive : ""}`} onClick={() => setTab("feedback")}>Feedback</button>)}
           </div>
         )}
       </div>
       {tab === "users" && (
         <div className={styles.adminContent}>
-          <Card title="USUÁRIOS DO SISTEMA">
-            {loading ? <div className={styles.empty}>Carregando...</div> : (
+          <Card title={t("admin.usuarios")}>
+            {loading ? <div className={styles.empty}>{t("app.carregando")}</div> : (
               <table className={styles.adminTable}>
-                <thead><tr><th>Nome</th><th>Email</th><th>Role</th><th>Status</th><th>Convidado por</th><th>Ações</th></tr></thead>
+                <thead><tr><th>Nome</th><th>Email</th><th>Role</th><th>Status</th><th>{t("admin.convidadoPor")}</th><th>{t("admin.acoes")}</th></tr></thead>
                 <tbody>
                   {users.map(u => (
                     <tr key={u.id} className={!u.active ? styles.inactiveRow : ""}>
@@ -2779,23 +2799,23 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
           <div className={styles.adminRow}>
             <Card title="NOVO CONVITE">
               <form className={styles.inviteForm} onSubmit={sendInvite}>
-                <div className={styles.formGroup}><label className={styles.formLabel}>NOME *</label><input className={styles.formInput} value={invName} onChange={e => setInvName(e.target.value)} placeholder="Nome completo" required /></div>
-                <div className={styles.formGroup}><label className={styles.formLabel}>EMAIL *</label><input className={styles.formInput} type="email" value={invEmail} onChange={e => setInvEmail(e.target.value)} placeholder="email@empresa.com" required /></div>
-                <div className={styles.formGroup}><label className={styles.formLabel}>CARGO</label><input className={styles.formInput} value={invJob} onChange={e => setInvJob(e.target.value)} placeholder="Ex: Security Analyst" /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>{t("admin.nome")}</label><input className={styles.formInput} value={invName} onChange={e => setInvName(e.target.value)} placeholder={t("admin.phNome")} required /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>{t("login.emailObrig")}</label><input className={styles.formInput} type="email" value={invEmail} onChange={e => setInvEmail(e.target.value)} placeholder={t("admin.phEmailEmpresa")} required /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>CARGO</label><input className={styles.formInput} value={invJob} onChange={e => setInvJob(e.target.value)} placeholder={t("admin.phCargo")} /></div>
                 <div className={styles.formGroup}>
-                  <label className={styles.formLabel}>NÍVEL DE ACESSO *</label>
+                  <label className={styles.formLabel}>{t("admin.nivelAcesso")}</label>
                   <div className={styles.roleOptions}>
-                    {user?.role === "OWNER" && (<label className={styles.roleOption}><input type="radio" name="role" value="ADMIN" checked={invRole === "ADMIN"} onChange={() => setInvRole("ADMIN")} /><div><strong>Admin</strong><div className={styles.roleDesc}>Scan ativo + convida funcionários</div></div></label>)}
-                    <label className={styles.roleOption}><input type="radio" name="role" value="FREE_EMPLOYEE" checked={invRole === "FREE_EMPLOYEE" || user?.role === "ADMIN"} onChange={() => setInvRole("FREE_EMPLOYEE")} /><div><strong>Funcionário</strong><div className={styles.roleDesc}>Scan ativo, sem gestão</div></div></label>
+                    {user?.role === "OWNER" && (<label className={styles.roleOption}><input type="radio" name="role" value="ADMIN" checked={invRole === "ADMIN"} onChange={() => setInvRole("ADMIN")} /><div><strong>{t("admin.admin")}</strong><div className={styles.roleDesc}>{t("admin.adminDesc")}</div></div></label>)}
+                    <label className={styles.roleOption}><input type="radio" name="role" value="FREE_EMPLOYEE" checked={invRole === "FREE_EMPLOYEE" || user?.role === "ADMIN"} onChange={() => setInvRole("FREE_EMPLOYEE")} /><div><strong>{t("admin.funcionario")}</strong><div className={styles.roleDesc}>{t("admin.funcionarioDesc")}</div></div></label>
                   </div>
                 </div>
                 {invError && <div className={styles.errorBox}>{invError}</div>}
-                {newInvite && (<div className={styles.inviteSuccess}><div className={styles.inviteSuccessTitle}>✓ Convite criado — expira em 48h</div><div className={styles.tokenRow}><code className={styles.stepCode}>{newInvite.acceptLink}</code><button type="button" className={styles.copyBtn} onClick={copyLink}>{copied ? "✓" : "Copiar link"}</button></div></div>)}
-                <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={inviting}>{inviting ? "Criando..." : "Enviar convite"}</button>
+                {newInvite && (<div className={styles.inviteSuccess}><div className={styles.inviteSuccessTitle}>{t("admin.conviteCriado")}</div><div className={styles.tokenRow}><code className={styles.stepCode}>{newInvite.acceptLink}</code><button type="button" className={styles.copyBtn} onClick={copyLink}>{copied ? "✓" : "Copiar link"}</button></div></div>)}
+                <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={inviting}>{inviting ? t("admin.criando") : t("admin.enviarConvite")}</button>
               </form>
             </Card>
             <Card title="CONVITES PENDENTES">
-              {invites.length === 0 ? <div className={styles.empty}>Nenhum convite pendente.</div> : (
+              {invites.length === 0 ? <div className={styles.empty}>{t("admin.semConvites")}</div> : (
                 <div className={styles.pendingInvites}>{invites.map(inv => (<InviteItemRow key={inv.id} inv={inv} onRevoke={() => revokeInvite(inv.id)} roleBadge={roleBadge} />))}</div>
               )}
             </Card>
@@ -2805,8 +2825,8 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
       {tab === "audit" && (canReports
         ? <AuditLogsTab />
         : <PagePlanLocked
-            titulo="Log de auditoria é do plano PRO"
-            descricao="Registro de quem fez o quê na conta: login, mudança de papel, domínio verificado, exportação. Disponível a partir do plano PRO."
+            titulo={t("admin.auditoriaPro")}
+            descricao={t("admin.auditoriaProDesc")}
             onUpgrade={onUpgrade} />)}
 
       {tab === "feedback" && isStaff && (
@@ -2816,7 +2836,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
               Contestações enviadas por clientes sobre resultados de scan. Responda e atualize o status para triar.
             </div>
             <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-              {([["", "Todos"], ["OPEN", "Abertos"], ["REVIEWING", "Em análise"], ["RESOLVED", "Resolvidos"]] as const).map(([val, label]) => (
+              {([["", t("feedback.todos")], ["OPEN", t("feedback.abertos")], ["REVIEWING", t("feedback.emAnalise")], ["RESOLVED", t("feedback.resolvidos")]] as const).map(([val, label]) => (
                 <button
                   key={val || "ALL"}
                   className={`${styles.btn} ${styles.btnSm} ${fbFilter === val ? styles.btnScan : styles.btnGhost}`}
@@ -2826,8 +2846,8 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
                 </button>
               ))}
             </div>
-            {fbLoading ? <div className={styles.empty}>Carregando...</div>
-              : feedbacks.length === 0 ? <div className={styles.empty}>Nenhum feedback {fbFilter ? "com esse status" : ""}.</div>
+            {fbLoading ? <div className={styles.empty}>{t("app.carregando")}</div>
+              : feedbacks.length === 0 ? <div className={styles.empty}>{t("admin.semFeedback", fbFilter ? t("admin.comEsseStatus") : "")}</div>
               : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {feedbacks.map(f => <FeedbackAdminRow key={f.id} f={f} onReply={replyFeedback} onDelete={deleteFeedback} />)}
                 </div>}
@@ -2838,7 +2858,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
       {/* Status Page toggle — OWNER e plano com relatórios (PRO+) */}
       {user?.role === "OWNER" && canReports && (
         <div className={styles.adminContent} style={{ marginTop: 20 }}>
-          <Card title="PÁGINA DE STATUS PÚBLICA">
+          <Card title={t("admin.paginaStatus")}>
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>
               Gera um link público (sem login) com o status de segurança dos seus domínios. Compartilhe com clientes ou equipe.
             </div>
@@ -2852,7 +2872,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`} onClick={() => toggleStatusPage(true)} disabled={statusLoading}>
-                    {statusLoading ? "..." : "↺ Regenerar token"}
+                    {statusLoading ? "..." : t("admin.regenerarToken")}
                   </button>
                   <button className={`${styles.btn} ${styles.btnDanger} ${styles.btnSm}`} onClick={() => toggleStatusPage(false)} disabled={statusLoading}>
                     {statusLoading ? "..." : "Desativar"}
@@ -2861,7 +2881,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
               </div>
             ) : (
               <button className={`${styles.btn} ${styles.btnScan}`} onClick={() => toggleStatusPage(true)} disabled={statusLoading}>
-                {statusLoading ? "Ativando..." : "Ativar página de status"}
+                {statusLoading ? t("admin.ativando") : t("admin.ativarStatus")}
               </button>
             )}
           </Card>
@@ -2887,6 +2907,7 @@ function ScanTimelineRow({
   sevBadge: (s: string) => React.ReactNode;
   riskBadgeStyle: (r: string) => string;
 }) {
+  const { t } = useI18n();
   const detail      = scanDetails[s.id];
   const isOpen      = detail?.open ?? false;
   const changes     = detail?.changes ?? null;
@@ -2906,7 +2927,7 @@ function ScanTimelineRow({
             <span className={styles.changesScanDate}>
               {showHost && <code className={styles.code} style={{ fontSize: 11, marginRight: 6 }}>{s.host}</code>}
               {new Date(s.scannedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
-              {isFirst && <span className={styles.changesLatestBadge}>MAIS RECENTE</span>}
+              {isFirst && <span className={styles.changesLatestBadge}>{t("changes.maisRecente")}</span>}
               {s.activeMode && <span className={`${styles.tag} ${styles.info}`} style={{ fontSize: 9 }}>ACTIVE</span>}
               {s.origin === "SCHEDULED" && <span className={`${styles.tag} ${styles.warning}`} style={{ fontSize: 9 }}>AGENDADO</span>}
             </span>
@@ -2915,7 +2936,7 @@ function ScanTimelineRow({
               <span className={styles.changesScanScore}>{s.score}<span className={styles.muted}>/100</span></span>
               {changeCount !== null && (
                 <span className={styles.muted} style={{ fontSize: 11 }}>
-                  {changeCount === 0 ? "sem mudanças" : `${changeCount} mudança${changeCount !== 1 ? "s" : ""}`}
+                  {changeCount === 0 ? t("changes.semMudancas") : `${changeCount} mudança${changeCount !== 1 ? "s" : ""}`}
                 </span>
               )}
             </div>
@@ -2930,7 +2951,7 @@ function ScanTimelineRow({
       {isOpen && (
         <div className={styles.changesScanBody}>
           {detail?.error && <div className={styles.errorBox}>{detail.error}</div>}
-          {detail?.loading && <div className={styles.empty}>Carregando detalhes...</div>}
+          {detail?.loading && <div className={styles.empty}>{t("changes.carregandoDetalhes")}</div>}
           {changes !== null && changes.length === 0 && (
             <div className={styles.empty} style={{ padding: "12px 0" }}>
               ✓ Nenhuma mudança detectada em relação ao scan anterior.
@@ -2943,7 +2964,7 @@ function ScanTimelineRow({
                   <th>Tipo</th>
                   <th>Categoria</th>
                   <th>Campo</th>
-                  <th>Severidade</th>
+                  <th>{t("changes.severidade")}</th>
                   <th>Antes</th>
                   <th>Depois</th>
                 </tr>
@@ -2972,6 +2993,7 @@ function ScanTimelineRow({
 }
 
 function ChangesPage() {
+  const { t } = useI18n();
   const [tab, setTab] = useState<"overview" | "domain" | "analysis">("overview");
   // ── Análise tab state ──────────────────────────────────────────────────────
   const [analysisHost, setAnalysisHost]     = useState<string | null>(null);
@@ -2999,7 +3021,7 @@ function ChangesPage() {
           ...p, [id]: { open: true, loading: false, changes: r.data.changes ?? [], error: null },
         })))
         .catch(() => setScanDetails(p => ({
-          ...p, [id]: { open: true, loading: false, changes: [], error: "Erro ao carregar detalhes." },
+          ...p, [id]: { open: true, loading: false, changes: [], error: t("changes.erroDetalhes") },
         })));
       return { ...prev, [id]: { open: true, loading: true, changes: null, error: null } };
     });
@@ -3054,7 +3076,7 @@ function ChangesPage() {
       setDomainList([...res.data].sort((a, b) =>
         new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime()
       ));
-    } catch { setDomainError("Nenhum scan encontrado para este domínio."); }
+    } catch { setDomainError(t("changes.semScans")); }
     finally { setDomainLoading(false); }
   }
 
@@ -3062,31 +3084,31 @@ function ChangesPage() {
 
   return (
     <div className={styles.adminWrap}>
-      <h2 className={styles.adminTitle}>Histórico de Mudanças</h2>
+      <h2 className={styles.adminTitle}>{t("changes.titulo")}</h2>
 
       {/* Tabs */}
       <div className={styles.adminTabs} style={{ marginBottom: 16 }}>
         <button
           className={`${styles.adminTab} ${tab === "overview" ? styles.adminTabActive : ""}`}
           onClick={() => setTab("overview")}
-        >Visão Geral</button>
+        >{t("changes.visaoGeral")}</button>
         <button
           className={`${styles.adminTab} ${tab === "domain" ? styles.adminTabActive : ""}`}
           onClick={() => setTab("domain")}
-        >Por domínio</button>
+        >{t("changes.porDominio")}</button>
         <button
           className={`${styles.adminTab} ${tab === "analysis" ? styles.adminTabActive : ""}`}
           onClick={() => setTab("analysis")}
-        >Análise de Score</button>
+        >{t("changes.analiseScore")}</button>
       </div>
 
       {/* ── Aba: Recentes ── */}
       {/* ── Aba: Visão Geral ── */}
       {tab === "overview" && (
         <>
-          {overviewLoading && <div className={styles.empty}>Carregando...</div>}
+          {overviewLoading && <div className={styles.empty}>{t("app.carregando")}</div>}
           {!overviewLoading && overviewList.length === 0 && (
-            <div className={styles.empty}>◈ Nenhum scan registrado ainda. Escaneie um domínio para começar.</div>
+            <div className={styles.empty}>{t("changes.vazio")}</div>
           )}
           {!overviewLoading && overviewList.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
@@ -3197,7 +3219,7 @@ function ChangesPage() {
         <>
           {registeredDomains.length > 0 && (
             <div className={styles.changesQuickSelect}>
-              <span className={styles.muted} style={{ fontSize: 11, letterSpacing: ".5px" }}>DOMÍNIOS CADASTRADOS</span>
+              <span className={styles.muted} style={{ fontSize: 11, letterSpacing: ".5px" }}>{t("changes.dominiosCadastrados")}</span>
               <div className={styles.changesChips}>
                 {registeredDomains.map(d => (
                   <button
@@ -3218,7 +3240,7 @@ function ChangesPage() {
               className={styles.urlInput}
               value={searchHost}
               onChange={e => setSearchHost(e.target.value)}
-              placeholder="example.com"
+              placeholder={t("scan.placeholder")}
             />
             <button className={`${styles.btn} ${styles.btnScan}`} type="submit" disabled={domainLoading || !searchHost.trim()}>
               {domainLoading ? "..." : "Buscar"}
@@ -3264,7 +3286,7 @@ function ChangesPage() {
                   </span>
                 </div>
                 {filteredDomain.length === 0 ? (
-                  <div className={styles.empty}>◈ Nenhum scan com esse filtro.</div>
+                  <div className={styles.empty}>{t("changes.semFiltro")}</div>
                 ) : (
                   filteredDomain.map((s, idx) => (
                     <ScanTimelineRow key={s.id} s={s} idx={idx} isFirst={idx === 0} showHost={false} {...rowProps} />
@@ -3275,7 +3297,7 @@ function ChangesPage() {
           })()}
 
           {!domainLoading && !domainError && domainList.length === 0 && activeHost && (
-            <div className={styles.empty}>◈ Nenhum scan encontrado para <code>{activeHost}</code>.</div>
+            <div className={styles.empty}>{t("changes.semScanPara")} <code>{activeHost}</code>.</div>
           )}
         </>
       )}
@@ -3286,7 +3308,7 @@ function ChangesPage() {
           {/* Domain selector */}
           {registeredDomains.length > 0 && (
             <div className={styles.changesQuickSelect}>
-              <span className={styles.muted} style={{ fontSize: 11, letterSpacing: ".5px" }}>DOMÍNIOS CADASTRADOS</span>
+              <span className={styles.muted} style={{ fontSize: 11, letterSpacing: ".5px" }}>{t("changes.dominiosCadastrados")}</span>
               <div className={styles.changesChips}>
                 {registeredDomains.map(d => (
                   <button
@@ -3313,7 +3335,7 @@ function ChangesPage() {
               className={styles.urlInput}
               value={analysisSearch}
               onChange={e => setAnalysisSearch(e.target.value)}
-              placeholder="example.com"
+              placeholder={t("scan.placeholder")}
             />
             <button
               className={`${styles.btn} ${styles.btnScan}`}
@@ -3335,7 +3357,7 @@ function ChangesPage() {
           )}
 
           {!analysisHost && (
-            <div className={styles.empty}>◈ Selecione ou busque um domínio para ver a análise de score.</div>
+            <div className={styles.empty}>{t("changes.selecioneDominio")}</div>
           )}
         </>
       )}
@@ -3774,6 +3796,7 @@ function DomainsPage() {
 // ── Intraday Score Chart ──────────────────────────────────────────────────────
 
 function IntradayChart({ host }: { host: string }) {
+  const { t } = useI18n();
   const todayStr = new Date().toISOString().slice(0, 10);
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [scans, setScans]   = useState<HistorySummary[]>([]);
@@ -3808,7 +3831,7 @@ function IntradayChart({ host }: { host: string }) {
     : "";
 
   return (
-    <Card title="SCORE INTRADAY">
+    <Card title={t("grafico.intraday")}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
         <input
           type="date"
@@ -3823,7 +3846,7 @@ function IntradayChart({ host }: { host: string }) {
           }}
         />
         <span className={styles.muted} style={{ fontSize: 11 }}>{dateLabel}</span>
-        {loading && <span className={styles.muted} style={{ fontSize: 11 }}>carregando...</span>}
+        {loading && <span className={styles.muted} style={{ fontSize: 11 }}>{t("grafico.carregando")}</span>}
       </div>
 
       {!loading && points.length === 0 && (
@@ -3909,15 +3932,26 @@ interface HistorySummary { id: string; url: string; host: string; scannedAt: str
 
 // ── Security Headers — Card Grid ──────────────────────────────────────────────
 
-const HEADER_META: Record<string, { short: string; desc: string; risk: string; example: string; tip: string }> = {
-  "Content-Security-Policy":   { short: "CSP",        desc: "Define quais origens podem carregar scripts, estilos e outros recursos — principal defesa contra XSS.", risk: "Sem CSP, scripts maliciosos de qualquer origem podem executar no browser do usuário.", example: "default-src 'self'; script-src 'self'", tip: "Comece com report-only para testar sem quebrar o site em produção." },
-  "Strict-Transport-Security": { short: "HSTS",       desc: "Força o browser a usar HTTPS em todas as conexões futuras, impedindo ataques de downgrade.", risk: "Sem HSTS, um atacante na rede pode forçar HTTP mesmo com HTTPS configurado.", example: "max-age=31536000; includeSubDomains; preload", tip: "Com preload, o navegador nunca aceita HTTP — nem na primeira visita ao site." },
-  "X-Frame-Options":           { short: "X-Frame",    desc: "Impede que o site seja embutido em iframes de outros domínios, bloqueando clickjacking.", risk: "Sem este header, o site pode ser embutido em iframes para enganar cliques do usuário.", example: "DENY", tip: "Use DENY se não precisar de iframes, SAMEORIGIN para permitir apenas do próprio domínio." },
-  "X-Content-Type-Options":    { short: "MIME Guard", desc: "Impede que o browser \"adivinhe\" o tipo de arquivo, forçando respeitar o Content-Type declarado.", risk: "Sem nosniff, um arquivo de imagem pode ser interpretado como script e executado.", example: "nosniff", tip: "Simples e sem efeitos colaterais. Sempre ative — nunca há razão para omitir." },
-  "Referrer-Policy":           { short: "Referrer",   desc: "Controla quais informações de URL são enviadas no header Referer ao navegar para outros sites.", risk: "Sem política, URLs completas com tokens e dados internos podem vazar para terceiros.", example: "strict-origin-when-cross-origin", tip: "Evita vazamento de URLs internas e parâmetros de sessão para sites externos." },
-  "Permissions-Policy":        { short: "Permissões", desc: "Restringe o acesso do site a APIs sensíveis do browser como câmera, microfone e geolocalização.", risk: "Sem política, scripts (inclusive maliciosos) podem acessar câmera e microfone do usuário.", example: "camera=(), microphone=(), geolocation=()", tip: "Desative todos os recursos que você não usa. Menos superfície = menos risco." },
-  "X-XSS-Protection":          { short: "XSS Filter", desc: "Ativa o filtro XSS embutido de browsers legados (IE/Edge antigos). Browsers modernos usam CSP.", risk: "Header legado — não é crítico em browsers modernos, mas relevante para IE/Edge antigos.", example: "1; mode=block", tip: "Se presente, use '1; mode=block'. Valor '1' sem mode pode criar vulnerabilidades em IE." },
-  "Cache-Control":             { short: "Cache",      desc: "Controla se e como o browser e proxies intermediários podem cachear as respostas HTTP.", risk: "Sem controle, dados de páginas autenticadas podem ser cacheados em proxies públicos.", example: "no-store, no-cache", tip: "Para páginas autenticadas: no-store. Recursos estáticos públicos suportam max-age longo." },
+/**
+ * Metadados dos headers de segurança.
+ *
+ * Terceira tabela de módulo do arquivo, mesmo formato do TECH_RISK e do
+ * AUDIT_ACTION_KEYS: fora de componente não existe `t()`, então guarda CHAVES e
+ * quem renderiza resolve.
+ *
+ * `short` e `example` ficam literais de propósito — são termo técnico e valor de
+ * configuração, iguais em qualquer idioma. Traduzir `default-src 'self'` seria
+ * dar ao cliente um valor que não funciona.
+ */
+const HEADER_META: Record<string, { short: string; descKey: string; riskKey: string; example: string; tipKey: string }> = {
+  "Content-Security-Policy":   { short: "CSP",        descKey: "hdr.csp.desc",      riskKey: "hdr.csp.risk",      example: "default-src 'self'; script-src 'self'",       tipKey: "hdr.csp.tip" },
+  "Strict-Transport-Security": { short: "HSTS",       descKey: "hdr.hsts.desc",     riskKey: "hdr.hsts.risk",     example: "max-age=31536000; includeSubDomains; preload", tipKey: "hdr.hsts.tip" },
+  "X-Frame-Options":           { short: "X-Frame",    descKey: "hdr.xframe.desc",   riskKey: "hdr.xframe.risk",   example: "DENY",                                        tipKey: "hdr.xframe.tip" },
+  "X-Content-Type-Options":    { short: "MIME Guard", descKey: "hdr.nosniff.desc",  riskKey: "hdr.nosniff.risk",  example: "nosniff",                                     tipKey: "hdr.nosniff.tip" },
+  "Referrer-Policy":           { short: "Referrer",   descKey: "hdr.referrer.desc", riskKey: "hdr.referrer.risk", example: "strict-origin-when-cross-origin",             tipKey: "hdr.referrer.tip" },
+  "Permissions-Policy":        { short: "Permissions", descKey: "hdr.perms.desc",    riskKey: "hdr.perms.risk",    example: "camera=(), microphone=(), geolocation=()",     tipKey: "hdr.perms.tip" },
+  "X-XSS-Protection":          { short: "XSS Filter", descKey: "hdr.xss.desc",      riskKey: "hdr.xss.risk",      example: "1; mode=block",                               tipKey: "hdr.xss.tip" },
+  "Cache-Control":             { short: "Cache",      descKey: "hdr.cache.desc",    riskKey: "hdr.cache.risk",    example: "no-store, no-cache",                          tipKey: "hdr.cache.tip" },
 };
 
 function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, string>; host?: string | null; related?: RelatedHostHeaders[] }) {
@@ -3992,7 +4026,7 @@ function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, 
             {/* Brief description — always visible */}
             {meta && (
               <p style={{ fontSize: 10, color: "var(--text-dim)", margin: "8px 0 0", lineHeight: 1.55, flex: 1 }}>
-                {meta.desc}
+                {t(meta.descKey)}
               </p>
             )}
 
@@ -4012,7 +4046,7 @@ function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, 
                   </p>
                 ) : (
                   <p style={{ fontSize: 11, color: "var(--text-dim)", margin: "0 0 8px", lineHeight: 1.5 }}>
-                    <span style={{ color }}>{t("card.risco")} </span>{meta.risk}
+                    <span style={{ color }}>{t("card.risco")} </span>{t(meta.riskKey)}
                   </p>
                 )}
                 <div style={{ marginBottom: 8 }}>
@@ -4022,7 +4056,7 @@ function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, 
                   </code>
                 </div>
                 <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0, lineHeight: 1.5, fontStyle: "italic" }}>
-                  ◈ {meta.tip}
+                  ◈ {t(meta.tipKey)}
                 </p>
               </div>
             )}
@@ -4942,6 +4976,7 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFilter?: boolean }) {
+  const { t } = useI18n();
   const [allData, setAllData] = useState<HistorySummary[]>([]);
   const [fromDate, setFromDate] = useState("");
   const [toDate,   setToDate]   = useState("");
@@ -4997,11 +5032,11 @@ function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFil
   const hasFilter = !!fromDate || !!toDate;
 
   return (
-    <Card title="SCORE HISTÓRICO">
+    <Card title={t("grafico.historico")}>
       <div className={styles.historyChartWrap}>
         {/* Period filter — only in Histórico tab */}
         {showFilter && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-          <span className={styles.muted} style={{ fontSize: 11 }}>Período:</span>
+          <span className={styles.muted} style={{ fontSize: 11 }}>{t("grafico.periodo")}</span>
           <input
             type="date"
             value={fromDate}
@@ -5014,7 +5049,7 @@ function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFil
               cursor: "pointer", outline: "none",
             }}
           />
-          <span className={styles.muted} style={{ fontSize: 11 }}>até</span>
+          <span className={styles.muted} style={{ fontSize: 11 }}>{t("auditoria.ate")}</span>
           <input
             type="date"
             value={toDate}
@@ -5041,15 +5076,15 @@ function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFil
         {points.length < 2 ? (
           <div className={styles.empty} style={{ fontSize: 12, padding: "12px 0" }}>
             ◈ {data.length === 0
-              ? "Nenhum scan no período selecionado."
-              : "São necessários pelo menos 2 dias com scan para exibir o gráfico."}
+              ? t("grafico.semScans")
+              : t("grafico.doisDias")}
           </div>
         ) : (
           <>
             <div className={styles.historyChartMeta}>
               <span className={styles.muted}>
                 {points.length} dias · {data.length} scan{data.length !== 1 ? "s" : ""}
-                {hasFilter ? " (filtrado)" : " · todo o período"}
+                {hasFilter ? " " + t("grafico.filtrado") : " " + t("grafico.todoPeriodo")}
               </span>
               <span style={{ color: deltaColor, fontWeight: 600, fontFamily: "var(--mono)", fontSize: 13 }}>
                 {deltaStr} vs anterior
@@ -5837,6 +5872,7 @@ function contagem(d: PublicDomainStatus, sev: "CRITICAL" | "HIGH" | "MEDIUM" | "
 }
 
 function PublicStatusPage({ token }: { token: string }) {
+  const { t } = useI18n();
   const [data, setData] = useState<PublicStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -5849,7 +5885,7 @@ function PublicStatusPage({ token }: { token: string }) {
         return res.json();
       })
       .then(setData)
-      .catch(() => setError("Página de status não encontrada ou desativada."))
+      .catch(() => setError(t("status.naoEncontrada")))
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -5882,8 +5918,8 @@ function PublicStatusPage({ token }: { token: string }) {
       <div className={styles.loginPage}>
         <div className={styles.loginCard}>
           <div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
-          <div className={styles.loginTitle} style={{ color: "var(--critical)" }}>Página não encontrada</div>
-          <div className={styles.loginSub}>{error ?? "Esta página de status não existe ou foi desativada."}</div>
+          <div className={styles.loginTitle} style={{ color: "var(--critical)" }}>{t("status.tituloNaoEncontrada")}</div>
+          <div className={styles.loginSub}>{error ?? t("status.descNaoEncontrada")}</div>
         </div>
       </div>
     </div>
@@ -5894,7 +5930,7 @@ function PublicStatusPage({ token }: { token: string }) {
       <header className={styles.header}>
         <div className={styles.logo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
         <div className={styles.headerRight}>
-          <span className={styles.muted} style={{ fontSize: 11 }}>Página de status pública</span>
+          <span className={styles.muted} style={{ fontSize: 11 }}>{t("status.titulo")}</span>
         </div>
       </header>
       <div className={styles.mainContent} style={{ maxWidth: 860, margin: "0 auto", padding: "32px 20px" }}>
@@ -5909,7 +5945,7 @@ function PublicStatusPage({ token }: { token: string }) {
               <div style={{ fontSize: 36, fontWeight: 700, color: data.overallScore >= 75 ? "var(--secure)" : data.overallScore >= 50 ? "var(--warning)" : "var(--critical)" }}>
                 {data.overallScore >= 0 ? data.overallScore : "—"}
               </div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Score geral</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{t("status.scoreGeral")}</div>
               <span className={`${styles.tag} ${riskBadgeCls(data.overallRisk)}`} style={{ marginTop: 4 }}>{data.overallRisk}</span>
             </div>
           </div>
@@ -5925,7 +5961,7 @@ function PublicStatusPage({ token }: { token: string }) {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}>
                   {d.host}
-                  {d.verified && <span className={`${styles.tag} ${styles.secure}`} style={{ marginLeft: 8, fontSize: 9 }}>✓ VERIFICADO</span>}
+                  {d.verified && <span className={`${styles.tag} ${styles.secure}`} style={{ marginLeft: 8, fontSize: 9 }}>{t("status.verificado")}</span>}
                 </div>
                 {d.lastScanAt && (
                   <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>
@@ -5971,6 +6007,7 @@ function PublicStatusPage({ token }: { token: string }) {
 
 /** Retorno do checkout do Mercado Pago (back_url = /billing/return). Confirma a assinatura. */
 function BillingReturnPage() {
+  const { t } = useI18n();
   const [state, setState] = useState<"processing" | "active" | "pending">("processing");
   useEffect(() => {
     let stop = false, tries = 0;
@@ -5998,16 +6035,16 @@ function BillingReturnPage() {
         <div className={styles.loginCard} style={{ textAlign: "center" }}>
           <div className={styles.loginLogo}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
           {state === "processing" && (<>
-            <div className={styles.loginTitle}>Processando pagamento…</div>
-            <div className={styles.loginSub}>Confirmando sua assinatura com o Mercado Pago. Leva alguns segundos.</div>
+            <div className={styles.loginTitle}>{t("billing.processando")}</div>
+            <div className={styles.loginSub}>{t("billing.confirmando")}</div>
           </>)}
           {state === "active" && (<>
-            <div className={styles.loginTitle} style={{ color: "var(--secure)" }}>✓ Assinatura ativa!</div>
-            <div className={styles.loginSub}>Seu plano foi liberado. Redirecionando…</div>
+            <div className={styles.loginTitle} style={{ color: "var(--secure)" }}>{t("billing.ativa")}</div>
+            <div className={styles.loginSub}>{t("billing.liberado")}</div>
           </>)}
           {state === "pending" && (<>
-            <div className={styles.loginTitle} style={{ color: "var(--warning)" }}>Quase lá…</div>
-            <div className={styles.loginSub}>O Mercado Pago ainda está confirmando o pagamento — pode levar alguns minutos.</div>
+            <div className={styles.loginTitle} style={{ color: "var(--warning)" }}>{t("billing.quaseLa")}</div>
+            <div className={styles.loginSub}>{t("billing.aindaConfirmando")}</div>
             <button className={`${styles.btn} ${styles.btnScan}`} style={{ marginTop: 16 }} onClick={() => { window.location.href = "/"; }}>Voltar ao app</button>
           </>)}
         </div>
