@@ -452,17 +452,17 @@ function AvisoRespostasFeedback() {
         <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
           {naoLidas.length === 1
             ? t("feedback.respondida")
-            : `${naoLidas.length} contestações suas foram respondidas`}
+            : t("feedback.respondidas", naoLidas.length)}
         </span>
         <button
           className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
           style={{ marginLeft: "auto" }}
           onClick={() => setAberto(a => !a)}
         >
-          {aberto ? "Ocultar" : "Ver resposta"}
+          {aberto ? t("comum.ocultar") : t("feedback.verResposta")}
         </button>
         <button className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`} onClick={dispensar}>
-          Dispensar
+          {t("feedback.dispensar")}
         </button>
       </div>
 
@@ -544,7 +544,7 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
           ) : (
             <>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
-                Contestando <strong style={{ color: "var(--text)" }}>{targetLabel}</strong> em <code className={styles.code}>{target.host}</code>. Explique por que acredita que o resultado está errado.
+                {t("feedback.contestando")} <strong style={{ color: "var(--text)" }}>{targetLabel}</strong> {t("comum.em")} <code className={styles.code}>{target.host}</code>. {t("feedback.expliquePorque")}
               </div>
               <div className={styles.formGroup}>
                 <label className={styles.formLabel}>{t("feedback.oQueErrado")}</label>
@@ -666,7 +666,7 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
         <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
           <label className={styles.formLabel}>{t("feedback.porQueExcluindo")}</label>
           <div style={{ fontSize: 11, color: "var(--text-muted)", margin: "4px 0 8px" }}>
-            Esta justificativa aparece para {f.submittedByName ?? t("feedback.quemEnviou")} no lugar da contestação.
+            {t("feedback.justificativaAparece", f.submittedByName ?? t("feedback.quemEnviou"))}
           </div>
           <textarea
             className={styles.formInput}
@@ -945,7 +945,7 @@ function OwnershipCard({ state, onDismiss }: { state: OwnershipState; onDismiss:
   return (
     <div className={styles.ownershipCard}>
       <div className={styles.ownershipHeader}><span>⚠</span><span>{t("posse.titulo")}</span></div>
-      <p className={styles.ownershipText}>{t("posse.riscoDetectado")} <strong>{state.host}</strong>. Prove que você é o dono do domínio.</p>
+      <p className={styles.ownershipText}>{t("posse.riscoDetectado")} <strong>{state.host}</strong>{t("posse.proveDono")}</p>
       <div className={styles.ownershipSteps}>
         <div className={styles.ownershipStep}><span className={styles.stepNum}>1</span><div><div className={styles.stepTitle}>{t("posse.crieArquivo")}</div><code className={styles.stepCode}>https://{state.host}/.well-known/cyberaudit.txt</code></div></div>
         <div className={styles.ownershipStep}><span className={styles.stepNum}>2</span><div><div className={styles.stepTitle}>{t("posse.conteudoArquivo")}</div><div className={styles.tokenRow}><code className={styles.stepCode}>{state.token ?? "—"}</code><button className={styles.copyBtn} onClick={copy}>{copied ? t("posse.copiado") : "Copiar"}</button></div></div></div>
@@ -1860,7 +1860,7 @@ function SetupPage() {
             ) : (
               <>
                 <div className={styles.formGroup}><label className={styles.formLabel}>{t("setup.profissao")}</label><input className={styles.formInput} value={profession} onChange={e => setProfession(e.target.value)} placeholder={t("setup.phProfissao")} /></div>
-                <div className={styles.formGroup}><label className={styles.formLabel}>{t("setup.website")}</label><input className={styles.formInput} value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://meusite.com.br" /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>{t("setup.website")}</label><input className={styles.formInput} value={website} onChange={e => setWebsite(e.target.value)} placeholder={t("setup.phWebsite")} /></div>
               </>
             )}
             <div className={styles.formGroup}>
@@ -1981,7 +1981,7 @@ function InviteItemRow({ inv, onRevoke, roleBadge }: { inv: InviteDto; onRevoke:
         <div style={{ marginTop: 10, padding: 12, background: "var(--surface3)", borderRadius: "var(--radius)", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--border)" }}>
           <div>
             <div style={{ fontSize: 10, letterSpacing: 1, color: "var(--text-muted)", marginBottom: 6 }}>{t("convite.linkAceite")}</div>
-            {link ? (<div className={styles.tokenRow}><code className={styles.stepCode} style={{ flex: 1, fontSize: 11, wordBreak: "break-all" }}>{link}</code><button className={styles.copyBtn} onClick={copyLink}>{copied ? "✓" : "Copiar link"}</button></div>) : <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{t("convite.linkIndisponivel")}</span>}
+            {link ? (<div className={styles.tokenRow}><code className={styles.stepCode} style={{ flex: 1, fontSize: 11, wordBreak: "break-all" }}>{link}</code><button className={styles.copyBtn} onClick={copyLink}>{copied ? "✓" : t("comum.copiarLink")}</button></div>) : <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{t("convite.linkIndisponivel")}</span>}
           </div>
           <div style={{ display: "flex", gap: 20, fontSize: 11, color: "var(--text-dim)", flexWrap: "wrap" }}>
             <span>{t("convite.convidadoPor")} <strong style={{ color: "var(--text)" }}>{inv.invitedByName}</strong></span>
@@ -2298,7 +2298,7 @@ function SchedulesPage() {
                   <td>
                     {s.enabled
                       ? <span className={styles.ok}>Ativo</span>
-                      : <span className={styles.muted}>Pausado</span>}
+                      : <span className={styles.muted}>{t("agenda.pausado")}</span>}
                   </td>
                   <td>
                     <div className={styles.actionBtns}>
@@ -2320,11 +2320,11 @@ function SchedulesPage() {
                         {historyLoading[s.host] ? (
                           <div className={styles.muted} style={{ fontSize: "0.8rem" }}>{t("agenda.carregandoScans")}</div>
                         ) : !hostHistory[s.host]?.length ? (
-                          <div style={{ fontSize: "0.8rem", display: "flex", alignItems: "center", gap: 8 }}><span className={`${styles.tag} ${styles.warning}`}>PENDENTE</span><span className={styles.muted}>Nenhum scan agendado executado ainda. Próximo: {fmtDate(s.nextRun)}</span></div>
+                          <div style={{ fontSize: "0.8rem", display: "flex", alignItems: "center", gap: 8 }}><span className={`${styles.tag} ${styles.warning}`}>{t("agenda.pendente")}</span><span className={styles.muted}>{t("agenda.nenhumExecutado", fmtDate(s.nextRun))}</span></div>
                         ) : (
                           <>
                             <div style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "1.5px", color: "var(--text-muted)", marginBottom: "0.5rem", textTransform: "uppercase" }}>
-                              Últimos {hostHistory[s.host].length} scans
+                              {t("agenda.ultimosScans", hostHistory[s.host].length)}
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                               {hostHistory[s.host].map(h => (
@@ -2481,7 +2481,7 @@ function AuditLogsTab() {
 
   return (
     <div className={styles.adminContent}>
-      <Card title={`AUDIT LOG — ${totalElements} evento${totalElements !== 1 ? "s" : ""}${hasFilter ? " (filtrado)" : ""}`}>
+      <Card title={t("auditoria.tituloCard", totalElements, hasFilter ? t("auditoria.filtrado") : "")}>
         {/* Filtro de datas */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{t("auditoria.filtrarPeriodo")}</span>
@@ -2554,7 +2554,7 @@ function AuditLogsTab() {
             {totalPages > 1 && (
               <div className={styles.auditPagination}>
                 <button className={`${styles.btn} ${styles.btnGhost}`} disabled={page === 0} onClick={() => loadLogs(page - 1, filterFrom || undefined, filterTo || undefined)}>{t("auditoria.anterior")}</button>
-                <span className={styles.muted}>Página {page + 1} de {totalPages}</span>
+                <span className={styles.muted}>{t("comum.paginaDe", page + 1, totalPages)}</span>
                 <button className={`${styles.btn} ${styles.btnGhost}`} disabled={page >= totalPages - 1} onClick={() => loadLogs(page + 1, filterFrom || undefined, filterTo || undefined)}>{t("auditoria.proxima")}</button>
               </div>
             )}
@@ -2757,7 +2757,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
                     />
                   </div>
                   <div className={styles.roleDesc} style={{ marginTop: 4 }}>
-                    Sem filtro: inclui todos os scans disponíveis.
+                    {t("admin.semFiltroDesc")}
                   </div>
                 </div>
 
@@ -2775,7 +2775,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
         )}
         {(isCompany || user?.role === "OWNER" || user?.role === "ADMIN") && (
           <div className={styles.adminTabs}>
-            {isCompany && user?.role === "OWNER" && (<button className={`${styles.adminTab} ${tab === "users" ? styles.adminTabActive : ""}`} onClick={() => setTab("users")}>Usuários ({users.length})</button>)}
+            {isCompany && user?.role === "OWNER" && (<button className={`${styles.adminTab} ${tab === "users" ? styles.adminTabActive : ""}`} onClick={() => setTab("users")}>{t("admin.abaUsuarios", users.length)}</button>)}
             {isCompany && (<button className={`${styles.adminTab} ${tab === "invites" ? styles.adminTabActive : ""}`} onClick={() => setTab("invites")}>Convites ({invites.length})</button>)}
             {(user?.role === "OWNER" || user?.role === "ADMIN") && (<button className={`${styles.adminTab} ${tab === "audit" ? styles.adminTabActive : ""}`} onClick={() => setTab("audit")}>{t("admin.abaAuditoria")}{canReports ? "" : " 🔒"}</button>)}
             {isStaff && (<button className={`${styles.adminTab} ${tab === "feedback" ? styles.adminTabActive : ""}`} onClick={() => setTab("feedback")}>Feedback</button>)}
@@ -2808,7 +2808,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
       {tab === "invites" && (
         <div className={styles.adminContent}>
           <div className={styles.adminRow}>
-            <Card title="NOVO CONVITE">
+            <Card title={t("admin.novoConvite")}>
               <form className={styles.inviteForm} onSubmit={sendInvite}>
                 <div className={styles.formGroup}><label className={styles.formLabel}>{t("admin.nome")}</label><input className={styles.formInput} value={invName} onChange={e => setInvName(e.target.value)} placeholder={t("admin.phNome")} required /></div>
                 <div className={styles.formGroup}><label className={styles.formLabel}>{t("login.emailObrig")}</label><input className={styles.formInput} type="email" value={invEmail} onChange={e => setInvEmail(e.target.value)} placeholder={t("admin.phEmailEmpresa")} required /></div>
@@ -2821,11 +2821,11 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
                   </div>
                 </div>
                 {invError && <div className={styles.errorBox}>{invError}</div>}
-                {newInvite && (<div className={styles.inviteSuccess}><div className={styles.inviteSuccessTitle}>{t("admin.conviteCriado")}</div><div className={styles.tokenRow}><code className={styles.stepCode}>{newInvite.acceptLink}</code><button type="button" className={styles.copyBtn} onClick={copyLink}>{copied ? "✓" : "Copiar link"}</button></div></div>)}
+                {newInvite && (<div className={styles.inviteSuccess}><div className={styles.inviteSuccessTitle}>{t("admin.conviteCriado")}</div><div className={styles.tokenRow}><code className={styles.stepCode}>{newInvite.acceptLink}</code><button type="button" className={styles.copyBtn} onClick={copyLink}>{copied ? "✓" : t("comum.copiarLink")}</button></div></div>)}
                 <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={inviting}>{inviting ? t("admin.criando") : t("admin.enviarConvite")}</button>
               </form>
             </Card>
-            <Card title="CONVITES PENDENTES">
+            <Card title={t("admin.convitesPendentes")}>
               {invites.length === 0 ? <div className={styles.empty}>{t("admin.semConvites")}</div> : (
                 <div className={styles.pendingInvites}>{invites.map(inv => (<InviteItemRow key={inv.id} inv={inv} onRevoke={() => revokeInvite(inv.id)} roleBadge={roleBadge} />))}</div>
               )}
@@ -2842,9 +2842,9 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
 
       {tab === "feedback" && isStaff && (
         <div className={styles.adminContent}>
-          <Card title="FEEDBACK DE CLIENTES">
+          <Card title={t("admin.feedback")}>
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
-              Contestações enviadas por clientes sobre resultados de scan. Responda e atualize o status para triar.
+              {t("admin.feedbackDesc")}
             </div>
             <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
               {([["", t("feedback.todos")], ["OPEN", t("feedback.abertos")], ["REVIEWING", t("feedback.emAnalise")], ["RESOLVED", t("feedback.resolvidos")]] as const).map(([val, label]) => (
@@ -2871,7 +2871,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
         <div className={styles.adminContent} style={{ marginTop: 20 }}>
           <Card title={t("admin.paginaStatus")}>
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>
-              Gera um link público (sem login) com o status de segurança dos seus domínios. Compartilhe com clientes ou equipe.
+              {t("admin.paginaStatusDesc")}
             </div>
             {statusToken ? (
               <div>
@@ -2879,7 +2879,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
                   <code className={styles.stepCode} style={{ fontSize: 10, wordBreak: "break-all" }}>
                     {window.location.origin}/status/{statusToken}
                   </code>
-                  <button className={styles.copyBtn} onClick={copyStatusLink}>{copiedStatus ? "✓" : "Copiar link"}</button>
+                  <button className={styles.copyBtn} onClick={copyStatusLink}>{copiedStatus ? "✓" : t("comum.copiarLink")}</button>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`} onClick={() => toggleStatusPage(true)} disabled={statusLoading}>
@@ -2947,7 +2947,7 @@ function ScanTimelineRow({
               <span className={styles.changesScanScore}>{s.score}<span className={styles.muted}>/100</span></span>
               {changeCount !== null && (
                 <span className={styles.muted} style={{ fontSize: 11 }}>
-                  {changeCount === 0 ? t("changes.semMudancas") : `${changeCount} mudança${changeCount !== 1 ? "s" : ""}`}
+                  {changeCount === 0 ? t("changes.semMudancas") : t("changes.contagem", changeCount)}
                 </span>
               )}
             </div>
@@ -2965,7 +2965,7 @@ function ScanTimelineRow({
           {detail?.loading && <div className={styles.empty}>{t("changes.carregandoDetalhes")}</div>}
           {changes !== null && changes.length === 0 && (
             <div className={styles.empty} style={{ padding: "12px 0" }}>
-              ✓ Nenhuma mudança detectada em relação ao scan anterior.
+              {t("changes.nenhumaDetectada")}
             </div>
           )}
           {changes !== null && changes.length > 0 && (
@@ -3132,14 +3132,14 @@ function ChangesPage() {
                     className={`${styles.btn} ${overviewFilter === f ? styles.btnScan : styles.btnGhost}`}
                     style={{ fontSize: 11, padding: "3px 10px" }}
                   >
-                    {f === "all" ? "Todos" : f === "active" ? "Ativo" : "Passivo"}
+                    {f === "all" ? t("changes.filtroTodos") : f === "active" ? t("changes.filtroAtivo") : t("changes.filtroPassivo")}
                   </button>
                 ))}
                 <span className={styles.muted} style={{ fontSize: 11, marginLeft: 6 }}>
-                  {overviewList.filter(s =>
+                  {t("changes.dominiosContagem", overviewList.filter(s =>
                     overviewFilter === "all" ? true :
                     overviewFilter === "active" ? s.activeMode : !s.activeMode
-                  ).length} domínio(s) · último scan por domínio
+                  ).length)}
                 </span>
               </div>
               {overviewList.filter(s =>
@@ -3147,7 +3147,7 @@ function ChangesPage() {
                 overviewFilter === "active" ? s.activeMode : !s.activeMode
               ).length === 0 && (
                 <div className={styles.empty}>
-                  ◈ Nenhum domínio com scan {overviewFilter === "active" ? "ativo" : "passivo"} registrado.
+                  {t("changes.semDominioComScan", overviewFilter === "active" ? t("changes.modoAtivo") : t("changes.modoPassivo"))}
                 </div>
               )}
               {overviewList.filter(s =>
@@ -3211,10 +3211,10 @@ function ChangesPage() {
                     {/* Row 3: date + hint */}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <span className={styles.muted} style={{ fontSize: 11 }}>
-                        Último scan: {dateStr} {timeStr}
+                        {t("changes.ultimoScan")} {dateStr} {timeStr}
                       </span>
                       <span className={styles.muted} style={{ fontSize: 10 }}>
-                        clique para ver histórico →
+                        {t("changes.cliqueHistorico")}
                       </span>
                     </div>
                   </button>
@@ -3277,11 +3277,11 @@ function ChangesPage() {
                 {/* Filter bar */}
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
                   {([
-                    { key: "all",       label: "Todos" },
-                    { key: "manual",    label: "Manual" },
-                    { key: "scheduled", label: "Agendado" },
-                    { key: "active",    label: "Ativo" },
-                    { key: "passive",   label: "Passivo" },
+                    { key: "all",       labelKey: "changes.filtroTodos" },
+                    { key: "manual",    labelKey: "changes.filtroManual" },
+                    { key: "scheduled", labelKey: "changes.filtroAgendado" },
+                    { key: "active",    labelKey: "changes.filtroAtivo" },
+                    { key: "passive",   labelKey: "changes.filtroPassivo" },
                   ] as const).map(f => (
                     <button
                       key={f.key}
@@ -3289,11 +3289,11 @@ function ChangesPage() {
                       className={`${styles.btn} ${domainFilter === f.key ? styles.btnScan : styles.btnGhost}`}
                       style={{ fontSize: 11, padding: "3px 10px" }}
                     >
-                      {f.label}
+                      {t(f.labelKey)}
                     </button>
                   ))}
                   <span className={styles.muted} style={{ fontSize: 11, marginLeft: 4 }}>
-                    {filteredDomain.length} resultado(s)
+                    {t("comum.resultados", filteredDomain.length)}
                   </span>
                 </div>
                 {filteredDomain.length === 0 ? (
@@ -3595,9 +3595,9 @@ function DomainsPage() {
   }
 
   async function remove(id: string, h: string) {
-    if (!confirm(`Remover domínio "${h}"?`)) return;
+    if (!confirm(t("dominio.confirmarRemocao", h))) return;
     try { await api.delete(`/domains/${id}`); await load(); }
-    catch (e: any) { setError(e?.response?.data?.message ?? "Erro ao remover."); }
+    catch (e: any) { setError(e?.response?.data?.message ?? t("dominio.erroRemover")); }
   }
 
   async function verify(id: string) {
@@ -3667,7 +3667,7 @@ function DomainsPage() {
                   </span>
                   <code className={styles.code}>{d.host}</code>
                   <span className={d.verified ? `${styles.tag} ${styles.secure}` : `${styles.tag} ${styles.tagFree}`}>
-                    {d.verified ? "Verificado" : "Pendente"}
+                    {d.verified ? t("dominio.verificado") : t("dominio.pendente")}
                   </span>
                   {d.verifiedAt && (
                     <span className={styles.muted} style={{ fontSize: 11 }}>
@@ -3679,7 +3679,7 @@ function DomainsPage() {
                   {!d.verified && (
                     <button className={`${styles.btn} ${styles.btnGhost}`}
                       onClick={() => verify(d.id)} disabled={verifying === d.id}>
-                      {verifying === d.id ? t("dominio.verificando") : "Verificar"}
+                      {verifying === d.id ? t("dominio.verificando") : t("dominio.verificar")}
                     </button>
                   )}
                   {/* Enumeração de subdomínios — apenas EMPRESA + domínio verificado */}
@@ -3733,9 +3733,9 @@ function DomainsPage() {
               {openEnum === d.id && subdomains[d.id] && (
                 <div style={{ marginTop: 12, borderTop: "1px solid var(--border2)", paddingTop: 12 }}>
                   <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)", letterSpacing: ".5px", marginBottom: 8 }}>
-                    SUBDOMÍNIOS DESCOBERTOS — {subdomains[d.id].length} encontrados via Certificate Transparency
+                    {t("dominio.subdominiosDescobertos", subdomains[d.id].length)}
                     <span style={{ marginLeft: 8, color: "var(--secure)" }}>
-                      ({subdomains[d.id].filter(s => s.alive).length} ativos)
+                      {t("dominio.ativosContagem", subdomains[d.id].filter(s => s.alive).length)}
                     </span>
                   </div>
                   <table className={styles.table} style={{ width: "100%" }}>
@@ -3789,7 +3789,7 @@ function DomainsPage() {
               )}
               {openEnum === d.id && enumerating === d.id && (
                 <div style={{ marginTop: 10, fontFamily: "var(--mono)", fontSize: 11, color: "var(--text-muted)" }}>
-                  ◈ Consultando Certificate Transparency e verificando DNS... pode levar até 60s.
+                  {t("dominio.consultandoCt")}
                 </div>
               )}
             </div>
@@ -3929,7 +3929,7 @@ function IntradayChart({ host }: { host: string }) {
             </ResponsiveContainer>
           </div>
           <div className={styles.muted} style={{ fontSize: 10, marginTop: 2 }}>
-            {points.length} scan(s) neste dia
+            {t("grafico.scansNoDia", points.length)}
           </div>
         </>
       )}
@@ -5251,7 +5251,7 @@ function SettingsPage() {
     const next = !require2fa;
     try {
       await api.put("/admin/account/require2fa", { require2fa: next });
-      setRequire2fa(next); flash(next ? "2FA obrigatório para todos os usuários da conta." : "2FA voltou a ser opcional.");
+      setRequire2fa(next); flash(next ? t("config.require2faOn") : t("config.require2faOff"));
     } catch { flash(t("config.erroAlterar"), true); }
     finally { setBusy(false); }
   }
@@ -5274,7 +5274,7 @@ function SettingsPage() {
       <div className={styles.settingsCard}>
         <div className={styles.settingsCardHeader}>
           <div>
-            <div className={styles.settingsCardTitle}>Autenticador TOTP <span className={styles.settingsBadge2fa}>{t("config.totpApp")}</span></div>
+            <div className={styles.settingsCardTitle}>{t("config.totp")} <span className={styles.settingsBadge2fa}>{t("config.totpApp")}</span></div>
             <div className={styles.settingsCardSub}>{t("config.totpDesc")}</div>
           </div>
           <span className={totpEnabled ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{totpEnabled ? "ATIVO" : "INATIVO"}</span>
@@ -5289,14 +5289,14 @@ function SettingsPage() {
         {totpSetup && (
           <div className={styles.totpSetupBox}>
             <p className={styles.settingsCardSub}>
-              1. Escaneie o QR code com seu app autenticador, ou insira a chave manualmente.
+              {t("config.totpPasso1")}
             </p>
             {qrImageUrl && <img src={qrImageUrl} alt={t("config.qrTotp")} className={styles.totpQr} />}
             <div className={styles.totpSecretBox}>
               <span className={styles.formLabel}>{t("config.chaveManual")}</span>
               <code className={styles.totpSecret}>{totpSetup.secret}</code>
             </div>
-            <p className={styles.settingsCardSub}>2. Digite o código de 6 dígitos exibido no app para confirmar:</p>
+            <p className={styles.settingsCardSub}>{t("config.totpPasso2")}</p>
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
               <input className={`${styles.formInput} ${styles.tfCodeInput}`}
                 type="text" inputMode="numeric" maxLength={6}
@@ -5324,7 +5324,7 @@ function SettingsPage() {
         <div className={styles.settingsCardHeader}>
           <div>
             <div className={styles.settingsCardTitle}>{t("config.emailOtp")}</div>
-            <div className={styles.settingsCardSub}>Código de 6 dígitos enviado para {user?.email} a cada login.</div>
+            <div className={styles.settingsCardSub}>{t("config.otpEnviadoPara", user?.email)}</div>
           </div>
           <span className={emailEnabled ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{emailEnabled ? "ATIVO" : "INATIVO"}</span>
         </div>
@@ -5341,7 +5341,7 @@ function SettingsPage() {
         <div className={styles.settingsCard}>
           <div className={styles.settingsCardHeader}>
             <div>
-              <div className={styles.settingsCardTitle}>2FA obrigatório para a conta <span className={styles.settingsBadge2fa}>OWNER</span></div>
+              <div className={styles.settingsCardTitle}>{t("config.require2faTitulo")} <span className={styles.settingsBadge2fa}>OWNER</span></div>
               <div className={styles.settingsCardSub}>{t("config.obrigatorioDesc")}</div>
             </div>
             <span className={require2fa ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{require2fa ? t("config.obrigatorio") : t("config.opcional")}</span>
@@ -5359,7 +5359,7 @@ function SettingsPage() {
       <div className={styles.settingsCard}>
         <div className={styles.settingsCardHeader}>
           <div>
-            <div className={styles.settingsCardTitle}>Privacidade e Dados <span className={styles.settingsBadge2fa}>LGPD</span></div>
+            <div className={styles.settingsCardTitle}>{t("config.privacidade")} <span className={styles.settingsBadge2fa}>LGPD</span></div>
             <div className={styles.settingsCardSub}>{t("config.privacidadeDesc")}</div>
           </div>
         </div>
@@ -5482,7 +5482,7 @@ function ApiKeysSection() {
           <span className={styles.tf2faBadgeOff}>PRO</span>
         </div>
         <div className={styles.settingsCardSub} style={{ color: "var(--text-muted)", marginTop: 4 }}>
-          Disponível para planos PRO e contas Empresa.{" "}
+          {t("apikey.disponivelPro")}{" "}
           <span style={{ color: "var(--accent)", cursor: "pointer" }}>{t("bloqueio.verPlanos")}</span>
         </div>
       </div>
@@ -5495,7 +5495,7 @@ function ApiKeysSection() {
         <div>
           <div className={styles.settingsCardTitle}>{t("apikey.titulo")}</div>
           <div className={styles.settingsCardSub}>
-            Use <code style={{ fontFamily: "var(--mono)", fontSize: 11 }}>X-Api-Key: ca_...</code> para autenticar chamadas à API. Máx. 10 keys ativas.
+            {t("apikey.usoIni")} <code style={{ fontFamily: "var(--mono)", fontSize: 11 }}>X-Api-Key: ca_...</code> {t("apikey.usoFim")}
           </div>
         </div>
       </div>
@@ -5504,7 +5504,7 @@ function ApiKeysSection() {
       {newKey?.plainKey && (
         <div style={{ background: "var(--secure)15", border: "1px solid var(--secure)50", borderRadius: 6, padding: 14, marginBottom: 12 }}>
           <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--secure)", letterSpacing: ".5px", marginBottom: 6 }}>
-            ✓ KEY CRIADA — COPIE AGORA, NÃO SERÁ EXIBIDA NOVAMENTE
+            {t("apikey.keyCriada")}
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <code style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", flex: 1, wordBreak: "break-all" }}>
@@ -5516,9 +5516,9 @@ function ApiKeysSection() {
             </button>
           </div>
           <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--text-muted)", marginTop: 8 }}>
-            Exemplo CI/CD:<br />
+            {t("apikey.exemploCi")}<br />
             <code style={{ color: "var(--accent)" }}>
-              curl -H "X-Api-Key: {newKey.plainKey}" "https://sua-api.com/api-keys/ci?url=example.com&threshold=80"
+              curl -H "X-Api-Key: {newKey.plainKey}" "{t("apikey.exemploHost")}/api-keys/ci?url=example.com&threshold=80"
             </code>
           </div>
           <button style={{ marginTop: 8, fontSize: 10, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
@@ -5532,7 +5532,7 @@ function ApiKeysSection() {
       <form onSubmit={create} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <input className={styles.urlInput} value={newName}
           onChange={e => setNewName(e.target.value)}
-          placeholder='Nome da key (ex: "GitHub CI")'
+          placeholder={t("apikey.phNome", t("apikey.githubCi"))}
           disabled={creating} style={{ flex: 1 }} />
         <button className={`${styles.btn} ${styles.btnScan}`} type="submit"
           disabled={creating || !newName.trim()}>
@@ -5580,8 +5580,8 @@ function ApiKeysSection() {
       )}
 
       <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--text-muted)", marginTop: 10, lineHeight: 1.6 }}>
-        Gate CI/CD: <code style={{ color: "var(--accent)" }}>GET /api-keys/ci?url=example.com&threshold=80</code>
-        &nbsp;→ HTTP 200 (aprovado) ou 422 (score abaixo do threshold)
+        {t("apikey.gateCi")} <code style={{ color: "var(--accent)" }}>GET /api-keys/ci?url=example.com&threshold=80</code>
+        &nbsp;{t("apikey.gateCiResposta")}
       </div>
     </div>
   );
@@ -5661,7 +5661,7 @@ function BrandingSection() {
         <span className={styles.badge} style={{ background: "var(--accent)", color: "#000" }}>EMPRESA</span>
       </div>
       <p className={styles.settingsCardDesc}>
-        Personalize o cabeçalho dos relatórios PDF com o logo e as cores da sua empresa.
+        {t("marca.desc")}
       </p>
 
       {loading ? (
@@ -5672,7 +5672,7 @@ function BrandingSection() {
           {/* ── Logo ── */}
           <div>
             <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>
-              LOGOTIPO (PNG/JPG, máx. 200 KB)
+              {t("marca.logotipo")}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {logo && (
@@ -5707,13 +5707,13 @@ function BrandingSection() {
           {/* ── Nome no PDF ── */}
           <div>
             <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>
-              NOME NO RELATÓRIO
+              {t("marca.nomeRelatorio")}
             </div>
             <input
               className={styles.input}
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder='Ex: "ACMECORP SECURITY" (vazio = CyberAudit)'
+              placeholder={t("marca.phNome")}
               maxLength={100}
               disabled={!canBranding}
               style={{ width: "100%", boxSizing: "border-box" }}
@@ -5723,7 +5723,7 @@ function BrandingSection() {
           {/* ── Cor primária ── */}
           <div>
             <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>
-              COR PRIMÁRIA
+              {t("marca.corPrimaria")}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <input
@@ -5751,7 +5751,7 @@ function BrandingSection() {
                 background: /^#[0-9A-Fa-f]{6}$/.test(color) ? color : "var(--accent)"
               }} />
               <span className={styles.muted} style={{ fontSize: 10 }}>
-                Usada no destaque do cabeçalho do PDF
+                {t("marca.corDesc")}
               </span>
             </div>
           </div>
@@ -5920,7 +5920,7 @@ function PublicStatusPage({ token }: { token: string }) {
 
   if (loading) return (
     <div className={styles.app}>
-      <div className={styles.loadingScreen}><span className={styles.logoIcon}>◈</span> Carregando...</div>
+      <div className={styles.loadingScreen}><span className={styles.logoIcon}>◈</span> {t("app.carregando")}</div>
     </div>
   );
 
@@ -5950,7 +5950,7 @@ function PublicStatusPage({ token }: { token: string }) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
             <div>
               <div style={{ fontSize: 18, fontWeight: 700, color: "var(--accent)", letterSpacing: 1 }}>{data.accountName}</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>Atualizado em {data.generatedAt}</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>{t("status.atualizadoEm", data.generatedAt)}</div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 36, fontWeight: 700, color: data.overallScore >= 75 ? "var(--secure)" : data.overallScore >= 50 ? "var(--warning)" : "var(--critical)" }}>
@@ -5964,7 +5964,7 @@ function PublicStatusPage({ token }: { token: string }) {
 
         {/* Domain list */}
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: "var(--accent)", marginBottom: 12 }}>
-          DOMÍNIOS ({data.domains.length})
+          {t("status.dominios", data.domains.length)}
         </div>
         {data.domains.map(d => (
           <div key={d.host} className={styles.card} style={{ marginBottom: 14 }}>
@@ -5976,7 +5976,7 @@ function PublicStatusPage({ token }: { token: string }) {
                 </div>
                 {d.lastScanAt && (
                   <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>
-                    Último scan: {d.lastScanAt} {d.activeMode ? "(ativo)" : "(passivo)"}
+                    {t("status.ultimoScan", d.lastScanAt, d.activeMode ? t("status.modoAtivo") : t("status.modoPassivo"))}
                   </div>
                 )}
               </div>
@@ -5988,7 +5988,7 @@ function PublicStatusPage({ token }: { token: string }) {
                   {d.riskLevel && <span className={`${styles.tag} ${riskBadgeCls(d.riskLevel)}`} style={{ fontSize: 9 }}>{d.riskLevel}</span>}
                 </div>
               ) : (
-                <span className={styles.muted} style={{ fontSize: 11 }}>Sem scan</span>
+                <span className={styles.muted} style={{ fontSize: 11 }}>{t("status.semScan")}</span>
               )}
             </div>
             {/* Contagem por severidade, sem título nem correção: a página é
@@ -6009,7 +6009,7 @@ function PublicStatusPage({ token }: { token: string }) {
         ))}
 
         <div style={{ textAlign: "center", marginTop: 32, fontSize: 10, color: "var(--text-muted)" }}>
-          Relatório gerado por <strong style={{ color: "var(--accent)" }}>CyberAudit</strong> · Esta página é pública e pode ser compartilhada.
+          {t("status.rodapeIni")} <strong style={{ color: "var(--accent)" }}>CyberAudit</strong> {t("status.rodapeFim")}
         </div>
       </div>
     </div>
@@ -6056,7 +6056,7 @@ function BillingReturnPage() {
           {state === "pending" && (<>
             <div className={styles.loginTitle} style={{ color: "var(--warning)" }}>{t("billing.quaseLa")}</div>
             <div className={styles.loginSub}>{t("billing.aindaConfirmando")}</div>
-            <button className={`${styles.btn} ${styles.btnScan}`} style={{ marginTop: 16 }} onClick={() => { window.location.href = "/"; }}>Voltar ao app</button>
+            <button className={`${styles.btn} ${styles.btnScan}`} style={{ marginTop: 16 }} onClick={() => { window.location.href = "/"; }}>{t("billing.voltarApp")}</button>
           </>)}
         </div>
       </div>

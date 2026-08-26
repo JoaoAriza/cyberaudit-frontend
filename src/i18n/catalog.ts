@@ -849,6 +849,94 @@ export const pt: Catalogo = {
   "feedback.excluindo": "Excluindo...",
   "feedback.confirmarExclusao": "Confirmar exclusão",
 
+  // ── Sobras das telas de conta e relatório (varredura final da i18n) ───────
+  "comum.copiarLink": "Copiar link",
+  "comum.ocultar": "Ocultar",
+  "comum.em": "em",
+  "comum.paginaDe": "Página {0} de {1}",
+  "comum.resultados": "{0} resultado(s)",
+  "grafico.scansNoDia": "{0} scan(s) neste dia",
+
+  "feedback.respondidas": "{0} contestações suas foram respondidas",
+  "feedback.dispensar": "Dispensar",
+  "feedback.contestando": "Contestando",
+  "feedback.expliquePorque": "Explique por que acredita que o resultado está errado.",
+  "feedback.justificativaAparece": "Esta justificativa aparece para {0} no lugar da contestação.",
+
+  "posse.proveDono": ". Prove que você é o dono do domínio.",
+  "setup.phWebsite": "https://meusite.com.br",
+
+  "agenda.pendente": "PENDENTE",
+  "agenda.nenhumExecutado": "Nenhum scan agendado executado ainda. Próximo: {0}",
+  "agenda.ultimosScans": "Últimos {0} scans",
+
+  "auditoria.tituloCard": "AUDIT LOG — {0} evento(s){1}",
+  "auditoria.filtrado": " (filtrado)",
+
+  "admin.semFiltroDesc": "Sem filtro: inclui todos os scans disponíveis.",
+  "admin.abaUsuarios": "Usuários ({0})",
+  "admin.feedbackDesc":
+    "Contestações enviadas por clientes sobre resultados de scan. Responda e atualize o status para triar.",
+  "admin.paginaStatusDesc":
+    "Gera um link público (sem login) com o status de segurança dos seus domínios. Compartilhe com clientes ou equipe.",
+
+  "changes.contagem": "{0} mudança(s)",
+  "changes.nenhumaDetectada": "✓ Nenhuma mudança detectada em relação ao scan anterior.",
+  "changes.dominiosContagem": "{0} domínio(s) · último scan por domínio",
+  "changes.semDominioComScan": "◈ Nenhum domínio com scan {0} registrado.",
+  "changes.filtroTodos": "Todos",
+  "changes.filtroManual": "Manual",
+  "changes.filtroAgendado": "Agendado",
+  "changes.filtroAtivo": "Ativo",
+  "changes.filtroPassivo": "Passivo",
+  "changes.modoAtivo": "ativo",
+  "changes.modoPassivo": "passivo",
+  "changes.ultimoScan": "Último scan:",
+  "changes.cliqueHistorico": "clique para ver histórico →",
+
+  "dominio.confirmarRemocao": "Remover domínio \"{0}\"?",
+  "dominio.erroRemover": "Erro ao remover.",
+  "dominio.pendente": "Pendente",
+  "dominio.subdominiosDescobertos":
+    "SUBDOMÍNIOS DESCOBERTOS — {0} encontrados via Certificate Transparency",
+  "dominio.ativosContagem": "({0} ativos)",
+  "dominio.consultandoCt":
+    "◈ Consultando Certificate Transparency e verificando DNS... pode levar até 60s.",
+
+  "config.require2faOn": "2FA obrigatório para todos os usuários da conta.",
+  "config.require2faOff": "2FA voltou a ser opcional.",
+  "config.totpPasso1":
+    "1. Escaneie o QR code com seu app autenticador, ou insira a chave manualmente.",
+  "config.totpPasso2": "2. Digite o código de 6 dígitos exibido no app para confirmar:",
+  "config.otpEnviadoPara": "Código de 6 dígitos enviado para {0} a cada login.",
+  "config.require2faTitulo": "2FA obrigatório para a conta",
+
+  "apikey.disponivelPro": "Disponível para planos PRO e contas Empresa.",
+  "apikey.usoIni": "Use",
+  "apikey.usoFim": "para autenticar chamadas à API. Máx. 10 keys ativas.",
+  "apikey.keyCriada": "✓ KEY CRIADA — COPIE AGORA, NÃO SERÁ EXIBIDA NOVAMENTE",
+  "apikey.exemploHost": "https://sua-api.com",
+  "apikey.phNome": "Nome da key (ex: \"{0}\")",
+  "apikey.exemploCi": "Exemplo CI/CD:",
+  "apikey.gateCi": "Gate CI/CD:",
+  "apikey.gateCiResposta": "→ HTTP 200 (aprovado) ou 422 (score abaixo do threshold)",
+
+  "marca.desc":
+    "Personalize o cabeçalho dos relatórios PDF com o logo e as cores da sua empresa.",
+  "marca.logotipo": "LOGOTIPO (PNG/JPG, máx. 200 KB)",
+  "marca.nomeRelatorio": "NOME NO RELATÓRIO",
+  "marca.phNome": "Ex: \"ACMECORP SECURITY\" (vazio = CyberAudit)",
+  "marca.corPrimaria": "COR PRIMÁRIA",
+  "marca.corDesc": "Usada no destaque do cabeçalho do PDF",
+
+  "status.atualizadoEm": "Atualizado em {0}",
+  "status.dominios": "DOMÍNIOS ({0})",
+  "status.ultimoScan": "Último scan: {0} {1}",
+  "status.modoAtivo": "(ativo)",
+  "status.modoPassivo": "(passivo)",
+  "status.rodapeIni": "Relatório gerado por",
+  "status.rodapeFim": "· Esta página é pública e pode ser compartilhada.",
+
   // ── Sobras das telas de resultado (varredura final da i18n) ───────────────
   // Peças que nasceram antes do i18n e a divisão por tela não alcançou.
   // O sufixo abaixo completa a frase que começa com <strong>{achado.impactoCorrecao}</strong>:
@@ -1773,6 +1861,93 @@ export const en: Catalogo = {
   "feedback.erroExcluir": "Could not delete it.",
   "feedback.excluindo": "Deleting...",
   "feedback.confirmarExclusao": "Confirm deletion",
+
+  "comum.copiarLink": "Copy link",
+  "comum.ocultar": "Hide",
+  "comum.em": "on",
+  "comum.paginaDe": "Page {0} of {1}",
+  "comum.resultados": "{0} result(s)",
+  "grafico.scansNoDia": "{0} scan(s) on this day",
+
+  "feedback.respondidas": "{0} of your disputes have been answered",
+  "feedback.dispensar": "Dismiss",
+  "feedback.contestando": "Disputing",
+  "feedback.expliquePorque": "Explain why you believe the result is wrong.",
+  "feedback.justificativaAparece": "This justification is shown to {0} in place of the dispute.",
+
+  "posse.proveDono": ". Prove that you own the domain.",
+  "setup.phWebsite": "https://mysite.com",
+
+  "agenda.pendente": "PENDING",
+  "agenda.nenhumExecutado": "No scheduled scan has run yet. Next: {0}",
+  "agenda.ultimosScans": "Last {0} scans",
+
+  "auditoria.tituloCard": "AUDIT LOG — {0} event(s){1}",
+  "auditoria.filtrado": " (filtered)",
+
+  "admin.semFiltroDesc": "No filter: includes every available scan.",
+  "admin.abaUsuarios": "Users ({0})",
+  "admin.feedbackDesc":
+    "Disputes sent by customers about scan results. Reply and update the status to triage them.",
+  "admin.paginaStatusDesc":
+    "Generates a public link (no sign-in) with the security status of your domains. Share it with customers or your team.",
+
+  "changes.contagem": "{0} change(s)",
+  "changes.nenhumaDetectada": "✓ No change detected since the previous scan.",
+  "changes.dominiosContagem": "{0} domain(s) · last scan per domain",
+  "changes.semDominioComScan": "◈ No domain with a {0} scan recorded.",
+  "changes.filtroTodos": "All",
+  "changes.filtroManual": "Manual",
+  "changes.filtroAgendado": "Scheduled",
+  "changes.filtroAtivo": "Active",
+  "changes.filtroPassivo": "Passive",
+  "changes.modoAtivo": "active",
+  "changes.modoPassivo": "passive",
+  "changes.ultimoScan": "Last scan:",
+  "changes.cliqueHistorico": "click to see the history →",
+
+  "dominio.confirmarRemocao": "Remove domain \"{0}\"?",
+  "dominio.erroRemover": "Could not remove it.",
+  "dominio.pendente": "Pending",
+  "dominio.subdominiosDescobertos":
+    "SUBDOMAINS DISCOVERED — {0} found through Certificate Transparency",
+  "dominio.ativosContagem": "({0} alive)",
+  "dominio.consultandoCt":
+    "◈ Querying Certificate Transparency and checking DNS... this can take up to 60s.",
+
+  "config.require2faOn": "2FA is now mandatory for every user on the account.",
+  "config.require2faOff": "2FA is optional again.",
+  "config.totpPasso1":
+    "1. Scan the QR code with your authenticator app, or enter the key manually.",
+  "config.totpPasso2": "2. Enter the 6-digit code shown in the app to confirm:",
+  "config.otpEnviadoPara": "6-digit code sent to {0} on every sign-in.",
+  "config.require2faTitulo": "2FA mandatory for the account",
+
+  "apikey.disponivelPro": "Available on PRO plans and Business accounts.",
+  "apikey.usoIni": "Use",
+  "apikey.usoFim": "to authenticate API calls. Max. 10 active keys.",
+  "apikey.keyCriada": "✓ KEY CREATED — COPY IT NOW, IT WILL NOT BE SHOWN AGAIN",
+  "apikey.exemploHost": "https://your-api.com",
+  "apikey.phNome": "Key name (e.g. \"{0}\")",
+  "apikey.exemploCi": "CI/CD example:",
+  "apikey.gateCi": "CI/CD gate:",
+  "apikey.gateCiResposta": "→ HTTP 200 (passed) or 422 (score below the threshold)",
+
+  "marca.desc":
+    "Customise the header of your PDF reports with your company's logo and colours.",
+  "marca.logotipo": "LOGO (PNG/JPG, max. 200 KB)",
+  "marca.nomeRelatorio": "NAME ON THE REPORT",
+  "marca.phNome": "e.g. \"ACMECORP SECURITY\" (empty = CyberAudit)",
+  "marca.corPrimaria": "PRIMARY COLOUR",
+  "marca.corDesc": "Used for the highlight in the PDF header",
+
+  "status.atualizadoEm": "Updated on {0}",
+  "status.dominios": "DOMAINS ({0})",
+  "status.ultimoScan": "Last scan: {0} {1}",
+  "status.modoAtivo": "(active)",
+  "status.modoPassivo": "(passive)",
+  "status.rodapeIni": "Report generated by",
+  "status.rodapeFim": "· This page is public and can be shared.",
 
   "bloqueio.sufixoPagos": " available on paid plans.",
   "bloqueio.breakdown": "The detailed breakdown is available on paid plans.",
