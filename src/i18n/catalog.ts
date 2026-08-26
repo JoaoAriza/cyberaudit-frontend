@@ -849,6 +849,82 @@ export const pt: Catalogo = {
   "feedback.excluindo": "Excluindo...",
   "feedback.confirmarExclusao": "Confirmar exclusão",
 
+  // ── Sobras das telas de resultado (varredura final da i18n) ───────────────
+  // Peças que nasceram antes do i18n e a divisão por tela não alcançou.
+  // O sufixo abaixo completa a frase que começa com <strong>{achado.impactoCorrecao}</strong>:
+  // nos dois idiomas o termo em negrito vem primeiro, então dividir aqui é seguro.
+  "bloqueio.sufixoPagos": " disponíveis nos planos pagos.",
+  "bloqueio.breakdown": "Breakdown detalhado disponível nos planos pagos.",
+  "bloqueio.detalheModuloDesc":
+    "Evidências, riscos e correções de cada módulo estão disponíveis nos planos pagos.",
+  "achado.verNvd": "Ver {0} no NVD ↗",
+  "achado.issoEstaErrado": "⚑ Isso está errado?",
+
+  "toast.sslDesc": "Handshake real + validação do certificado",
+  "toast.headersDesc": "Analisa 8+ headers na resposta HTTP",
+  "toast.dnsDesc": "Consultas DNS: SPF, DMARC, DKIM, CAA, MX",
+  "toast.cveDesc": "Cruza versões detectadas com base NVD/CVE",
+  "toast.wafDesc": "Probes ativos + 21 portas (modo ACTIVE)",
+
+  "nav.moduloBloqueado": "Módulo bloqueado — disponível nos planos pagos",
+
+  "col.porta": "PORTA",
+  "agenda.detalhe.semPortasAbertas": "Nenhuma porta aberta detectada",
+
+  "compliance.conformes": "{0} CONFORMES / {1} NÃO CONFORMES —",
+  "compliance.naoConformidades": "NÃO CONFORMIDADES",
+  "compliance.recomendacao": "RECOMENDAÇÃO",
+
+  "card.cliquePara": "clique para {0} ›",
+  "card.header.doHost": "◈ Headers do host",
+  "card.header.outrosHostsIni": "Outros hosts do mesmo site (ex: APIs em",
+  "card.header.outrosHostsFim": ") podem ter configuração diferente.",
+  "card.header.hostsRelacionados": "Hosts relacionados",
+  "card.header.ausentes": "{0} ausente(s)",
+  "card.header.foraDoScore": "— informativo, não entra no score",
+
+  "card.tls.pfsNota":
+    " Cifras com ECDHE oferecem Perfect Forward Secrecy — sessões passadas permanecem seguras mesmo se a chave privada vazar.",
+  "card.cert.diasValor": "{0} dias",
+  "card.dns.dkimSeletor": "seletor: {0}",
+  "card.dns.mxServidores": "{0} servidor(es)",
+  "card.dns.pathsSensiveis": "{0} path(s) sensíveis",
+  "card.dns.consultaFalhou":
+    "O servidor não conseguiu consultar o DNS deste domínio. O registro pode existir normalmente — refaça o scan em alguns minutos.",
+
+  "ativo.moduloTitulo": "MÓDULO ACTIVE CHECKS",
+  "ativo.moduloDesc":
+    "Análise invasiva com simulação real de ataques — WAF bypass, CORS injection, port scan, XSS/SQLi probes e exposição de arquivos sensíveis. Disponível apenas em",
+
+  "scan.erroInacessivel":
+    "⚠ Domínio não encontrado ou inacessível: \"{0}\". Verifique o endereço e tente novamente.",
+  "scan.erroProcessar": "Erro ao processar scan: {0}",
+  "scan.erroHttp": "Erro {0}: {1}",
+  "scan.falha": "Falha: {0}",
+  "scan.pdfErro": "PDF erro: {0}",
+  "scan.pdfErroStatus": "PDF erro: {0} — {1}",
+
+  "achado.redirecionaPara": "Redireciona para: {0}",
+  "achado.dirListExposta": "Listagem de diretório exposta publicamente",
+  "achado.tiposExpostos": "{0} tipos expostos via introspection",
+  "achado.arquivoAlvo": "Arquivo alvo: {0}",
+  "achado.indicador": "Indicador: {0}",
+  "achado.tipo": "Tipo: {0}",
+  "achado.refletidoEm": "Refletido em: {0}",
+
+  "ct.detTotal":
+    "Total de certificados emitidos para este domínio registrados nos logs públicos de Certificate Transparency.",
+  "ct.detSubdominios":
+    "Subdomínios descobertos via CT logs. Muitos subdomínios podem indicar superfície de ataque ampla — verifique os que não estão mais em uso.",
+  "ct.detWildcardSim":
+    "Certificado wildcard detectado (*.dominio). Compromisso de um subdomínio pode afetar todos os outros cobertos pelo wildcard.",
+  "ct.detWildcardNao": "Nenhum certificado wildcard detectado.",
+  "ct.detRecenteSim":
+    "Certificado emitido nos últimos 7 dias. Verifique se a emissão foi esperada — emissões inesperadas podem indicar comprometimento.",
+  "ct.detRecenteNao": "Nenhum certificado emitido recentemente nos logs CT.",
+  "ct.issuerNaoAutorizado": "⚠ Issuer(s) não autorizado(s) pelo CAA:",
+  "ct.certificadosRecentes": "Certificados recentes [{0}]",
+
   // ── Modal "Saiba mais" de cada módulo (tabela MODULE_INFO) ────────────────
   // `title` e `icon` ficam literais na tabela: são nome próprio do módulo e
   // símbolo, iguais nos dois idiomas. Aqui só o texto corrido.
@@ -1697,6 +1773,78 @@ export const en: Catalogo = {
   "feedback.erroExcluir": "Could not delete it.",
   "feedback.excluindo": "Deleting...",
   "feedback.confirmarExclusao": "Confirm deletion",
+
+  "bloqueio.sufixoPagos": " available on paid plans.",
+  "bloqueio.breakdown": "The detailed breakdown is available on paid plans.",
+  "bloqueio.detalheModuloDesc":
+    "Evidence, risks and fixes for each module are available on paid plans.",
+  "achado.verNvd": "View {0} on the NVD ↗",
+  "achado.issoEstaErrado": "⚑ Is this wrong?",
+
+  "toast.sslDesc": "Real handshake + certificate validation",
+  "toast.headersDesc": "Analyses 8+ headers in the HTTP response",
+  "toast.dnsDesc": "DNS lookups: SPF, DMARC, DKIM, CAA, MX",
+  "toast.cveDesc": "Cross-references detected versions with the NVD/CVE database",
+  "toast.wafDesc": "Active probes + 21 ports (ACTIVE mode)",
+
+  "nav.moduloBloqueado": "Module locked — available on paid plans",
+
+  "col.porta": "PORT",
+  "agenda.detalhe.semPortasAbertas": "No open port detected",
+
+  "compliance.conformes": "{0} COMPLIANT / {1} NON-COMPLIANT —",
+  "compliance.naoConformidades": "NON-CONFORMITIES",
+  "compliance.recomendacao": "RECOMMENDATION",
+
+  "card.cliquePara": "click to {0} ›",
+  "card.header.doHost": "◈ Headers for host",
+  "card.header.outrosHostsIni": "Other hosts on the same site (e.g. APIs on",
+  "card.header.outrosHostsFim": ") may be configured differently.",
+  "card.header.hostsRelacionados": "Related hosts",
+  "card.header.ausentes": "{0} missing",
+  "card.header.foraDoScore": "— informational, it does not count towards the score",
+
+  "card.tls.pfsNota":
+    " ECDHE ciphers provide Perfect Forward Secrecy — past sessions stay safe even if the private key leaks.",
+  "card.cert.diasValor": "{0} days",
+  "card.dns.dkimSeletor": "selector: {0}",
+  "card.dns.mxServidores": "{0} server(s)",
+  "card.dns.pathsSensiveis": "{0} sensitive path(s)",
+  "card.dns.consultaFalhou":
+    "The server could not query DNS for this domain. The record may well exist — run the scan again in a few minutes.",
+
+  "ativo.moduloTitulo": "ACTIVE CHECKS MODULE",
+  "ativo.moduloDesc":
+    "Invasive analysis with real attack simulation — WAF bypass, CORS injection, port scan, XSS/SQLi probes and sensitive file exposure. Available only on an",
+
+  "scan.erroInacessivel":
+    "⚠ Domain not found or unreachable: \"{0}\". Check the address and try again.",
+  "scan.erroProcessar": "Error while processing the scan: {0}",
+  "scan.erroHttp": "Error {0}: {1}",
+  "scan.falha": "Failed: {0}",
+  "scan.pdfErro": "PDF error: {0}",
+  "scan.pdfErroStatus": "PDF error: {0} — {1}",
+
+  "achado.redirecionaPara": "Redirects to: {0}",
+  "achado.dirListExposta": "Directory listing publicly exposed",
+  "achado.tiposExpostos": "{0} types exposed through introspection",
+  "achado.arquivoAlvo": "Target file: {0}",
+  "achado.indicador": "Indicator: {0}",
+  "achado.tipo": "Type: {0}",
+  "achado.refletidoEm": "Reflected in: {0}",
+
+  "ct.detTotal":
+    "Total certificates issued for this domain and recorded in the public Certificate Transparency logs.",
+  "ct.detSubdominios":
+    "Subdomains discovered through CT logs. Many subdomains can mean a wide attack surface — check the ones no longer in use.",
+  "ct.detWildcardSim":
+    "Wildcard certificate found (*.domain). Compromising one subdomain can affect every other one the wildcard covers.",
+  "ct.detWildcardNao": "No wildcard certificate found.",
+  "ct.detRecenteSim":
+    "Certificate issued in the last 7 days. Check that the issuance was expected — unexpected ones can indicate a compromise.",
+  "ct.detRecenteNao": "No certificate issued recently in the CT logs.",
+  "ct.issuerNaoAutorizado": "⚠ Issuer(s) not authorised by CAA:",
+  "ct.certificadosRecentes": "Recent certificates [{0}]",
 
   "mod.issues.what": "Consolidated panel of every vulnerability found in the scan.",
   "mod.issues.does": "Lists each problem with its severity (CRITICAL → LOW), a description of the impact and an objective fix recommendation. It is the starting point for deciding what to fix first.",

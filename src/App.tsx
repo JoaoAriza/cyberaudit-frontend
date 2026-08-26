@@ -243,7 +243,7 @@ function IssueItem({ issue, onContest, locked, onUpgrade }: { issue: SecurityIss
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span style={{ fontSize: 18 }}>🔒</span>
               <span style={{ fontSize: 12, color: "var(--text-dim)", flex: 1, minWidth: 180 }}>
-                <strong style={{ color: "var(--text)" }}>{t("achado.impactoCorrecao")}</strong> disponíveis nos planos pagos.
+                <strong style={{ color: "var(--text)" }}>{t("achado.impactoCorrecao")}</strong>{t("bloqueio.sufixoPagos")}
               </span>
               {onUpgrade && (
                 <button className={`${styles.btn} ${styles.btnScan} ${styles.btnSm}`} onClick={onUpgrade}>
@@ -258,7 +258,7 @@ function IssueItem({ issue, onContest, locked, onUpgrade }: { issue: SecurityIss
             <span className={styles.label}>{t("achado.correcao")}</span> {fixText}
             {refUrl && cveId && (
               <a href={refUrl} target="_blank" rel="noopener noreferrer" className={styles.issueCveLink}>
-                Ver {cveId} no NVD ↗
+                {t("achado.verNvd", cveId)}
               </a>
             )}
           </div>
@@ -271,7 +271,7 @@ function IssueItem({ issue, onContest, locked, onUpgrade }: { issue: SecurityIss
                 title={t("achado.contestar")}
                 style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 11, cursor: "pointer", padding: 0, textDecoration: "underline" }}
               >
-                ⚑ Isso está errado?
+                {t("achado.issoEstaErrado")}
               </button>
             </div>
           )}
@@ -298,7 +298,7 @@ function LockedGhost({ onUpgrade, rows = 4 }: { onUpgrade: () => void; rows?: nu
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, textAlign: "center", padding: 8 }}>
         <div style={{ fontSize: 22 }}>🔒</div>
         <div style={{ fontSize: 11, color: "var(--text-dim)", maxWidth: 230, lineHeight: 1.5 }}>
-          Breakdown detalhado disponível nos planos pagos.
+          {t("bloqueio.breakdown")}
         </div>
         <button className={`${styles.btn} ${styles.btnScan} ${styles.btnSm}`} onClick={onUpgrade}>{t("bloqueio.verPlanos")}</button>
       </div>
@@ -327,7 +327,7 @@ function ModuleLocked({ onUpgrade }: { onUpgrade: () => void }) {
         <div style={{ fontSize: 30 }}>🔒</div>
         <div style={{ fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700, color: "var(--text)", letterSpacing: ".5px" }}>{t("bloqueio.detalheModulo")}</div>
         <div style={{ fontSize: 12, color: "var(--text-dim)", maxWidth: 380, lineHeight: 1.7 }}>
-          Evidências, riscos e correções de cada módulo estão disponíveis nos planos pagos.
+          {t("bloqueio.detalheModuloDesc")}
         </div>
         <button className={`${styles.btn} ${styles.btnScan}`} onClick={onUpgrade} style={{ marginTop: 4 }}>{t("bloqueio.verPlanos")}</button>
       </div>
@@ -716,12 +716,12 @@ function SlowScanToast({ visible }: { visible: boolean }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const checks = [
-    { icon: "⬟", label: "SSL / TLS",         detail: "Handshake real + validação do certificado" },
-    { icon: "⬡", label: "Security Headers",   detail: "Analisa 8+ headers na resposta HTTP" },
-    { icon: "◉", label: "DNS Security",       detail: "Consultas DNS: SPF, DMARC, DKIM, CAA, MX" },
+    { icon: "⬟", label: "SSL / TLS",         detail: t("toast.sslDesc") },
+    { icon: "⬡", label: "Security Headers",   detail: t("toast.headersDesc") },
+    { icon: "◉", label: "DNS Security",       detail: t("toast.dnsDesc") },
     { icon: "⟨⟩", label: t("toast.techFingerprint"),  detail: t("toast.techFingerprintDesc") },
-    { icon: "◈", label: "CVE Lookup",         detail: "Cruza versões detectadas com base NVD/CVE" },
-    { icon: "▣", label: "WAF & Port Scan",    detail: "Probes ativos + 21 portas (modo ACTIVE)" },
+    { icon: "◈", label: "CVE Lookup",         detail: t("toast.cveDesc") },
+    { icon: "▣", label: "WAF & Port Scan",    detail: t("toast.wafDesc") },
   ];
   if (!visible) return null;
   return (
@@ -879,12 +879,13 @@ function SidebarNavItem({
   metric: React.ReactNode; label: string;
   locked?: boolean; active?: boolean; onClick?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <button
       className={`${styles.sidebarNavItem} ${active ? styles.sidebarNavItemActive : ""} ${locked ? styles.sidebarNavItemLocked : ""}`}
       style={{ "--mc-color": color } as React.CSSProperties}
       onClick={onClick}
-      title={locked ? "Módulo bloqueado — disponível nos planos pagos" : undefined}
+      title={locked ? t("nav.moduloBloqueado") : undefined}
     >
       <span className={styles.sidebarNavAccent} />
       <span className={styles.sidebarNavIcon}>{icon}</span>
@@ -2099,11 +2100,11 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
               {sec === "ports" && (
                 r.openPorts?.length
                   ? <FindingCardsPanel
-                      emptyMsg="Nenhuma porta aberta detectada"
+                      emptyMsg={t("agenda.detalhe.semPortasAbertas")}
                       items={r.openPorts.map((p: any, i: number) => ({
                         id: `port-${i}`, title: String(p.port), severity: p.severity,
                         summary: p.service ?? t("agenda.detalhe.servicoDesconhecido"),
-                        details: [{ label: "PORTA", value: String(p.port) }, { label: "SERVIÇO", value: p.service ?? "—" }],
+                        details: [{ label: t("col.porta"), value: String(p.port) }, { label: t("col.servico"), value: p.service ?? "—" }],
                       }))}
                     />
                   : <div className={styles.empty}>{t("agenda.detalhe.semPortas")}</div>
@@ -3482,7 +3483,7 @@ function CompliancePanel({ compliance }: { compliance: ComplianceReport }) {
 
       {/* Summary row */}
       <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--text-muted)", letterSpacing: ".5px", marginBottom: 8 }}>
-        {passed} CONFORMES / {failed} NÃO CONFORMES — {tab === "lgpd" ? t("compliance.lgpdLei") : t("compliance.isoAnexo")}
+        {t("compliance.conformes", passed, failed)} {tab === "lgpd" ? t("compliance.lgpdLei") : t("compliance.isoAnexo")}
       </div>
 
       {/* Items */}
@@ -3526,7 +3527,7 @@ function CompliancePanel({ compliance }: { compliance: ComplianceReport }) {
                   {item.findings.length > 0 && (
                     <div>
                       <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--critical)", letterSpacing: ".5px", marginBottom: 4 }}>
-                        NÃO CONFORMIDADES
+                        {t("compliance.naoConformidades")}
                       </div>
                       {item.findings.map((f, i) => (
                         <div key={i} style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text)", padding: "2px 0 2px 8px", borderLeft: "2px solid var(--critical)" }}>
@@ -3537,7 +3538,7 @@ function CompliancePanel({ compliance }: { compliance: ComplianceReport }) {
                   )}
                   <div style={{ background: "var(--accent)10", borderRadius: 3, padding: "6px 10px" }}>
                     <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--accent)", letterSpacing: ".5px", marginBottom: 3 }}>
-                      RECOMENDAÇÃO
+                      {t("compliance.recomendacao")}
                     </div>
                     <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text)", lineHeight: 1.5 }}>
                       {item.recommendation}
@@ -4043,7 +4044,7 @@ function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, 
             {/* Hint to click */}
             {!isOpen && (
               <span style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 8, fontFamily: "var(--mono)" }}>
-                clique para {isOk ? "ver detalhes" : "ver como corrigir"} ›
+                {t("card.cliquePara", isOk ? t("card.header.verDetalhes") : t("card.header.verComoCorrigir"))}
               </span>
             )}
 
@@ -4083,10 +4084,10 @@ function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, 
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {host && (
         <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>
-          ◈ Headers do host{" "}
+          {t("card.header.doHost")}{" "}
           <code style={{ fontFamily: "var(--mono)", color: "var(--text)" }}>{host}</code>.
-          {" "}Outros hosts do mesmo site (ex: APIs em{" "}
-          <code style={{ fontFamily: "var(--mono)" }}>server.…</code>) podem ter configuração diferente.
+          {" "}{t("card.header.outrosHostsIni")}{" "}
+          <code style={{ fontFamily: "var(--mono)" }}>server.…</code>{t("card.header.outrosHostsFim")}
         </div>
       )}
       <div style={{ display: "flex", gap: 12 }}>
@@ -4104,13 +4105,14 @@ function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, 
 // ── Related Hosts — Security Headers (informativo, fora do score) ──────────────
 
 function RelatedHostsPanel({ related }: { related?: RelatedHostHeaders[] }) {
+  const { t } = useI18n();
   if (!related || related.length === 0) return null;
   return (
     <div style={{ marginTop: 4 }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>
-        Hosts relacionados{" "}
+        {t("card.header.hostsRelacionados")}{" "}
         <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: 11 }}>
-          — informativo, não entra no score
+          {t("card.header.foraDoScore")}
         </span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -4119,7 +4121,7 @@ function RelatedHostsPanel({ related }: { related?: RelatedHostHeaders[] }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <code style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)" }}>{rh.host}</code>
               <span style={{ fontSize: 11, color: rh.missingCount > 0 ? "var(--critical)" : "var(--secure)" }}>
-                {rh.missingCount} ausente{rh.missingCount === 1 ? "" : "s"}
+                {t("card.header.ausentes", rh.missingCount)}
               </span>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -4275,7 +4277,7 @@ function TransportCardsPanel({ r }: { r: any }) {
       key: "cipher", title: t("card.tls.cipher"), value: tls?.cipherSuite ?? "—", color: "var(--info)",
       icon: "◈", status: "INFO",
       desc: t("card.tls.cipherDesc"),
-      detail: (tls?.message ?? "") + " Cifras com ECDHE oferecem Perfect Forward Secrecy — sessões passadas permanecem seguras mesmo se a chave privada vazar.",
+      detail: (tls?.message ?? "") + t("card.tls.pfsNota"),
     },
     {
       key: "cert", title: t("card.cert.valido"), value: ssl?.valid ? t("card.cert.sim") : t("card.cert.nao"), color: certColor,
@@ -4293,7 +4295,7 @@ function TransportCardsPanel({ r }: { r: any }) {
       detail: t("card.cert.expiracaoDica"),
     },
     {
-      key: "days", title: t("card.cert.diasRestantes"), value: days !== null ? `${days} dias` : "—", color: daysColor,
+      key: "days", title: t("card.cert.diasRestantes"), value: days !== null ? t("card.cert.diasValor", days) : "—", color: daysColor,
       icon: days !== null ? (days < 30 ? "✗" : days < 90 ? "⚠" : "✓") : "—",
       status: days !== null ? (days < 30 ? t("card.urgente") : days < 90 ? t("card.atencao") : "OK") : "—",
       desc: t("card.cert.diasDesc"),
@@ -4366,7 +4368,7 @@ function DnsCardsPanel({ r }: { r: any }) {
     },
     {
       key: "dkim", title: "DKIM", present: dns?.dkimHintFound, warn: true, dependeDeDns: true,
-      value: semDns(dns?.dkimHintFound ? `seletor: ${dns.dkimSelector}` : t("card.dns.naoDetectado")),
+      value: semDns(dns?.dkimHintFound ? t("card.dns.dkimSeletor", dns.dkimSelector) : t("card.dns.naoDetectado")),
       desc: t("card.dns.dkimDesc"),
       record: null,
       tip: t("card.dns.dkimDica"),
@@ -4380,7 +4382,7 @@ function DnsCardsPanel({ r }: { r: any }) {
     },
     {
       key: "mx", title: t("card.dns.mx"), present: dns?.mxPresent, warn: true, dependeDeDns: true,
-      value: semDns(dns?.mxPresent ? `${dns.mxRecords?.length ?? 0} servidor(es)` : t("card.dns.semMx")),
+      value: semDns(dns?.mxPresent ? t("card.dns.mxServidores", dns.mxRecords?.length ?? 0) : t("card.dns.semMx")),
       desc: t("card.dns.mxDesc"),
       record: dns?.mxRecords?.slice(0, 3).join(", ") ?? null,
       tip: t("card.dns.mxDica"),
@@ -4393,8 +4395,8 @@ function DnsCardsPanel({ r }: { r: any }) {
       tip: t("card.dns.securityTxtDica"),
     },
     {
-      key: "robots", title: "robots.txt", present: !(r?.sensitiveRobotsPaths?.length > 0), warn: false,
-      value: r?.sensitiveRobotsPaths?.length > 0 ? `${r.sensitiveRobotsPaths.length} path(s) sensíveis` : t("card.dns.semExposicoes"),
+      key: "robots", title: t("card.dns.robots"), present: !(r?.sensitiveRobotsPaths?.length > 0), warn: false,
+      value: r?.sensitiveRobotsPaths?.length > 0 ? t("card.dns.pathsSensiveis", r.sensitiveRobotsPaths.length) : t("card.dns.semExposicoes"),
       desc: t("card.dns.robotsDesc"),
       record: r?.sensitiveRobotsPaths?.slice(0, 3).join(", ") ?? null,
       tip: t("card.dns.robotsDica"),
@@ -4450,8 +4452,7 @@ function DnsCardsPanel({ r }: { r: any }) {
           <>
             {naoVerificado && (
               <div style={{ marginBottom: 8, fontSize: 10, color: "var(--text-dim)", lineHeight: 1.5 }}>
-                O servidor não conseguiu consultar o DNS deste domínio. O registro
-                pode existir normalmente — refaça o scan em alguns minutos.
+                {t("card.dns.consultaFalhou")}
               </div>
             )}
             {c.record && (
@@ -4476,7 +4477,7 @@ function DnsCardsPanel({ r }: { r: any }) {
           background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border2)",
           padding: "8px 14px", display: "flex", alignItems: "center", gap: 12, marginTop: 8,
         }}>
-          <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--mono)", letterSpacing: ".5px" }}>RISCO DE EMAIL SPOOFING</span>
+          <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--mono)", letterSpacing: ".5px" }}>{t("card.dns.riscoSpoofing")}</span>
           <span style={{ fontFamily: "var(--mono)", fontSize: 12, fontWeight: 700, color: dns.emailSpoofingRisk === "LOW" ? "var(--secure)" : dns.emailSpoofingRisk === "MEDIUM" ? "var(--warning)" : "var(--critical)" }}>
             {dns.emailSpoofingRisk}
           </span>
@@ -4742,11 +4743,11 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
         }}>
           <div style={{ fontSize: 30, marginBottom: 10 }}>🔒</div>
           <div style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 8, letterSpacing: ".5px" }}>
-            MÓDULO ACTIVE CHECKS
+            {t("ativo.moduloTitulo")}
           </div>
           <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 20, maxWidth: 400, lineHeight: 1.75 }}>
-            Análise invasiva com simulação real de ataques — WAF bypass, CORS injection, port scan,
-            XSS/SQLi probes e exposição de arquivos sensíveis. Disponível apenas em <strong style={{ color: "var(--accent)" }}>scan ativo</strong>.
+            {t("ativo.moduloDesc")}{" "}
+            <strong style={{ color: "var(--accent)" }}>{t("ativo.scanAtivo")}</strong>.
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "7px 32px", marginBottom: 24, textAlign: "left" }}>
             {[t("ativo.wafDetection"), t("ativo.corsAnalysis"), t("ativo.sensitiveFiles"), t("ativo.xssSqli"), t("ativo.portScan"), t("ativo.dbErrorLeak")].map(f => (
@@ -4820,7 +4821,7 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
   return (
     <div>
       {/* WAF Detection */}
-      <SecLabel label="WAF DETECTION" />
+      <SecLabel label={t("ativo.tituloWaf")} />
       <ColsGrid cols={3} items={[
         <ModCard key="waf-det" id="waf-det" color={wafColor} isOpen={openSet.has("waf-det")} onToggle={() => toggle("waf-det")}
           top={
@@ -4894,7 +4895,7 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
       ]} />
 
       {/* CORS Analysis */}
-      <SecLabel label="CORS ANALYSIS" />
+      <SecLabel label={t("ativo.tituloCors")} />
       {cors?.tested ? (<>
         {cors.message && (
           <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-dim)", marginBottom: 8,
@@ -4939,7 +4940,7 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
         : <SecureEmptyCard msg={t("ativo.semArquivosSensiveis")} />}
 
       {/* Application Probes */}
-      <SecLabel label="APPLICATION PROBES" />
+      <SecLabel label={t("ativo.tituloProbes")} />
       <ColsGrid cols={2} items={probeCards.map(p => {
         const color = p.neutral ? "var(--text-muted)" : p.ok ? "var(--secure)" : "var(--warning)";
         return (
@@ -6165,7 +6166,7 @@ export default function App() {
             stopPoll(); stopSlowTimer(); setScanLoading(false);
             const msg = status.errorMessage ?? "";
             const isUnreachable = msg.includes("UnknownHostException") || msg.includes("Name or service not known") || msg.includes("nodename nor servname provided") || msg.includes("No address associated");
-            setError(isUnreachable ? `⚠ Domínio não encontrado ou inacessível: "${url}". Verifique o endereço e tente novamente.` : `Erro ao processar scan: ${msg}`);
+            setError(isUnreachable ? t("scan.erroInacessivel", url) : t("scan.erroProcessar", msg));
           }
         } catch { stopPoll(); stopSlowTimer(); setError(t("scan.falhaStatus")); setScanLoading(false); }
       }, 2000);
@@ -6186,8 +6187,8 @@ export default function App() {
     }
     const message = data?.message ?? err?.message ?? "";
     const isUnreachable = message.toLowerCase().includes("connect timed out") || message.toLowerCase().includes("connection refused") || message.toLowerCase().includes("unknown host") || message.toLowerCase().includes("name or service not known") || message.toLowerCase().includes("no route to host") || message.toLowerCase().includes("network is unreachable") || err?.response?.status === 400;
-    if (isUnreachable) { setError(`⚠ Domínio não encontrado ou inacessível: "${url}". Verifique se o endereço está correto e tente novamente.`); return; }
-    setError(err?.response ? `Erro ${err.response.status}: ${JSON.stringify(err.response.data)}` : `Falha: ${err.message}`);
+    if (isUnreachable) { setError(t("scan.erroInacessivel", url)); return; }
+    setError(err?.response ? t("scan.erroHttp", err.response.status, JSON.stringify(err.response.data)) : t("scan.falha", err.message));
   }
 
   async function handlePdf() {
@@ -6207,9 +6208,9 @@ export default function App() {
     } catch (e: any) {
       if (e?.response?.data instanceof Blob) {
         const text = await e.response.data.text();
-        try { const json = JSON.parse(text); setError(`PDF erro: ${json.message ?? json.error ?? text}`); }
-        catch { setError(`PDF erro: ${text || t("scan.erroDesconhecido")}`); }
-      } else { setError(`PDF erro: ${e?.response?.status} — ${e.message}`); }
+        try { const json = JSON.parse(text); setError(t("scan.pdfErro", json.message ?? json.error ?? text)); }
+        catch { setError(t("scan.pdfErro", text || t("scan.erroDesconhecido"))); }
+      } else { setError(t("scan.pdfErroStatus", e?.response?.status, e.message)); }
     } finally { setPdfLoading(false); }
   }
 
@@ -6897,7 +6898,7 @@ export default function App() {
                           emptyMsg={t("vazio.openRedirect")}
                           items={redirectVuln.map((f: any, i: number) => ({
                             id: `redirect-${i}`, title: `?${f.parameter}=`, severity: "HIGH",
-                            summary: `Redireciona para: ${f.redirectedTo}`,
+                            summary: t("achado.redirecionaPara", f.redirectedTo),
                             details: [{ label: t("col.parametro"), value: `?${f.parameter}=` }, { label: "DESTINO", value: f.redirectedTo }],
                           }))}
                         />
@@ -6916,7 +6917,7 @@ export default function App() {
                           emptyMsg={t("vazio.directoryListing")}
                           items={dirExposed.map((f: any, i: number) => ({
                             id: `dir-${i}`, title: f.path, severity: f.severity,
-                            summary: `Listagem de diretório exposta publicamente`,
+                            summary: t("achado.dirListExposta"),
                             details: [{ label: "PATH", value: f.path }, { label: t("col.evidencia"), value: f.evidence }],
                           }))}
                         />
@@ -6980,7 +6981,7 @@ export default function App() {
                               ...(f.playgroundExposed ? [{ label: "PLAYGROUND", color: "var(--critical)" }] : []),
                               ...(f.introspectionEnabled ? [{ label: "INTROSPECTION", color: "var(--warning)" }] : []),
                             ],
-                            summary: f.typeCount > 0 ? `${f.typeCount} tipos expostos via introspection` : t("col.endpointGraphql"),
+                            summary: f.typeCount > 0 ? t("achado.tiposExpostos", f.typeCount) : t("col.endpointGraphql"),
                             details: [
                               { label: "ENDPOINT", value: f.endpoint },
                               ...(f.typeCount > 0 ? [{ label: "TIPOS", value: `${f.typeCount}` }] : []),
@@ -7026,7 +7027,7 @@ export default function App() {
                           emptyMsg={t("vazio.pathTraversal")}
                           items={ptFindings.map((pt: any, i: number) => ({
                             id: `pt-${i}`, title: `?${pt.parameter}=`, severity: "CRITICAL",
-                            summary: `Arquivo alvo: ${pt.target}`,
+                            summary: t("achado.arquivoAlvo", pt.target),
                             details: [
                               { label: t("col.parametro"), value: `?${pt.parameter}=` },
                               { label: "ALVO", value: pt.target },
@@ -7049,7 +7050,7 @@ export default function App() {
                           emptyMsg={t("vazio.ssrf")}
                           items={ssrfFindings.map((f: any, i: number) => ({
                             id: `ssrf-${i}`, title: `param: ${f.parameter}`, severity: "CRITICAL",
-                            summary: `Indicador: ${f.indicator}`,
+                            summary: t("achado.indicador", f.indicator),
                             details: [
                               { label: t("col.parametro"), value: f.parameter },
                               { label: "INDICADOR", value: f.indicator },
@@ -7071,7 +7072,7 @@ export default function App() {
                           emptyMsg={t("vazio.crlf")}
                           items={crlfFindings.map((f: any, i: number) => ({
                             id: `crlf-${i}`, title: `param: ${f.parameter}`, severity: "HIGH",
-                            subtitle: `Tipo: ${f.injectionType}`,
+                            subtitle: t("achado.tipo", f.injectionType),
                             details: [
                               { label: t("col.parametro"), value: f.parameter },
                               { label: "TIPO", value: f.injectionType },
@@ -7114,7 +7115,7 @@ export default function App() {
                         emptyMsg={t("vazio.hostHeader")}
                         items={hhFindings.map((f: any, i: number) => ({
                           id: `hh-${i}`, title: f.injectedHeader, severity: "HIGH",
-                          summary: `Refletido em: ${f.reflectionPoint}`,
+                          summary: t("achado.refletidoEm", f.reflectionPoint),
                           details: [
                             { label: "HEADER", value: f.injectedHeader },
                             { label: t("col.refletidoEm"), value: f.reflectionPoint },
@@ -7138,10 +7139,10 @@ export default function App() {
                             {/* Stats as interactive cards */}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 8, marginBottom: 12 }}>
                               {[
-                                { label: t("ct.certificados"), value: ct.totalCertificates, color: "var(--info)", icon: "◑", detail: "Total de certificados emitidos para este domínio registrados nos logs públicos de Certificate Transparency." },
-                                { label: t("ct.subdominiosHistoricos"), value: ct.uniqueSubdomains, color: ct.uniqueSubdomains > 20 ? "var(--warning)" : "var(--info)", icon: "◎", detail: "Subdomínios descobertos via CT logs. Muitos subdomínios podem indicar superfície de ataque ampla — verifique os que não estão mais em uso." },
-                                { label: "Wildcard", value: ct.wildcardDetected ? t("selo.sim") : t("selo.nao"), color: ct.wildcardDetected ? "var(--warning)" : "var(--secure)", icon: ct.wildcardDetected ? "⚠" : "✓", detail: ct.wildcardDetected ? "Certificado wildcard detectado (*.dominio). Compromisso de um subdomínio pode afetar todos os outros cobertos pelo wildcard." : "Nenhum certificado wildcard detectado." },
-                                { label: t("ct.emitidoRecente"), value: ct.recentlyIssued ? t("selo.sim") : "—", color: ct.recentlyIssued ? "var(--warning)" : "var(--secure)", icon: ct.recentlyIssued ? "⚠" : "✓", detail: ct.recentlyIssued ? "Certificado emitido nos últimos 7 dias. Verifique se a emissão foi esperada — emissões inesperadas podem indicar comprometimento." : "Nenhum certificado emitido recentemente nos logs CT." },
+                                { label: t("ct.certificados"), value: ct.totalCertificates, color: "var(--info)", icon: "◑", detail: t("ct.detTotal") },
+                                { label: t("ct.subdominiosHistoricos"), value: ct.uniqueSubdomains, color: ct.uniqueSubdomains > 20 ? "var(--warning)" : "var(--info)", icon: "◎", detail: t("ct.detSubdominios") },
+                                { label: "Wildcard", value: ct.wildcardDetected ? t("selo.sim") : t("selo.nao"), color: ct.wildcardDetected ? "var(--warning)" : "var(--secure)", icon: ct.wildcardDetected ? "⚠" : "✓", detail: ct.wildcardDetected ? t("ct.detWildcardSim") : t("ct.detWildcardNao") },
+                                { label: t("ct.emitidoRecente"), value: ct.recentlyIssued ? t("selo.sim") : "—", color: ct.recentlyIssued ? "var(--warning)" : "var(--secure)", icon: ct.recentlyIssued ? "⚠" : "✓", detail: ct.recentlyIssued ? t("ct.detRecenteSim") : t("ct.detRecenteNao") },
                               ].map((stat, i) => (
                                 <div key={i} style={{ background: "var(--surface)", border: `1px solid var(--border)`, borderLeft: `3px solid ${stat.color}`, borderRadius: "var(--radius)", padding: "10px 12px" }}>
                                   <div style={{ fontFamily: "var(--mono)", fontSize: 18, color: stat.color, fontWeight: 700 }}>{stat.value}</div>
@@ -7151,7 +7152,7 @@ export default function App() {
                               ))}
                             </div>
                             {ct.unexpectedIssuer && (
-                              <div className={styles.ctAlert}>⚠ Issuer(s) não autorizado(s) pelo CAA: {ct.unexpectedIssuers.map((iss, i) => <Tag key={i} label={iss} cls={styles.critical} />)}</div>
+                              <div className={styles.ctAlert}>{t("ct.issuerNaoAutorizado")} {ct.unexpectedIssuers.map((iss, i) => <Tag key={i} label={iss} cls={styles.critical} />)}</div>
                             )}
                             {ct.issuers?.length > 0 && (
                               <Section title={`Issuers [${ct.issuers.length}]`} defaultOpen={true}>
@@ -7168,7 +7169,7 @@ export default function App() {
                               </Section>
                             )}
                             {ct.recentCerts?.length > 0 && (
-                              <Section title={`Certificados recentes [${ct.recentCerts.length}]`} defaultOpen={false}>
+                              <Section title={t("ct.certificadosRecentes", ct.recentCerts.length)} defaultOpen={false}>
                                 <table className={styles.table}>
                                   <thead><tr><th>{t("ct.commonName")}</th><th>Issuer</th><th>{t("ct.validoDe")}</th><th>{t("ct.validoAte")}</th></tr></thead>
                                   <tbody>
@@ -7185,7 +7186,7 @@ export default function App() {
                               </Section>
                             )}
                             {ct.discoveredSubdomains?.length > 0 && (
-                              <Section title={`Subdomínios históricos [${ct.discoveredSubdomains.length}]`} defaultOpen={false}>
+                              <Section title={`${t("ct.subdominiosHistoricos")} [${ct.discoveredSubdomains.length}]`} defaultOpen={false}>
                                 <div className={styles.ctSubdomainGrid}>{ct.discoveredSubdomains.map((s, i) => <code key={i} className={styles.ctSubdomain}>{s}</code>)}</div>
                               </Section>
                             )}
