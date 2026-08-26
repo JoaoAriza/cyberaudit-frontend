@@ -1443,57 +1443,62 @@ interface ApiPlan {
 }
 
 /** Identidade do card. Nome, documento e recado não são diferença de plano. */
-const PLAN_CARDS: Record<PlanKey, { name: string; doc: string; note?: string }> = {
-  FREE:       { name: "Pessoal Free", doc: "CPF opcional" },
-  PRO:        { name: "Pessoal Pro",  doc: "CPF opcional" },
+const PLAN_CARDS: Record<PlanKey, { nameKey: string; docKey: string; noteKey?: string }> = {
+  FREE:       { nameKey: "planos.card.FREE.nome", docKey: "planos.card.cpfOpcional" },
+  PRO:        { nameKey: "planos.card.PRO.nome",  docKey: "planos.card.cpfOpcional" },
   ENTERPRISE: {
-    name: "Empresa",
-    doc:  "CNPJ obrigatório",
+    nameKey: "planos.card.ENTERPRISE.nome",
+    docKey:  "planos.card.cnpjObrigatorio",
     // Multi-usuário fica fora da comparação de propósito: convite é liberado por
     // tipo de conta (InviteService), não por plano — uma conta Empresa no FREE já
     // monta o time. Por isso é nota do card, não linha de comparação.
-    note: "Equipe, convites e 2FA obrigatório vêm da conta Empresa — valem em qualquer plano.",
+    noteKey: "planos.card.ENTERPRISE.nota",
   },
 };
 
 /**
- * Rótulo de cada recurso. A chave vem do Backend; o texto é daqui.
+ * Rótulo de cada recurso. A chave vem do Backend; o texto sai do catálogo.
  *
  * Id desconhecido cai no próprio id, de propósito: recurso novo aparece feio na
  * tela em vez de sumir dela. Sumir em silêncio foi o problema original.
  */
-function rotuloDoRecurso(f: ApiFeature, plano: PlanKey): string {
+function rotuloDoRecurso(
+  f: ApiFeature,
+  plano: PlanKey,
+  t: (c: string, ...a: unknown[]) => string
+): string {
   const soVerificado = f.state === "VERIFIED_DOMAINS_ONLY";
   switch (f.id) {
     case "FINDING_DETAIL":
-      return "Impacto e correção de cada achado";
+      return t("recurso.FINDING_DETAIL");
     case "DAILY_SCANS":
-      return f.limit === -1 ? "Scans ilimitados" : `${f.limit} scans por dia`;
+      return f.limit === -1 ? t("recurso.DAILY_SCANS.ilimitado")
+                            : t("recurso.DAILY_SCANS", f.limit);
     case "PDF_EXPORT":
-      return soVerificado      ? "PDF do scan (só domínios verificados)"
-           : f.state === "YES" ? "PDF de qualquer domínio"
-           :                     "PDF do scan";
+      return soVerificado      ? t("recurso.PDF_EXPORT.verificados")
+           : f.state === "YES" ? t("recurso.PDF_EXPORT.qualquer")
+           :                     t("recurso.PDF_EXPORT");
     case "EMAIL_NOTIFY":
-      return soVerificado ? "Notificação por e-mail (só domínios verificados)"
-                          : "Notificação por e-mail";
+      return soVerificado ? t("recurso.EMAIL_NOTIFY.verificados")
+                          : t("recurso.EMAIL_NOTIFY");
     case "CHANGES_MODULE":
-      return "Módulo Changes";
+      return t("recurso.CHANGES_MODULE");
     case "HISTORY_CHART":
-      return "Gráfico histórico";
+      return t("recurso.HISTORY_CHART");
     case "SCHEDULED_SCANS":
-      return f.limit === -1                 ? "Agendamentos ilimitados"
-           : f.limit != null && f.limit > 0  ? `${f.limit} agendamentos`
-           :                                   "Agendamentos";
+      return f.limit === -1                ? t("recurso.SCHEDULED_SCANS.ilimitado")
+           : f.limit != null && f.limit > 0 ? t("recurso.SCHEDULED_SCANS.n", f.limit)
+           :                                  t("recurso.SCHEDULED_SCANS");
     case "DOMAIN_REGISTRATION":
-      return "Cadastro de domínio";
+      return t("recurso.DOMAIN_REGISTRATION");
     // Na Empresa o relatório é da equipe; nos cards pessoais, da conta.
     case "ACCOUNT_REPORTS":
-      return plano === "ENTERPRISE" ? "Relatórios da equipe e PDF executivo"
-                                    : "Relatórios da conta e PDF executivo";
+      return plano === "ENTERPRISE" ? t("recurso.ACCOUNT_REPORTS.equipe")
+                                    : t("recurso.ACCOUNT_REPORTS");
     case "ACTIVE_SCAN":
-      return soVerificado      ? "Active Scan (só domínios verificados)"
-           : f.state === "YES" ? "Active Scan em qualquer domínio"
-           :                     "Active Scan";
+      return soVerificado      ? t("recurso.ACTIVE_SCAN.verificados")
+           : f.state === "YES" ? t("recurso.ACTIVE_SCAN.qualquer")
+           :                     t("recurso.ACTIVE_SCAN");
     default:
       return f.id;
   }
@@ -1561,15 +1566,14 @@ function PlansModal({ onClose }: { onClose: () => void }) {
    * fim do período já pago.
    */
   async function cancelar() {
-    if (!confirm("Cancelar a assinatura? O acesso aos recursos pagos termina "
-               + "imediatamente, não no fim do período já pago.")) return;
+    if (!confirm(t("planos.confirmarCancelamento"))) return;
     setCancelling(true); setSubError(null);
     try {
       await api.post("/billing/cancel");
       // Sem isto o cartão continuaria marcado como plano atual até um reload.
       await refreshUser();
     } catch (e: any) {
-      setSubError(e?.response?.data?.message ?? "Não foi possível cancelar a assinatura.");
+      setSubError(e?.response?.data?.message ?? t("planos.erroCancelar"));
     } finally {
       setCancelling(false);
     }
@@ -1583,10 +1587,10 @@ function PlansModal({ onClose }: { onClose: () => void }) {
       if (res.data?.initPoint) {
         window.location.href = res.data.initPoint; // → checkout do Mercado Pago
       } else {
-        setSubError("Não foi possível iniciar o checkout."); setSubscribing(null);
+        setSubError(t("planos.erroCheckout")); setSubscribing(null);
       }
     } catch (e: any) {
-      setSubError(e?.response?.data?.message ?? e?.response?.data?.error ?? "Erro ao iniciar assinatura.");
+      setSubError(e?.response?.data?.message ?? e?.response?.data?.error ?? t("planos.erroAssinar"));
       setSubscribing(null);
     }
   }
@@ -1595,19 +1599,19 @@ function PlansModal({ onClose }: { onClose: () => void }) {
     <div className={styles.modalOverlay} onClick={onClose}>
       <div className={`${styles.modal} ${styles.plansModal}`} onClick={e => e.stopPropagation()}>
         <div className={styles.plansModalHeader}>
-          <span className={styles.plansModalTitle}>◈ PLANOS & FUNCIONALIDADES</span>
+          <span className={styles.plansModalTitle}>{t("planos.titulo")}</span>
           <button className={styles.modalClose} onClick={onClose}>✕</button>
         </div>
 
         {erroCardapio ? (
           <div className={styles.empty} style={{ padding: 32 }}>
-            Não foi possível carregar os planos.{" "}
+            {t("planos.erroCarregar")}{" "}
             <button className={styles.backLink} onClick={() => void carregarCardapio()}>
-              Tentar de novo
+              {t("planos.tentarDeNovo")}
             </button>
           </div>
         ) : planos === null ? (
-          <div className={styles.empty} style={{ padding: 32 }}>Carregando planos...</div>
+          <div className={styles.empty} style={{ padding: 32 }}>{t("planos.carregando")}</div>
         ) : (
           <div className={styles.plansGrid}>
             {planos.map(p => {
@@ -1616,10 +1620,10 @@ function PlansModal({ onClose }: { onClose: () => void }) {
               const preco   = precoDoPlano(p, t);
               return (
                 <div key={p.plan} className={`${styles.planCard} ${current ? styles.planCardCurrent : ""}`}>
-                  {current && <div className={styles.planCurrentBadge}>Seu plano atual</div>}
-                  <div className={styles.planName}>{card.name}</div>
+                  {current && <div className={styles.planCurrentBadge}>{t("planos.atual")}</div>}
+                  <div className={styles.planName}>{t(card.nameKey)}</div>
                   <div className={styles.planPrice}>{preco}</div>
-                  <div className={styles.planDoc}>{card.doc}</div>
+                  <div className={styles.planDoc}>{t(card.docKey)}</div>
                   <ul className={styles.planFeatures}>
                     {p.features.map(f => {
                       const parcial = f.state === "VERIFIED_DOMAINS_ONLY";
@@ -1631,20 +1635,20 @@ function PlansModal({ onClose }: { onClose: () => void }) {
                             : <span className={ligado ? styles.ok : styles.bad}>{ligado ? "✓" : "✗"}</span>
                           }
                           <span className={parcial ? styles.planFeaturePartial : ligado ? styles.planFeatureOn : styles.planFeatureOff}>
-                            {rotuloDoRecurso(f, p.plan)}
+                            {rotuloDoRecurso(f, p.plan, t)}
                           </span>
                         </li>
                       );
                     })}
                   </ul>
-                  {card.note && <div className={styles.planNote}>{card.note}</div>}
+                  {card.noteKey && <div className={styles.planNote}>{t(card.noteKey)}</div>}
                   {current && ehPago(p.plan) && loggedIn && (
                     <button
                       className={`${styles.btn} ${styles.btnDanger} ${styles.btnFull}`}
                       disabled={cancelling}
                       onClick={cancelar}
                     >
-                      {cancelling ? "Cancelando..." : "Cancelar assinatura"}
+                      {cancelling ? t("planos.cancelando") : t("planos.cancelar")}
                     </button>
                   )}
                   {!current && (
@@ -1659,13 +1663,13 @@ function PlansModal({ onClose }: { onClose: () => void }) {
                           disabled={subscribing !== null}
                           onClick={() => subscribe(p.plan)}
                         >
-                          {subscribing === p.plan ? "Redirecionando..." : `Assinar ${preco} →`}
+                          {subscribing === p.plan ? t("planos.redirecionando") : t("planos.assinar", preco)}
                         </button>
                       ) : (
-                        <div className={styles.planCta}>Faça login para assinar</div>
+                        <div className={styles.planCta}>{t("planos.loginParaAssinar")}</div>
                       )
                     ) : (
-                      <div className={styles.planCta}>Grátis</div>
+                      <div className={styles.planCta}>{t("plano.gratis")}</div>
                     )
                   )}
                 </div>
