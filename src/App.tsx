@@ -1982,6 +1982,7 @@ function InviteItemRow({ inv, onRevoke, roleBadge }: { inv: InviteDto; onRevoke:
 // ── Schedule Scan Detail Modal ────────────────────────────────────────────────
 
 function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const { t } = useI18n();
   const [result, setResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
@@ -1990,7 +1991,7 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
   useEffect(() => {
     api.get<ScanResult>(`/history/${id}/result`)
       .then(r => { setResult(r.data); setLoading(false); })
-      .catch(() => { setError("Erro ao carregar resultado."); setLoading(false); });
+      .catch(() => { setError(t("agenda.detalhe.erro")); setLoading(false); });
   }, [id]);
 
   useEffect(() => {
@@ -2004,13 +2005,13 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
   }
 
   const TABS: [string, string][] = [
-    ["issues",    "⚠ Issues"],
-    ["transport", "⬟ TLS/SSL"],
-    ["headers",   "⬡ Headers"],
-    ["dns",       "◎ DNS"],
-    ["tech",      "⟨⟩ Tech"],
-    ["cookies",   "⬥ Cookies"],
-    ["ports",     "◉ Portas"],
+    ["issues",    t("agenda.detalhe.issues")],
+    ["transport", t("agenda.detalhe.tls")],
+    ["headers",   t("agenda.detalhe.headers")],
+    ["dns",       t("agenda.detalhe.dns")],
+    ["tech",      t("agenda.detalhe.tech")],
+    ["cookies",   t("agenda.detalhe.cookies")],
+    ["ports",     t("agenda.detalhe.portas")],
   ];
 
   return (
@@ -2019,12 +2020,12 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
         <div className={styles.modalHeader}>
           <div className={styles.modalTitleRow}>
             <span className={styles.modalIconLg}>◈</span>
-            <span className={styles.modalTitleText}>Resultado do Scan</span>
+            <span className={styles.modalTitleText}>{t("agenda.detalhe.titulo")}</span>
           </div>
           <button className={styles.modalClose} onClick={onClose}>✕</button>
         </div>
 
-        {loading && <div className={styles.empty} style={{ padding: "2rem" }}>Carregando...</div>}
+        {loading && <div className={styles.empty} style={{ padding: "2rem" }}>{t("app.carregando")}</div>}
         {error   && <div className={styles.errorBox} style={{ margin: "1rem" }}>{error}</div>}
 
         {result && (() => {
@@ -2061,7 +2062,7 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
               {sec === "issues" && (
                 sc.issues?.length
                   ? <div className={styles.issuesList}>{sc.issues.map((i, idx) => <IssueItem key={`${i.id}-${idx}`} issue={i} />)}</div>
-                  : <div className={styles.empty}>◈ Nenhuma issue detectada</div>
+                  : <div className={styles.empty}>{t("resultado.semIssues")}</div>
               )}
 
               {/* ── TLS / SSL ── */}
@@ -2086,11 +2087,11 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
                       emptyMsg="Nenhuma porta aberta detectada"
                       items={r.openPorts.map((p: any, i: number) => ({
                         id: `port-${i}`, title: String(p.port), severity: p.severity,
-                        summary: p.service ?? "Serviço não identificado",
+                        summary: p.service ?? t("agenda.detalhe.servicoDesconhecido"),
                         details: [{ label: "PORTA", value: String(p.port) }, { label: "SERVIÇO", value: p.service ?? "—" }],
                       }))}
                     />
-                  : <div className={styles.empty}>Nenhuma porta aberta detectada</div>
+                  : <div className={styles.empty}>{t("agenda.detalhe.semPortas")}</div>
               )}
 
             </div>
@@ -2105,6 +2106,7 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
 
 function SchedulesPage() {
   const { user } = useAuth();
+  const { t } = useI18n();
   // Agendar já é PRO+, então o e-mail está sempre liberado aqui — o que pode
   // barrar é o domínio: no Pro pessoal, só os verificados.
   const reportVerifiedOnly = user?.account?.reportOnVerifiedOnly === true;
@@ -2130,7 +2132,7 @@ function SchedulesPage() {
     try {
       const res = await api.get<ScheduledScanDto[]>("/scheduled-scans");
       setSchedules(res.data);
-    } catch { setError("Erro ao carregar agendamentos."); }
+    } catch { setError(t("agenda.erroCarregar")); }
     finally { setLoading(false); }
   }
 
@@ -2147,19 +2149,19 @@ function SchedulesPage() {
       });
       setHost(""); await load();
     } catch (e: any) {
-      setError(e?.response?.data?.message ?? "Erro ao criar agendamento.");
+      setError(e?.response?.data?.message ?? t("agenda.erroCriar"));
     } finally { setCreating(false); }
   }
 
   async function toggle(id: string) {
     try { await api.patch(`/scheduled-scans/${id}/toggle`); await load(); }
-    catch { setError("Erro ao atualizar agendamento."); }
+    catch { setError(t("agenda.erroAtualizar")); }
   }
 
   async function remove(id: string) {
-    if (!confirm("Remover este agendamento?")) return;
+    if (!confirm(t("agenda.confirmaRemover"))) return;
     try { await api.delete(`/scheduled-scans/${id}`); await load(); }
-    catch { setError("Erro ao remover agendamento."); }
+    catch { setError(t("agenda.erroRemover")); }
   }
 
   async function toggleHistory(h: string) {
@@ -2192,7 +2194,7 @@ function SchedulesPage() {
 
   return (
     <div className={styles.adminWrap}>
-      <h2 className={styles.adminTitle}>Scans Agendados</h2>
+      <h2 className={styles.adminTitle}>{t("agenda.titulo")}</h2>
 
       {/* Formulário de criação */}
       <form onSubmit={create} className={styles.scheduleForm}>
@@ -2200,7 +2202,7 @@ function SchedulesPage() {
           className={styles.urlInput}
           value={host}
           onChange={e => setHost(e.target.value)}
-          placeholder="example.com"
+          placeholder={t("scan.placeholder")}
           disabled={creating}
         />
         <select
@@ -2209,8 +2211,8 @@ function SchedulesPage() {
           onChange={e => setFrequency(e.target.value as "DAILY" | "WEEKLY")}
           disabled={creating}
         >
-          <option value="DAILY">Diário</option>
-          <option value="WEEKLY">Semanal</option>
+          <option value="DAILY">{t("agenda.diario")}</option>
+          <option value="WEEKLY">{t("agenda.semanal")}</option>
         </select>
         <select
           className={styles.roleSelect}
@@ -2223,34 +2225,34 @@ function SchedulesPage() {
           ))}
         </select>
         <label className={styles.toggle} title={reportVerifiedOnly
-          ? "No plano Pessoal Pro, o e-mail vale apenas para domínios verificados na sua conta"
-          : "Receber email ao concluir"}>
+          ? t("scan.emailSoVerificados")
+          : t("agenda.emailAoConcluir")}>
           <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} disabled={creating} />
           <span className={styles.toggleLabel}>EMAIL</span>
         </label>
-        <label className={styles.toggle} title="Modo ativo: executa probes adicionais (XSS, SSRF, etc). Use apenas em domínios autorizados.">
+        <label className={styles.toggle} title={t("agenda.modoAtivo")}>
           <input type="checkbox" checked={activeMode} onChange={e => setActiveMode(e.target.checked)} disabled={creating} />
           <span className={styles.toggleLabel} style={{ color: activeMode ? "var(--warning)" : undefined }}>ACTIVE</span>
         </label>
         <button className={`${styles.btn} ${styles.btnScan}`} type="submit" disabled={creating || !host.trim()}>
-          {creating ? "..." : "+ Agendar"}
+          {creating ? "..." : t("agenda.agendar")}
         </button>
       </form>
 
       {error && <div className={styles.errorBox}>{error}</div>}
 
       {loading ? (
-        <div className={styles.empty}>Carregando...</div>
+        <div className={styles.empty}>{t("app.carregando")}</div>
       ) : schedules.length === 0 ? (
-        <div className={styles.empty}>◈ Nenhum scan agendado. Adicione um domínio acima.</div>
+        <div className={styles.empty}>{t("agenda.vazio")}</div>
       ) : (
         <table className={styles.userTable}>
           <thead>
             <tr>
-              <th>Domínio</th>
-              <th>Frequência</th>
-              <th>Próximo scan</th>
-              <th>Último scan</th>
+              <th>{t("agenda.dominio")}</th>
+              <th>{t("agenda.frequencia")}</th>
+              <th>{t("agenda.proximoScan")}</th>
+              <th>{t("agenda.ultimoScan")}</th>
               <th>Email</th>
               <th>Status</th>
               <th></th>
@@ -2265,13 +2267,13 @@ function SchedulesPage() {
                       className={`${styles.btn} ${styles.btnGhost}`}
                       style={{ fontFamily: "var(--mono)", fontSize: "0.78rem", padding: "2px 8px" }}
                       onClick={() => toggleHistory(s.host)}
-                      title="Ver histórico de scans"
+                      title={t("agenda.verHistorico")}
                     >
                       {expandedHost === s.host ? "▾" : "▸"} {s.host}
                     </button>
                   </td>
                   <td>
-                    {s.frequency === "DAILY" ? "Diário" : "Semanal"} {String(s.preferredHour).padStart(2, "0")}:00 UTC
+                    {s.frequency === "DAILY" ? t("agenda.diario") : t("agenda.semanal")} {String(s.preferredHour).padStart(2, "0")}:00 UTC
                     {s.active && <span className={`${styles.tag} ${styles.warning}`} style={{ marginLeft: 6, fontSize: "0.65rem" }}>ACTIVE</span>}
                   </td>
                   <td className={styles.muted}>{fmtDate(s.nextRun)}</td>
@@ -2300,7 +2302,7 @@ function SchedulesPage() {
                     <td colSpan={7} style={{ padding: "0 0 0 1rem", background: "var(--bg)" }}>
                       <div style={{ borderLeft: "2px solid var(--border2)", padding: "0.75rem 1rem", margin: "0.25rem 0 0.5rem" }}>
                         {historyLoading[s.host] ? (
-                          <div className={styles.muted} style={{ fontSize: "0.8rem" }}>Carregando scans...</div>
+                          <div className={styles.muted} style={{ fontSize: "0.8rem" }}>{t("agenda.carregandoScans")}</div>
                         ) : !hostHistory[s.host]?.length ? (
                           <div style={{ fontSize: "0.8rem", display: "flex", alignItems: "center", gap: 8 }}><span className={`${styles.tag} ${styles.warning}`}>PENDENTE</span><span className={styles.muted}>Nenhum scan agendado executado ainda. Próximo: {fmtDate(s.nextRun)}</span></div>
                         ) : (
@@ -2340,7 +2342,7 @@ function SchedulesPage() {
                                     <span className={`${styles.tag} ${styles.info}`} style={{ fontSize: "0.65rem" }}>ATIVO</span>
                                   )}
                                   {/* Open icon */}
-                                  <span className={styles.muted} style={{ fontSize: "0.75rem" }}>Ver detalhes →</span>
+                                  <span className={styles.muted} style={{ fontSize: "0.75rem" }}>{t("agenda.verDetalhes")}</span>
                                 </button>
                               ))}
                             </div>
@@ -3527,6 +3529,7 @@ interface SubdomainInfo {
 }
 
 function DomainsPage() {
+  const { t } = useI18n();
   const { user } = useAuth();
   const [domains, setDomains]   = useState<DomainDto[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -3543,7 +3546,7 @@ function DomainsPage() {
 
   async function load() {
     try { setDomains((await api.get<DomainDto[]>("/domains")).data); }
-    catch { setError("Erro ao carregar domínios."); }
+    catch { setError(t("dominio.erroCarregar")); }
     finally { setLoading(false); }
   }
 
@@ -3554,7 +3557,7 @@ function DomainsPage() {
     if (!host.trim()) return;
     setAdding(true); setError(null);
     try { await api.post("/domains", { host: host.trim() }); setHost(""); await load(); }
-    catch (e: any) { setError(e?.response?.data?.message ?? "Erro ao cadastrar domínio."); }
+    catch (e: any) { setError(e?.response?.data?.message ?? t("dominio.erroCadastrar")); }
     finally { setAdding(false); }
   }
 
@@ -3567,7 +3570,7 @@ function DomainsPage() {
   async function verify(id: string) {
     setVerifying(id); setError(null);
     try { await api.post(`/domains/${id}/verify`); await load(); }
-    catch (e: any) { setError(e?.response?.data?.message ?? "Verificação falhou. Publique o arquivo e tente novamente."); }
+    catch (e: any) { setError(e?.response?.data?.message ?? t("dominio.erroVerificar")); }
     finally { setVerifying(null); }
   }
 
@@ -3578,7 +3581,7 @@ function DomainsPage() {
       const res = await api.post<SubdomainInfo[]>(`/domains/${id}/enumerate`);
       setSubdomains(prev => ({ ...prev, [id]: res.data }));
     } catch (e: any) {
-      setError(e?.response?.data?.message ?? "Erro ao enumerar subdomínios.");
+      setError(e?.response?.data?.message ?? t("dominio.erroEnumerar"));
       setOpenEnum(null);
     } finally { setEnumerating(null); }
   }
@@ -3599,27 +3602,27 @@ function DomainsPage() {
 
   return (
     <div className={styles.adminWrap}>
-      <h2 className={styles.adminTitle}>Domínios Verificados</h2>
+      <h2 className={styles.adminTitle}>{t("dominio.titulo")}</h2>
 
       <form onSubmit={add} className={styles.scheduleForm}>
         <input
           className={styles.urlInput}
           value={host}
           onChange={e => setHost(e.target.value)}
-          placeholder="example.com"
+          placeholder={t("scan.placeholder")}
           disabled={adding}
         />
         <button className={`${styles.btn} ${styles.btnScan}`} type="submit" disabled={adding || !host.trim()}>
-          {adding ? "..." : "+ Adicionar"}
+          {adding ? "..." : t("dominio.adicionar")}
         </button>
       </form>
 
       {error && <div className={styles.errorBox}>{error}</div>}
 
       {loading ? (
-        <div className={styles.empty}>Carregando...</div>
+        <div className={styles.empty}>{t("app.carregando")}</div>
       ) : domains.length === 0 ? (
-        <div className={styles.empty}>◈ Nenhum domínio cadastrado. Adicione o primeiro acima.</div>
+        <div className={styles.empty}>{t("dominio.vazio")}</div>
       ) : (
         <div className={styles.domainList}>
           {domains.map(d => (
@@ -3643,7 +3646,7 @@ function DomainsPage() {
                   {!d.verified && (
                     <button className={`${styles.btn} ${styles.btnGhost}`}
                       onClick={() => verify(d.id)} disabled={verifying === d.id}>
-                      {verifying === d.id ? "Verificando..." : "Verificar"}
+                      {verifying === d.id ? t("dominio.verificando") : "Verificar"}
                     </button>
                   )}
                   {/* Enumeração de subdomínios — apenas EMPRESA + domínio verificado */}
@@ -3652,9 +3655,9 @@ function DomainsPage() {
                       className={`${styles.btn} ${styles.btnGhost}`}
                       onClick={() => openEnum === d.id ? setOpenEnum(null) : enumerate(d.id)}
                       disabled={enumerating === d.id}
-                      title="Enumerar subdomínios via Certificate Transparency"
+                      title={t("dominio.enumerar")}
                     >
-                      {enumerating === d.id ? "Enumerando..." : openEnum === d.id ? "▲ Fechar" : "◈ Subdomínios"}
+                      {enumerating === d.id ? t("dominio.enumerando") : openEnum === d.id ? t("dominio.fechar") : t("dominio.subdominios")}
                     </button>
                   )}
                   <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => remove(d.id, d.host)}>
@@ -3668,18 +3671,18 @@ function DomainsPage() {
                   <div className={styles.domainVerifyStep}>
                     <span className={styles.stepNum}>1</span>
                     <div>
-                      <div className={styles.stepTitle}>Crie o arquivo de verificação</div>
+                      <div className={styles.stepTitle}>{t("dominio.crieArquivo")}</div>
                       <code className={styles.stepCode}>https://{d.host}/.well-known/cyberaudit.txt</code>
                     </div>
                   </div>
                   <div className={styles.domainVerifyStep}>
                     <span className={styles.stepNum}>2</span>
                     <div>
-                      <div className={styles.stepTitle}>Conteúdo do arquivo</div>
+                      <div className={styles.stepTitle}>{t("posse.conteudoArquivo")}</div>
                       <div className={styles.tokenRow}>
                         <code className={styles.stepCode}>{d.verificationToken}</code>
                         <button className={styles.copyBtn} onClick={() => copyToken(d.verificationToken, d.id)}>
-                          {copied === d.id ? "✓ Copiado" : "Copiar"}
+                          {copied === d.id ? t("posse.copiado") : "Copiar"}
                         </button>
                       </div>
                     </div>
@@ -3687,7 +3690,7 @@ function DomainsPage() {
                   <div className={styles.domainVerifyStep}>
                     <span className={styles.stepNum}>3</span>
                     <div>
-                      <div className={styles.stepTitle}>Clique em "Verificar" acima após publicar o arquivo</div>
+                      <div className={styles.stepTitle}>{t("dominio.cliqueVerificar")}</div>
                     </div>
                   </div>
                 </div>
@@ -3705,7 +3708,7 @@ function DomainsPage() {
                   <table className={styles.table} style={{ width: "100%" }}>
                     <thead>
                       <tr>
-                        <th>Subdomínio</th>
+                        <th>{t("dominio.subdominio")}</th>
                         <th>Status</th>
                         <th>HTTP</th>
                         <th>IP</th>
@@ -3718,7 +3721,7 @@ function DomainsPage() {
                           <td><code style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{s.host}</code></td>
                           <td>
                             <span style={{ color: s.alive ? "var(--secure)" : "var(--text-muted)", fontFamily: "var(--mono)", fontSize: 10 }}>
-                              {s.alive ? "✓ Ativo" : "✗ Inativo"}
+                              {s.alive ? t("dominio.ativo") : t("dominio.inativo")}
                             </span>
                           </td>
                           <td>
@@ -3736,7 +3739,7 @@ function DomainsPage() {
                                   // Copia o host para o scanner (navega para scan tab)
                                   navigator.clipboard.writeText(s.host);
                                 }}
-                                title="Copiar para scanner"
+                                title={t("dominio.copiarScanner")}
                               >
                                 Copiar
                               </button>
@@ -3747,7 +3750,7 @@ function DomainsPage() {
                     </tbody>
                   </table>
                   {subdomains[d.id].length === 0 && (
-                    <div className={styles.empty}>Nenhum subdomínio encontrado nos logs de Certificate Transparency.</div>
+                    <div className={styles.empty}>{t("dominio.semSubdominios")}</div>
                   )}
                 </div>
               )}
@@ -5115,6 +5118,7 @@ function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFil
 // ── Settings Page (2FA + conta) ───────────────────────────────────────────────
 
 function SettingsPage() {
+  const { t } = useI18n();
   const { user, isOwner } = useAuth();
 
   // TOTP state
@@ -5152,7 +5156,7 @@ function SettingsPage() {
     try {
       const res = await api.post<{ secret: string; qrUri: string }>("/auth/2fa/setup/totp");
       setTotpSetup(res.data);
-    } catch { flash("Erro ao iniciar configuração TOTP.", true); }
+    } catch { flash(t("config.erroTotp"), true); }
     finally { setBusy(false); }
   }
 
@@ -5162,8 +5166,8 @@ function SettingsPage() {
     try {
       await api.post("/auth/2fa/setup/totp/confirm", { code: totpConfirmCode });
       setTotpEnabled(true); setTotpSetup(null); setTotpConfirmCode("");
-      flash("TOTP ativado com sucesso!");
-    } catch { flash("Código inválido. Tente novamente.", true); }
+      flash(t("config.totpAtivado"));
+    } catch { flash(t("config.codigoInvalido"), true); }
     finally { setBusy(false); }
   }
 
@@ -5171,8 +5175,8 @@ function SettingsPage() {
     setBusy(true);
     try {
       await api.delete("/auth/2fa/totp");
-      setTotpEnabled(false); flash("TOTP desativado.");
-    } catch { flash("Erro ao desativar TOTP.", true); }
+      setTotpEnabled(false); flash(t("config.totpDesativado"));
+    } catch { flash(t("config.erroDesativarTotp"), true); }
     finally { setBusy(false); }
   }
 
@@ -5181,17 +5185,17 @@ function SettingsPage() {
     try {
       if (emailEnabled) {
         await api.delete("/auth/2fa/email");
-        setEmailEnabled(false); flash("Email OTP desativado.");
+        setEmailEnabled(false); flash(t("config.emailOtpDesativado"));
       } else {
         // O backend envia um código de teste antes de ativar. Se o e-mail não
         // sai, a ativação falha aqui — de propósito: ativar assim mesmo trancaria
         // a conta, já que não existe código de backup.
         await api.post("/auth/2fa/email");
         setEmailEnabled(true);
-        flash("Email OTP ativado. Enviamos um código de teste para seu email.");
+        flash(t("config.emailOtpAtivado"));
       }
     } catch (e: any) {
-      flash(e?.response?.data?.message ?? "Erro ao alterar Email OTP.", true);
+      flash(e?.response?.data?.message ?? t("config.erroEmailOtp"), true);
     }
     finally { setBusy(false); }
   }
@@ -5202,11 +5206,11 @@ function SettingsPage() {
     try {
       await api.put("/admin/account/require2fa", { require2fa: next });
       setRequire2fa(next); flash(next ? "2FA obrigatório para todos os usuários da conta." : "2FA voltou a ser opcional.");
-    } catch { flash("Erro ao alterar configuração.", true); }
+    } catch { flash(t("config.erroAlterar"), true); }
     finally { setBusy(false); }
   }
 
-  if (!loadedSettings) return <div className={styles.settingsPage}><p className={styles.muted}>Carregando...</p></div>;
+  if (!loadedSettings) return <div className={styles.settingsPage}><p className={styles.muted}>{t("app.carregando")}</p></div>;
 
   // QR vem do backend como data URI. Antes era montado em api.qrserver.com com a
   // otpauth:// na query string — ou seja, o SEGREDO TOTP e o e-mail do usuário
@@ -5215,7 +5219,7 @@ function SettingsPage() {
 
   return (
     <div className={styles.settingsPage}>
-      <h2 className={styles.settingsTitle}>Configurações de segurança</h2>
+      <h2 className={styles.settingsTitle}>{t("config.titulo")}</h2>
 
       {msg && <div className={styles.infoBox}>{msg}</div>}
       {err && <div className={styles.errorBox}>{err}</div>}
@@ -5224,8 +5228,8 @@ function SettingsPage() {
       <div className={styles.settingsCard}>
         <div className={styles.settingsCardHeader}>
           <div>
-            <div className={styles.settingsCardTitle}>Autenticador TOTP <span className={styles.settingsBadge2fa}>Google Authenticator / Authy</span></div>
-            <div className={styles.settingsCardSub}>Código rotativo gerado no seu smartphone. Mais seguro que email OTP.</div>
+            <div className={styles.settingsCardTitle}>Autenticador TOTP <span className={styles.settingsBadge2fa}>{t("config.totpApp")}</span></div>
+            <div className={styles.settingsCardSub}>{t("config.totpDesc")}</div>
           </div>
           <span className={totpEnabled ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{totpEnabled ? "ATIVO" : "INATIVO"}</span>
         </div>
@@ -5241,9 +5245,9 @@ function SettingsPage() {
             <p className={styles.settingsCardSub}>
               1. Escaneie o QR code com seu app autenticador, ou insira a chave manualmente.
             </p>
-            {qrImageUrl && <img src={qrImageUrl} alt="QR TOTP" className={styles.totpQr} />}
+            {qrImageUrl && <img src={qrImageUrl} alt={t("config.qrTotp")} className={styles.totpQr} />}
             <div className={styles.totpSecretBox}>
-              <span className={styles.formLabel}>CHAVE MANUAL</span>
+              <span className={styles.formLabel}>{t("config.chaveManual")}</span>
               <code className={styles.totpSecret}>{totpSetup.secret}</code>
             </div>
             <p className={styles.settingsCardSub}>2. Digite o código de 6 dígitos exibido no app para confirmar:</p>
@@ -5273,7 +5277,7 @@ function SettingsPage() {
       <div className={styles.settingsCard}>
         <div className={styles.settingsCardHeader}>
           <div>
-            <div className={styles.settingsCardTitle}>Email OTP</div>
+            <div className={styles.settingsCardTitle}>{t("config.emailOtp")}</div>
             <div className={styles.settingsCardSub}>Código de 6 dígitos enviado para {user?.email} a cada login.</div>
           </div>
           <span className={emailEnabled ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{emailEnabled ? "ATIVO" : "INATIVO"}</span>
@@ -5282,7 +5286,7 @@ function SettingsPage() {
           className={`${styles.btn} ${emailEnabled ? styles.btnDanger : styles.btnScan}`}
           disabled={busy}
           onClick={toggleEmailOtp}>
-          {emailEnabled ? "Desativar Email OTP" : "Ativar Email OTP"}
+          {emailEnabled ? t("config.desativarEmailOtp") : t("config.ativarEmailOtp")}
         </button>
       </div>
 
@@ -5292,15 +5296,15 @@ function SettingsPage() {
           <div className={styles.settingsCardHeader}>
             <div>
               <div className={styles.settingsCardTitle}>2FA obrigatório para a conta <span className={styles.settingsBadge2fa}>OWNER</span></div>
-              <div className={styles.settingsCardSub}>Quando ativo, todos os usuários desta conta precisarão configurar 2FA para fazer login.</div>
+              <div className={styles.settingsCardSub}>{t("config.obrigatorioDesc")}</div>
             </div>
-            <span className={require2fa ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{require2fa ? "OBRIGATÓRIO" : "OPCIONAL"}</span>
+            <span className={require2fa ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{require2fa ? t("config.obrigatorio") : t("config.opcional")}</span>
           </div>
           <button
             className={`${styles.btn} ${require2fa ? styles.btnDanger : styles.btnScan}`}
             disabled={busy}
             onClick={toggleRequire2fa}>
-            {require2fa ? "Tornar 2FA opcional" : "Tornar 2FA obrigatório"}
+            {require2fa ? t("config.tornarOpcional") : t("config.tornarObrigatorio")}
           </button>
         </div>
       )}
@@ -5310,15 +5314,15 @@ function SettingsPage() {
         <div className={styles.settingsCardHeader}>
           <div>
             <div className={styles.settingsCardTitle}>Privacidade e Dados <span className={styles.settingsBadge2fa}>LGPD</span></div>
-            <div className={styles.settingsCardSub}>Seus direitos conforme a Lei Geral de Proteção de Dados (Lei 13.709/2018).</div>
+            <div className={styles.settingsCardSub}>{t("config.privacidadeDesc")}</div>
           </div>
         </div>
 
         {/* Exportar dados */}
         <div className={styles.dangerZoneRow}>
           <div>
-            <div className={styles.dangerZoneLabel}>Exportar meus dados</div>
-            <div className={styles.settingsCardSub}>Baixa um arquivo JSON com todos os seus dados pessoais armazenados (portabilidade — Art. 18).</div>
+            <div className={styles.dangerZoneLabel}>{t("config.exportar")}</div>
+            <div className={styles.settingsCardSub}>{t("config.exportarDesc")}</div>
           </div>
           <button className={`${styles.btn} ${styles.btnGhost}`} disabled={busy}
             onClick={async () => {
@@ -5331,7 +5335,7 @@ function SettingsPage() {
                 a.href = url; a.download = "cyberaudit-meus-dados.json";
                 document.body.appendChild(a); a.click(); a.remove();
                 window.URL.revokeObjectURL(url);
-              } catch { flash("Erro ao exportar dados.", true); }
+              } catch { flash(t("config.erroExportar"), true); }
               finally { setBusy(false); }
             }}>
             ↓ Exportar JSON
@@ -5341,10 +5345,10 @@ function SettingsPage() {
         {/* Excluir conta */}
         <div className={`${styles.dangerZoneRow} ${styles.dangerZoneBorder}`}>
           <div>
-            <div className={`${styles.dangerZoneLabel} ${styles.dangerZoneLabelRed}`}>Excluir minha conta</div>
-            <div className={styles.settingsCardSub}>Remove permanentemente seus dados pessoais (direito ao esquecimento — Art. 18). Esta ação é irreversível.</div>
+            <div className={`${styles.dangerZoneLabel} ${styles.dangerZoneLabelRed}`}>{t("config.excluir")}</div>
+            <div className={styles.settingsCardSub}>{t("config.excluirDesc")}</div>
           </div>
-          <DeleteAccountButton onDelete={() => { flash("Conta excluída."); window.location.href = "/"; }} />
+          <DeleteAccountButton onDelete={() => { flash(t("config.contaExcluida")); window.location.href = "/"; }} />
         </div>
       </div>
 
@@ -5373,6 +5377,7 @@ interface ApiKeyDto {
 }
 
 function ApiKeysSection() {
+  const { t } = useI18n();
   const { user, isAdmin } = useAuth();
   const [keys, setKeys]         = useState<ApiKeyDto[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -5404,14 +5409,14 @@ function ApiKeysSection() {
       setNewKey(res.data);
       setNewName("");
       await load();
-    } catch (e: any) { setError(e?.response?.data?.message ?? "Erro ao criar API key."); }
+    } catch (e: any) { setError(e?.response?.data?.message ?? t("apikey.erroCriar")); }
     finally { setCreating(false); }
   }
 
   async function revoke(id: string) {
-    if (!confirm("Revogar esta API key? Esta ação não pode ser desfeita.")) return;
+    if (!confirm(t("apikey.confirmaRevogar"))) return;
     try { await api.delete(`/api-keys/${id}`); await load(); }
-    catch (e: any) { setError(e?.response?.data?.message ?? "Erro ao revogar."); }
+    catch (e: any) { setError(e?.response?.data?.message ?? t("apikey.erroRevogar")); }
   }
 
   function copyKey(k: string) {
@@ -5425,14 +5430,14 @@ function ApiKeysSection() {
       <div className={styles.settingsCard}>
         <div className={styles.settingsCardHeader}>
           <div>
-            <div className={styles.settingsCardTitle}>API Keys / CI-CD</div>
-            <div className={styles.settingsCardSub}>Acesse o CyberAudit programaticamente via pipelines CI/CD.</div>
+            <div className={styles.settingsCardTitle}>{t("apikey.titulo")}</div>
+            <div className={styles.settingsCardSub}>{t("apikey.desc")}</div>
           </div>
           <span className={styles.tf2faBadgeOff}>PRO</span>
         </div>
         <div className={styles.settingsCardSub} style={{ color: "var(--text-muted)", marginTop: 4 }}>
           Disponível para planos PRO e contas Empresa.{" "}
-          <span style={{ color: "var(--accent)", cursor: "pointer" }}>Ver planos →</span>
+          <span style={{ color: "var(--accent)", cursor: "pointer" }}>{t("bloqueio.verPlanos")}</span>
         </div>
       </div>
     );
@@ -5442,7 +5447,7 @@ function ApiKeysSection() {
     <div className={styles.settingsCard}>
       <div className={styles.settingsCardHeader}>
         <div>
-          <div className={styles.settingsCardTitle}>API Keys / CI-CD</div>
+          <div className={styles.settingsCardTitle}>{t("apikey.titulo")}</div>
           <div className={styles.settingsCardSub}>
             Use <code style={{ fontFamily: "var(--mono)", fontSize: 11 }}>X-Api-Key: ca_...</code> para autenticar chamadas à API. Máx. 10 keys ativas.
           </div>
@@ -5461,7 +5466,7 @@ function ApiKeysSection() {
             </code>
             <button className={`${styles.btn} ${styles.btnScan}`} style={{ fontSize: 11, whiteSpace: "nowrap" }}
               onClick={() => copyKey(newKey.plainKey!)}>
-              {copied ? "✓ Copiado" : "Copiar"}
+              {copied ? t("posse.copiado") : "Copiar"}
             </button>
           </div>
           <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--text-muted)", marginTop: 8 }}>
@@ -5471,7 +5476,7 @@ function ApiKeysSection() {
             </code>
           </div>
           <button style={{ marginTop: 8, fontSize: 10, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
-            onClick={() => setNewKey(null)}>✕ Fechar</button>
+            onClick={() => setNewKey(null)}>{t("apikey.fechar")}</button>
         </div>
       )}
 
@@ -5485,19 +5490,19 @@ function ApiKeysSection() {
           disabled={creating} style={{ flex: 1 }} />
         <button className={`${styles.btn} ${styles.btnScan}`} type="submit"
           disabled={creating || !newName.trim()}>
-          {creating ? "..." : "+ Gerar Key"}
+          {creating ? "..." : t("apikey.gerar")}
         </button>
       </form>
 
       {/* Lista de keys */}
       {loading ? (
-        <div className={styles.muted}>Carregando...</div>
+        <div className={styles.muted}>{t("app.carregando")}</div>
       ) : keys.length === 0 ? (
-        <div className={styles.muted} style={{ fontSize: 11 }}>Nenhuma API key criada ainda.</div>
+        <div className={styles.muted} style={{ fontSize: 11 }}>{t("apikey.vazio")}</div>
       ) : (
         <table className={styles.table} style={{ width: "100%" }}>
           <thead>
-            <tr><th>Nome</th><th>Prefixo</th><th>Criada</th><th>Último uso</th><th>Status</th><th></th></tr>
+            <tr><th>Nome</th><th>Prefixo</th><th>Criada</th><th>{t("apikey.ultimoUso")}</th><th>Status</th><th></th></tr>
           </thead>
           <tbody>
             {keys.map(k => (
@@ -5545,6 +5550,7 @@ interface BrandingDto {
 }
 
 function BrandingSection() {
+  const { t } = useI18n();
   const { user, isAdmin, isOwner } = useAuth();
 
   const isCompany = user?.account?.type === "COMPANY";
@@ -5575,7 +5581,7 @@ function BrandingSection() {
   function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 204800) { setError("Imagem muito grande (máx. 200 KB)."); return; }
+    if (file.size > 204800) { setError(t("marca.imagemGrande")); return; }
     const reader = new FileReader();
     reader.onload = () => setLogo(reader.result as string);
     reader.readAsDataURL(file);
@@ -5594,7 +5600,7 @@ function BrandingSection() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar.");
+      setError(err instanceof Error ? err.message : t("marca.erroSalvar"));
     } finally {
       setSaving(false);
     }
@@ -5605,7 +5611,7 @@ function BrandingSection() {
   return (
     <div className={styles.settingsCard}>
       <div className={styles.settingsCardHeader}>
-        <span>Identidade Visual</span>
+        <span>{t("marca.titulo")}</span>
         <span className={styles.badge} style={{ background: "var(--accent)", color: "#000" }}>EMPRESA</span>
       </div>
       <p className={styles.settingsCardDesc}>
@@ -5613,7 +5619,7 @@ function BrandingSection() {
       </p>
 
       {loading ? (
-        <div className={styles.muted}>Carregando...</div>
+        <div className={styles.muted}>{t("app.carregando")}</div>
       ) : (
         <form onSubmit={save} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
@@ -5626,7 +5632,7 @@ function BrandingSection() {
               {logo && (
                 <img
                   src={logo}
-                  alt="Logo preview"
+                  alt={t("marca.previewLogo")}
                   style={{ height: 40, maxWidth: 120, objectFit: "contain",
                     border: "1px solid var(--border)", borderRadius: 4, padding: 4, background: "#fff" }}
                 />
@@ -5637,7 +5643,7 @@ function BrandingSection() {
                   padding: "5px 12px", border: "1px solid var(--border)", borderRadius: 4,
                   background: "var(--surface2)", color: "var(--text)"
                 }}>
-                  {logo ? "Trocar logo" : "Selecionar logo"}
+                  {logo ? t("marca.trocarLogo") : t("marca.selecionarLogo")}
                   <input type="file" accept="image/png,image/jpeg,image/svg+xml"
                     style={{ display: "none" }} onChange={handleLogoChange} />
                 </label>
@@ -5745,7 +5751,7 @@ function BrandingSection() {
           {canBranding && (
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button className={`${styles.btn} ${styles.btnScan}`} type="submit" disabled={saving}>
-                {saving ? "Salvando..." : saved ? "✓ Salvo" : "Salvar branding"}
+                {saving ? t("comum.salvando") : saved ? t("marca.salvo") : t("marca.salvar")}
               </button>
             </div>
           )}
@@ -5756,6 +5762,7 @@ function BrandingSection() {
 }
 
 function DeleteAccountButton({ onDelete }: { onDelete: () => void }) {
+  const { t } = useI18n();
   const { logout } = useAuth();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -5768,7 +5775,7 @@ function DeleteAccountButton({ onDelete }: { onDelete: () => void }) {
       logout();
       onDelete();
     } catch (e: any) {
-      setErr(e?.response?.data?.message ?? "Erro ao excluir conta.");
+      setErr(e?.response?.data?.message ?? t("config.erroExcluir"));
       setBusy(false);
       setConfirming(false);
     }
@@ -5784,11 +5791,11 @@ function DeleteAccountButton({ onDelete }: { onDelete: () => void }) {
 
   return (
     <div className={styles.deleteConfirmBox}>
-      <div className={styles.deleteConfirmText}>Tem certeza? Esta ação não pode ser desfeita.</div>
+      <div className={styles.deleteConfirmText}>{t("config.confirmaExcluir")}</div>
       {err && <div className={styles.errorBox} style={{ fontSize: 11, padding: "6px 10px" }}>{err}</div>}
       <div style={{ display: "flex", gap: 8 }}>
         <button className={`${styles.btn} ${styles.btnDanger}`} disabled={busy} onClick={doDelete}>
-          {busy ? "Excluindo..." : "Sim, excluir"}
+          {busy ? t("config.excluindo") : t("config.simExcluir")}
         </button>
         <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => { setConfirming(false); setErr(null); }}>
           Cancelar
