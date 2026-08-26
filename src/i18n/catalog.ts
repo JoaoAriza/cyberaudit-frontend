@@ -396,6 +396,115 @@ export const pt: Catalogo = {
   "card.header.verDetalhes": "ver detalhes",
   "card.header.verComoCorrigir": "ver como corrigir",
   "card.header.valorRecomendado": "VALOR RECOMENDADO",
+
+  // ── Achado, bloqueio por plano e visitante ────────────────────────────────
+  "achado.impactoCorrecao": "Impacto e correção",
+  "achado.correcao": "CORREÇÃO",
+  "achado.contestar": "Contestar este achado",
+  "bloqueio.verPlanos": "Ver planos →",
+  "bloqueio.detalheModulo": "DETALHE DO MÓDULO BLOQUEADO",
+  "modulo.info": "Informações do módulo",
+  "modulo.escopo": "ESCOPO DO MÓDULO",
+  "modulo.metodologia": "METODOLOGIA DE ANÁLISE",
+  "visitante.limiteAtingido": "Limite diário atingido",
+  "visitante.scansRestantes": "{0} scan(s) restante(s) hoje",
+  "visitante.loginIlimitado": "Login para acesso ilimitado →",
+
+  // ── Verificação de propriedade do domínio ─────────────────────────────────
+  "posse.titulo": "VERIFICAÇÃO DE PROPRIEDADE",
+  "posse.riscoDetectado": "Scan ativo detectou riscos em",
+  "posse.crieArquivo": "Crie o arquivo",
+  "posse.conteudoArquivo": "Conteúdo do arquivo",
+  "posse.verificando": "Verificando...",
+  "posse.checarAgora": "Checar agora",
+  "posse.confirme": "Confirme a verificação",
+  "posse.verificado": "✓ Verificado! Refaça o scan ativo.",
+  "posse.naoEncontrado": "Arquivo não encontrado ainda.",
+  "posse.copiado": "✓ Copiado",
+
+  // ── Toast de scan demorado ────────────────────────────────────────────────
+  "toast.demorando": "Scan demorando ·",
+  "toast.porQue": "Por que alguns checks demoram?",
+  "toast.cadaModulo": "Cada módulo faz requests reais ao servidor alvo",
+  "toast.verCausas": "ver possíveis causas →",
+  "toast.fechar": "fechar",
+  "toast.techFingerprint": "Tech Fingerprint",
+  "toast.techFingerprintDesc": "Detecta stack via headers e body HTML",
+
+  // ── Compliance ────────────────────────────────────────────────────────────
+  "compliance.riscoGeral": "RISCO GERAL",
+  "compliance.iso": "ISO 27001",
+  "compliance.lgpdLei": "LEI 13.709/2018",
+  "compliance.isoAnexo": "ISO/IEC 27001:2022 ANEXO A",
+
+  // ── Active Checks ─────────────────────────────────────────────────────────
+  "ativo.scanAtivo": "scan ativo",
+  "ativo.wafDetection": "WAF Detection",
+  "ativo.corsAnalysis": "CORS Analysis",
+  "ativo.sensitiveFiles": "Sensitive Files",
+  "ativo.xssSqli": "XSS / SQLi Probes",
+  "ativo.portScan": "Port Scan",
+  "ativo.dbErrorLeak": "DB Error Leak",
+  "ativo.aberto": "⚠ ABERTO",
+  "ativo.seguro": "✓ Seguro",
+  "ativo.wildcardOrigin": "Wildcard Origin",
+  "ativo.wildcardDesc":
+    "Access-Control-Allow-Origin: * permite qualquer domínio acessar a API.",
+  "ativo.wildcardDica": "Nunca use wildcard em APIs com autenticação ou cookies.",
+  "ativo.reflectsOrigin": "Reflects Origin",
+  "ativo.reflete": "⚠ Reflete",
+  "ativo.refleteDesc":
+    "O servidor espelha o header Origin sem validar se é uma origem permitida.",
+  "ativo.refleteDica": "Implemente whitelist de origens no servidor.",
+  "ativo.credentials": "Credentials",
+  "ativo.permitido": "⚠ Permitido",
+  "ativo.credentialsDesc":
+    "Allow-Credentials: true permite envio de cookies em requisições cross-origin.",
+  "ativo.credentialsDica": "Use apenas com origens explícitas, nunca com wildcard.",
+  "ativo.nullOrigin": "Null Origin",
+  "ativo.aceito": "⚠ Aceito",
+  "ativo.nullOriginDesc":
+    "Origem 'null' é enviada por iframes sandboxed e pode ser explorada.",
+  "ativo.nullOriginDica": "Rejeite explicitamente a origem null no backend.",
+  "ativo.inputSurface": "Input Surface",
+  "ativo.naoDetectada": "Não detectada",
+  "ativo.inputSurfaceDesc":
+    "Formulários e parâmetros de entrada encontrados na página — superfície de ataque para XSS/SQLi.",
+  "ativo.inputSurfaceDica": "Superfície ampla = maior exposição a injeções e travessal.",
+  "ativo.xssProbe": "XSS Probe",
+  "ativo.naoExecutado": "Não executado",
+  "ativo.xssProbeDesc":
+    "Payloads XSS injetados nos inputs detectados para verificar reflexão na resposta.",
+  "ativo.xssProbeDica": "Probe executado apenas quando há superfície de input detectada.",
+  "ativo.reflectedXss": "Reflected XSS",
+  "ativo.suspeito": "⚠ Suspeito",
+  "ativo.semSuperficie": "Sem superfície",
+  "ativo.reflectedXssDesc":
+    "Verifica se payloads XSS são refletidos sem sanitização — permite execução de JS na vítima.",
+  "ativo.reflectedXssDica":
+    "XSS reflected pode causar roubo de sessão e ataques de phishing internos.",
+  "ativo.dbErrorDesc":
+    "Erros de banco expostos revelam estrutura, tipo de BD e queries internas.",
+  "ativo.dbErrorDica":
+    "Configure tratamento de erros para nunca expor stack traces em produção.",
+  "ativo.tituloWaf": "WAF DETECTION",
+  "ativo.wafDetectado": "WAF Detectado",
+  "ativo.naoConfirmado": "Não confirmado",
+  "ativo.wafReduz": "◈ WAF reduz significativamente a superfície de ataque exposta.",
+  "ativo.confianca": "Confiança",
+  "ativo.evidencia": "EVIDÊNCIA",
+  "ativo.confiancaLegenda":
+    "◈ HIGH = múltiplas evidências confirmadas. MEDIUM = heurística parcial.",
+  "ativo.probeLegenda": "◈ BLOCKED = WAF funcionando. PASSED = payload chegou ao servidor.",
+  "ativo.tituloCors": "CORS ANALYSIS",
+  "ativo.probeNaoExecutado": "Probe não executado",
+  "ativo.semArquivosSensiveis": "Nenhum arquivo sensível exposto",
+  "ativo.tituloProbes": "APPLICATION PROBES",
+  "ativo.semPortas": "Sem portas abertas detectadas",
+  "ativo.arquivoPublico": "Arquivo acessível publicamente",
+  "ativo.wafDesc": "Web Application Firewall filtra e bloqueia tráfego malicioso antes de atingir o servidor.",
+  "ativo.confiancaDesc": "Nível de certeza da detecção com base nas evidências coletadas no scan.",
+  "ativo.probeDesc": "Payload malicioso enviado para verificar se o WAF bloqueia requisições suspeitas ativamente.",
 };
 
 export const en: Catalogo = {
@@ -713,6 +822,110 @@ export const en: Catalogo = {
   "card.header.verDetalhes": "see details",
   "card.header.verComoCorrigir": "see how to fix",
   "card.header.valorRecomendado": "RECOMMENDED VALUE",
+
+  "achado.impactoCorrecao": "Impact and fix",
+  "achado.correcao": "FIX",
+  "achado.contestar": "Dispute this finding",
+  "bloqueio.verPlanos": "View plans →",
+  "bloqueio.detalheModulo": "MODULE DETAIL LOCKED",
+  "modulo.info": "Module information",
+  "modulo.escopo": "MODULE SCOPE",
+  "modulo.metodologia": "ANALYSIS METHOD",
+  "visitante.limiteAtingido": "Daily limit reached",
+  "visitante.scansRestantes": "{0} scan(s) left today",
+  "visitante.loginIlimitado": "Sign in for unlimited access →",
+
+  "posse.titulo": "OWNERSHIP VERIFICATION",
+  "posse.riscoDetectado": "Active scan found risks on",
+  "posse.crieArquivo": "Create the file",
+  "posse.conteudoArquivo": "File content",
+  "posse.verificando": "Checking...",
+  "posse.checarAgora": "Check now",
+  "posse.confirme": "Confirm the verification",
+  "posse.verificado": "✓ Verified! Run the active scan again.",
+  "posse.naoEncontrado": "File not found yet.",
+  "posse.copiado": "✓ Copied",
+
+  "toast.demorando": "Scan taking a while ·",
+  "toast.porQue": "Why do some checks take longer?",
+  "toast.cadaModulo": "Each module makes real requests to the target server",
+  "toast.verCausas": "see possible causes →",
+  "toast.fechar": "close",
+  "toast.techFingerprint": "Tech Fingerprint",
+  "toast.techFingerprintDesc": "Detects the stack through headers and HTML body",
+
+  "compliance.riscoGeral": "OVERALL RISK",
+  "compliance.iso": "ISO 27001",
+  "compliance.lgpdLei": "LAW 13.709/2018",
+  "compliance.isoAnexo": "ISO/IEC 27001:2022 ANNEX A",
+
+  "ativo.scanAtivo": "active scan",
+  "ativo.wafDetection": "WAF Detection",
+  "ativo.corsAnalysis": "CORS Analysis",
+  "ativo.sensitiveFiles": "Sensitive Files",
+  "ativo.xssSqli": "XSS / SQLi Probes",
+  "ativo.portScan": "Port Scan",
+  "ativo.dbErrorLeak": "DB Error Leak",
+  "ativo.aberto": "⚠ OPEN",
+  "ativo.seguro": "✓ Safe",
+  "ativo.wildcardOrigin": "Wildcard Origin",
+  "ativo.wildcardDesc":
+    "Access-Control-Allow-Origin: * lets any domain reach the API.",
+  "ativo.wildcardDica": "Never use a wildcard on APIs with authentication or cookies.",
+  "ativo.reflectsOrigin": "Reflects Origin",
+  "ativo.reflete": "⚠ Reflects",
+  "ativo.refleteDesc":
+    "The server mirrors the Origin header without checking whether it is an allowed origin.",
+  "ativo.refleteDica": "Implement an origin allowlist on the server.",
+  "ativo.credentials": "Credentials",
+  "ativo.permitido": "⚠ Allowed",
+  "ativo.credentialsDesc":
+    "Allow-Credentials: true permits cookies to be sent on cross-origin requests.",
+  "ativo.credentialsDica": "Use it only with explicit origins, never with a wildcard.",
+  "ativo.nullOrigin": "Null Origin",
+  "ativo.aceito": "⚠ Accepted",
+  "ativo.nullOriginDesc":
+    "The 'null' origin is sent by sandboxed iframes and can be abused.",
+  "ativo.nullOriginDica": "Reject the null origin explicitly on the backend.",
+  "ativo.inputSurface": "Input Surface",
+  "ativo.naoDetectada": "Not detected",
+  "ativo.inputSurfaceDesc":
+    "Forms and input parameters found on the page — attack surface for XSS/SQLi.",
+  "ativo.inputSurfaceDica": "A wider surface means more exposure to injection and traversal.",
+  "ativo.xssProbe": "XSS Probe",
+  "ativo.naoExecutado": "Not run",
+  "ativo.xssProbeDesc":
+    "XSS payloads injected into the detected inputs to check for reflection in the response.",
+  "ativo.xssProbeDica": "The probe runs only when an input surface is detected.",
+  "ativo.reflectedXss": "Reflected XSS",
+  "ativo.suspeito": "⚠ Suspected",
+  "ativo.semSuperficie": "No surface",
+  "ativo.reflectedXssDesc":
+    "Checks whether XSS payloads come back unsanitised — which allows JS execution on the victim.",
+  "ativo.reflectedXssDica":
+    "Reflected XSS can lead to session theft and internal phishing attacks.",
+  "ativo.dbErrorDesc":
+    "Exposed database errors reveal structure, database type and internal queries.",
+  "ativo.dbErrorDica":
+    "Configure error handling so stack traces are never exposed in production.",
+  "ativo.tituloWaf": "WAF DETECTION",
+  "ativo.wafDetectado": "WAF detected",
+  "ativo.naoConfirmado": "Not confirmed",
+  "ativo.wafReduz": "◈ A WAF significantly reduces the exposed attack surface.",
+  "ativo.confianca": "Confidence",
+  "ativo.evidencia": "EVIDENCE",
+  "ativo.confiancaLegenda":
+    "◈ HIGH = several confirmed signals. MEDIUM = partial heuristic.",
+  "ativo.probeLegenda": "◈ BLOCKED = the WAF is working. PASSED = the payload reached the server.",
+  "ativo.tituloCors": "CORS ANALYSIS",
+  "ativo.probeNaoExecutado": "Probe not run",
+  "ativo.semArquivosSensiveis": "No sensitive file exposed",
+  "ativo.tituloProbes": "APPLICATION PROBES",
+  "ativo.semPortas": "No open port detected",
+  "ativo.arquivoPublico": "File publicly reachable",
+  "ativo.wafDesc": "A Web Application Firewall filters and blocks malicious traffic before it reaches the server.",
+  "ativo.confiancaDesc": "How certain the detection is, based on the evidence gathered during the scan.",
+  "ativo.probeDesc": "A malicious payload sent to check whether the WAF actively blocks suspicious requests.",
 };
 
 const CATALOGOS: Record<Lang, Catalogo> = { "pt-BR": pt, en };

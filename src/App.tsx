@@ -109,8 +109,8 @@ function getStatusTokenFromUrl(): string | null {
 /** Token do link de redefinição: /redefinir-senha?token=... (64 hex). */
 function getResetTokenFromUrl(): string | null {
   if (window.location.pathname !== "/redefinir-senha") return null;
-  const t = new URLSearchParams(window.location.search).get("token");
-  return t && /^[a-f0-9]{64}$/.test(t) ? t : null;
+  const token = new URLSearchParams(window.location.search).get("token");
+  return token && /^[a-f0-9]{64}$/.test(token) ? token : null;
 }
 function isBillingReturnPath(): boolean {
   return window.location.pathname === "/billing/return";
@@ -209,6 +209,7 @@ function ScoreGauge({ score, risk }: { score: number; risk: string }) {
 // ── Issue Item ────────────────────────────────────────────────────────────────
 
 function IssueItem({ issue, onContest, locked, onUpgrade }: { issue: SecurityIssue; onContest?: (findingLabel: string) => void; locked?: boolean; onUpgrade?: () => void }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const safeTitle = issue.title ?? "";
   // HIGH/MEDIUM em guest/FREE vêm com título nulo do backend — esconde o "o quê" do problema
@@ -242,7 +243,7 @@ function IssueItem({ issue, onContest, locked, onUpgrade }: { issue: SecurityIss
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span style={{ fontSize: 18 }}>🔒</span>
               <span style={{ fontSize: 12, color: "var(--text-dim)", flex: 1, minWidth: 180 }}>
-                <strong style={{ color: "var(--text)" }}>Impacto e correção</strong> disponíveis nos planos pagos.
+                <strong style={{ color: "var(--text)" }}>{t("achado.impactoCorrecao")}</strong> disponíveis nos planos pagos.
               </span>
               {onUpgrade && (
                 <button className={`${styles.btn} ${styles.btnScan} ${styles.btnSm}`} onClick={onUpgrade}>
@@ -254,7 +255,7 @@ function IssueItem({ issue, onContest, locked, onUpgrade }: { issue: SecurityIss
           <>
           <div><span className={styles.label}>IMPACTO</span> {issue.impact}</div>
           <div>
-            <span className={styles.label}>CORREÇÃO</span> {fixText}
+            <span className={styles.label}>{t("achado.correcao")}</span> {fixText}
             {refUrl && cveId && (
               <a href={refUrl} target="_blank" rel="noopener noreferrer" className={styles.issueCveLink}>
                 Ver {cveId} no NVD ↗
@@ -267,7 +268,7 @@ function IssueItem({ issue, onContest, locked, onUpgrade }: { issue: SecurityIss
             <div style={{ marginTop: 8 }}>
               <button
                 onClick={() => onContest(issue.title)}
-                title="Contestar este achado"
+                title={t("achado.contestar")}
                 style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: 11, cursor: "pointer", padding: 0, textDecoration: "underline" }}
               >
                 ⚑ Isso está errado?
@@ -283,6 +284,7 @@ function IssueItem({ issue, onContest, locked, onUpgrade }: { issue: SecurityIss
 // ── Ghost travado (breakdown gated p/ guest/FREE) ─────────────────────────────
 
 function LockedGhost({ onUpgrade, rows = 4 }: { onUpgrade: () => void; rows?: number }) {
+  const { t } = useI18n();
   return (
     <div style={{ position: "relative", minHeight: 96 }}>
       <div style={{ filter: "blur(5px)", pointerEvents: "none", userSelect: "none", opacity: 0.4 }}>
@@ -298,7 +300,7 @@ function LockedGhost({ onUpgrade, rows = 4 }: { onUpgrade: () => void; rows?: nu
         <div style={{ fontSize: 11, color: "var(--text-dim)", maxWidth: 230, lineHeight: 1.5 }}>
           Breakdown detalhado disponível nos planos pagos.
         </div>
-        <button className={`${styles.btn} ${styles.btnScan} ${styles.btnSm}`} onClick={onUpgrade}>Ver planos →</button>
+        <button className={`${styles.btn} ${styles.btnScan} ${styles.btnSm}`} onClick={onUpgrade}>{t("bloqueio.verPlanos")}</button>
       </div>
     </div>
   );
@@ -307,6 +309,7 @@ function LockedGhost({ onUpgrade, rows = 4 }: { onUpgrade: () => void; rows?: nu
 // ── Módulo travado (detalhe gated p/ guest/FREE) ──────────────────────────────
 
 function ModuleLocked({ onUpgrade }: { onUpgrade: () => void }) {
+  const { t } = useI18n();
   return (
     <div style={{ position: "relative", minHeight: 280, borderRadius: "var(--radius)", overflow: "hidden" }}>
       <div style={{ filter: "blur(6px)", pointerEvents: "none", userSelect: "none", opacity: 0.3 }}>
@@ -322,11 +325,11 @@ function ModuleLocked({ onUpgrade }: { onUpgrade: () => void }) {
       </div>
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center", padding: 24, background: "linear-gradient(to bottom, transparent, var(--bg) 62%)" }}>
         <div style={{ fontSize: 30 }}>🔒</div>
-        <div style={{ fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700, color: "var(--text)", letterSpacing: ".5px" }}>DETALHE DO MÓDULO BLOQUEADO</div>
+        <div style={{ fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700, color: "var(--text)", letterSpacing: ".5px" }}>{t("bloqueio.detalheModulo")}</div>
         <div style={{ fontSize: 12, color: "var(--text-dim)", maxWidth: 380, lineHeight: 1.7 }}>
           Evidências, riscos e correções de cada módulo estão disponíveis nos planos pagos.
         </div>
-        <button className={`${styles.btn} ${styles.btnScan}`} onClick={onUpgrade} style={{ marginTop: 4 }}>Ver planos →</button>
+        <button className={`${styles.btn} ${styles.btnScan}`} onClick={onUpgrade} style={{ marginTop: 4 }}>{t("bloqueio.verPlanos")}</button>
       </div>
     </div>
   );
@@ -340,12 +343,13 @@ function ModuleLocked({ onUpgrade }: { onUpgrade: () => void }) {
  * a conversão. O bloqueio real é do backend — isto aqui é só o aviso.
  */
 function PagePlanLocked({ titulo, descricao, onUpgrade }: { titulo: string; descricao: string; onUpgrade: () => void }) {
+  const { t } = useI18n();
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, textAlign: "center", padding: "72px 24px", minHeight: 280 }}>
       <div style={{ fontSize: 30, lineHeight: 1 }}>🔒</div>
       <div style={{ fontSize: 15, fontWeight: 600 }}>{titulo}</div>
       <div style={{ fontSize: 12, color: "var(--text-dim)", maxWidth: 420, lineHeight: 1.7 }}>{descricao}</div>
-      <button className={`${styles.btn} ${styles.btnScan}`} onClick={onUpgrade} style={{ marginTop: 4 }}>Ver planos →</button>
+      <button className={`${styles.btn} ${styles.btnScan}`} onClick={onUpgrade} style={{ marginTop: 4 }}>{t("bloqueio.verPlanos")}</button>
     </div>
   );
 }
@@ -705,12 +709,13 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
 // ── Slow Scan Toast ───────────────────────────────────────────────────────────
 
 function SlowScanToast({ visible }: { visible: boolean }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const checks = [
     { icon: "⬟", label: "SSL / TLS",         detail: "Handshake real + validação do certificado" },
     { icon: "⬡", label: "Security Headers",   detail: "Analisa 8+ headers na resposta HTTP" },
     { icon: "◉", label: "DNS Security",       detail: "Consultas DNS: SPF, DMARC, DKIM, CAA, MX" },
-    { icon: "⟨⟩", label: "Tech Fingerprint",  detail: "Detecta stack via headers e body HTML" },
+    { icon: "⟨⟩", label: t("toast.techFingerprint"),  detail: t("toast.techFingerprintDesc") },
     { icon: "◈", label: "CVE Lookup",         detail: "Cruza versões detectadas com base NVD/CVE" },
     { icon: "▣", label: "WAF & Port Scan",    detail: "Probes ativos + 21 portas (modo ACTIVE)" },
   ];
@@ -729,8 +734,8 @@ function SlowScanToast({ visible }: { visible: boolean }) {
         }}>
           <div style={{ height: 2, background: "linear-gradient(90deg, var(--accent), var(--info))" }} />
           <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", letterSpacing: ".5px" }}>Por que alguns checks demoram?</div>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Cada módulo faz requests reais ao servidor alvo</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", letterSpacing: ".5px" }}>{t("toast.porQue")}</div>
+            <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>{t("toast.cadaModulo")}</div>
           </div>
           <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
             {checks.map((c, i) => (
@@ -760,7 +765,7 @@ function SlowScanToast({ visible }: { visible: boolean }) {
         }}
       >
         <span style={{ color: "var(--warning)", fontSize: 13 }}>⏱</span>
-        <span>Scan demorando · <span style={{ color: "var(--accent)" }}>{expanded ? "fechar" : "ver possíveis causas →"}</span></span>
+        <span>{t("toast.demorando")} <span style={{ color: "var(--accent)" }}>{expanded ? t("toast.fechar") : t("toast.verCausas")}</span></span>
       </button>
     </div>
   );
@@ -817,6 +822,7 @@ const MODULE_INFO: Record<string, { title: string; icon: string; what: string; d
 // ── Module Info Modal ─────────────────────────────────────────────────────────
 
 function ModuleInfoModal({ moduleKey, onClose }: { moduleKey: string | null; onClose: () => void }) {
+  const { t } = useI18n();
   const info = moduleKey ? MODULE_INFO[moduleKey] : null;
   useEffect(() => {
     if (!info) return;
@@ -832,17 +838,17 @@ function ModuleInfoModal({ moduleKey, onClose }: { moduleKey: string | null; onC
           <span className={styles.moduleInfoIcon}>{info.icon}</span>
           <div>
             <div className={styles.moduleInfoTitle}>{info.title}</div>
-            <div className={styles.moduleInfoSub}>Informações do módulo</div>
+            <div className={styles.moduleInfoSub}>{t("modulo.info")}</div>
           </div>
           <button className={styles.moduleInfoClose} onClick={onClose}>✕</button>
         </div>
         <div className={styles.moduleInfoBody}>
           <div className={styles.moduleInfoSection}>
-            <div className={styles.moduleInfoLabel}>ESCOPO DO MÓDULO</div>
+            <div className={styles.moduleInfoLabel}>{t("modulo.escopo")}</div>
             <p className={styles.moduleInfoText}>{info.what}</p>
           </div>
           <div className={styles.moduleInfoSection}>
-            <div className={styles.moduleInfoLabel}>METODOLOGIA DE ANÁLISE</div>
+            <div className={styles.moduleInfoLabel}>{t("modulo.metodologia")}</div>
             <p className={styles.moduleInfoText}>{info.does}</p>
           </div>
           <div className={styles.moduleInfoTip}>
@@ -883,6 +889,7 @@ function SidebarNavItem({
 // ── Guest Banner ──────────────────────────────────────────────────────────────
 
 function GuestBanner({ onLogin, refreshKey }: { onLogin: () => void; refreshKey: number }) {
+  const { t } = useI18n();
   const [status, setStatus] = useState<GuestStatus | null>(null);
   useEffect(() => { api.get<GuestStatus>("/auth/guest-status").then(r => setStatus(r.data)).catch(() => {}); }, [refreshKey]);
   if (!status) return null;
@@ -894,7 +901,7 @@ function GuestBanner({ onLogin, refreshKey }: { onLogin: () => void; refreshKey:
         <span className={styles.guestBannerIcon}>{critical ? "⚠" : "◈"}</span>
         <div>
           <div className={styles.guestBannerTitle}>
-            {status.remaining === 0 ? "Limite diário atingido" : `${status.remaining} scan${status.remaining !== 1 ? "s" : ""} restante${status.remaining !== 1 ? "s" : ""} hoje`}
+            {status.remaining === 0 ? t("visitante.limiteAtingido") : t("visitante.scansRestantes", status.remaining)}
           </div>
           <div className={styles.guestBannerSub}>{status.used}/{status.dailyLimit} utilizados · reseta meia-noite</div>
           <div className={styles.guestProgress}>
@@ -902,7 +909,7 @@ function GuestBanner({ onLogin, refreshKey }: { onLogin: () => void; refreshKey:
           </div>
         </div>
       </div>
-      <button className={`${styles.btn} ${styles.btnScan}`} onClick={onLogin}>Login para acesso ilimitado →</button>
+      <button className={`${styles.btn} ${styles.btnScan}`} onClick={onLogin}>{t("visitante.loginIlimitado")}</button>
     </div>
   );
 }
@@ -910,6 +917,7 @@ function GuestBanner({ onLogin, refreshKey }: { onLogin: () => void; refreshKey:
 // ── Ownership Card ────────────────────────────────────────────────────────────
 
 function OwnershipCard({ state, onDismiss }: { state: OwnershipState; onDismiss: () => void }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState(false);
   const [verified, setVerified] = useState(false);
@@ -924,12 +932,12 @@ function OwnershipCard({ state, onDismiss }: { state: OwnershipState; onDismiss:
   }
   return (
     <div className={styles.ownershipCard}>
-      <div className={styles.ownershipHeader}><span>⚠</span><span>VERIFICAÇÃO DE PROPRIEDADE</span></div>
-      <p className={styles.ownershipText}>Scan ativo detectou riscos em <strong>{state.host}</strong>. Prove que você é o dono do domínio.</p>
+      <div className={styles.ownershipHeader}><span>⚠</span><span>{t("posse.titulo")}</span></div>
+      <p className={styles.ownershipText}>{t("posse.riscoDetectado")} <strong>{state.host}</strong>. Prove que você é o dono do domínio.</p>
       <div className={styles.ownershipSteps}>
-        <div className={styles.ownershipStep}><span className={styles.stepNum}>1</span><div><div className={styles.stepTitle}>Crie o arquivo</div><code className={styles.stepCode}>https://{state.host}/.well-known/cyberaudit.txt</code></div></div>
-        <div className={styles.ownershipStep}><span className={styles.stepNum}>2</span><div><div className={styles.stepTitle}>Conteúdo do arquivo</div><div className={styles.tokenRow}><code className={styles.stepCode}>{state.token ?? "—"}</code><button className={styles.copyBtn} onClick={copy}>{copied ? "✓ Copiado" : "Copiar"}</button></div></div></div>
-        <div className={styles.ownershipStep}><span className={styles.stepNum}>3</span><div><div className={styles.stepTitle}>Confirme a verificação</div><div className={styles.tokenRow}><button className={styles.verifyBtn} onClick={check} disabled={checking}>{checking ? "Verificando..." : "Checar agora"}</button>{verified ? <span className={styles.ok}>✓ Verificado! Refaça o scan ativo.</span> : <span className={styles.bad}>Arquivo não encontrado ainda.</span>}</div></div></div>
+        <div className={styles.ownershipStep}><span className={styles.stepNum}>1</span><div><div className={styles.stepTitle}>{t("posse.crieArquivo")}</div><code className={styles.stepCode}>https://{state.host}/.well-known/cyberaudit.txt</code></div></div>
+        <div className={styles.ownershipStep}><span className={styles.stepNum}>2</span><div><div className={styles.stepTitle}>{t("posse.conteudoArquivo")}</div><div className={styles.tokenRow}><code className={styles.stepCode}>{state.token ?? "—"}</code><button className={styles.copyBtn} onClick={copy}>{copied ? t("posse.copiado") : "Copiar"}</button></div></div></div>
+        <div className={styles.ownershipStep}><span className={styles.stepNum}>3</span><div><div className={styles.stepTitle}>{t("posse.confirme")}</div><div className={styles.tokenRow}><button className={styles.verifyBtn} onClick={check} disabled={checking}>{checking ? t("posse.verificando") : t("posse.checarAgora")}</button>{verified ? <span className={styles.ok}>{t("posse.verificado")}</span> : <span className={styles.bad}>{t("posse.naoEncontrado")}</span>}</div></div></div>
       </div>
       <button className={styles.dismissBtn} onClick={onDismiss}>Fechar</button>
     </div>
@@ -3358,6 +3366,7 @@ interface ComplianceReport {
 }
 
 function CompliancePanel({ compliance }: { compliance: ComplianceReport }) {
+  const { t } = useI18n();
   const [tab, setTab] = useState<"lgpd" | "iso">("lgpd");
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -3397,7 +3406,7 @@ function CompliancePanel({ compliance }: { compliance: ComplianceReport }) {
         </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)" }}>RISCO GERAL</span>
+            <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)" }}>{t("compliance.riscoGeral")}</span>
             <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700, color: riskColor }}>{compliance.riskLevel}</span>
           </div>
           <div style={{ display: "flex", gap: 12 }}>
@@ -3419,19 +3428,19 @@ function CompliancePanel({ compliance }: { compliance: ComplianceReport }) {
 
       {/* Tabs LGPD / ISO */}
       <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
-        {(["lgpd", "iso"] as const).map(t => (
-          <button key={t} onClick={() => { setTab(t); setExpanded(null); }}
+        {(["lgpd", "iso"] as const).map(aba => (
+          <button key={aba} onClick={() => { setTab(aba); setExpanded(null); }}
             style={{
               fontFamily: "var(--mono)", fontSize: 10, fontWeight: 700, letterSpacing: ".5px",
               padding: "4px 12px", border: "1px solid",
-              borderColor: tab === t ? "var(--accent)" : "var(--border2)",
-              background: tab === t ? "var(--accent)" : "transparent",
-              color: tab === t ? "var(--bg)" : "var(--text-muted)",
+              borderColor: tab === aba ? "var(--accent)" : "var(--border2)",
+              background: tab === aba ? "var(--accent)" : "transparent",
+              color: tab === aba ? "var(--bg)" : "var(--text-muted)",
               cursor: "pointer", borderRadius: 2
             }}>
-            {t === "lgpd" ? "LGPD" : "ISO 27001"}
+            {aba === "lgpd" ? "LGPD" : t("compliance.iso")}
             <span style={{ marginLeft: 6, opacity: .7 }}>
-              ({t === "lgpd" ? compliance.lgpdFailed : compliance.isoFailed} issues)
+              ({aba === "lgpd" ? compliance.lgpdFailed : compliance.isoFailed} issues)
             </span>
           </button>
         ))}
@@ -3439,7 +3448,7 @@ function CompliancePanel({ compliance }: { compliance: ComplianceReport }) {
 
       {/* Summary row */}
       <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--text-muted)", letterSpacing: ".5px", marginBottom: 8 }}>
-        {passed} CONFORMES / {failed} NÃO CONFORMES — {tab === "lgpd" ? "LEI 13.709/2018" : "ISO/IEC 27001:2022 ANEXO A"}
+        {passed} CONFORMES / {failed} NÃO CONFORMES — {tab === "lgpd" ? t("compliance.lgpdLei") : t("compliance.isoAnexo")}
       </div>
 
       {/* Items */}
@@ -4642,6 +4651,7 @@ function FindingCardsPanel({ items, emptyMsg, cols = 2 }: { items: FindingItem[]
 // ── Active Checks Panel ────────────────────────────────────────────────────────
 
 function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void }) {
+  const { t } = useI18n();
   const { openSet, toggle } = useCardSet();
 
   const SecLabel = ({ label }: { label: string }) => (
@@ -4692,7 +4702,7 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
             XSS/SQLi probes e exposição de arquivos sensíveis. Disponível apenas em <strong style={{ color: "var(--accent)" }}>scan ativo</strong>.
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "7px 32px", marginBottom: 24, textAlign: "left" }}>
-            {["WAF Detection", "CORS Analysis", "Sensitive Files", "XSS / SQLi Probes", "Port Scan", "DB Error Leak"].map(f => (
+            {[t("ativo.wafDetection"), t("ativo.corsAnalysis"), t("ativo.sensitiveFiles"), t("ativo.xssSqli"), t("ativo.portScan"), t("ativo.dbErrorLeak")].map(f => (
               <div key={f} style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--text-dim)", display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ color: "var(--secure)", fontSize: 13 }}>✓</span> {f}
               </div>
@@ -4720,39 +4730,39 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
   const confColor  = waf?.confidence === "HIGH" ? "var(--secure)" : waf?.confidence === "MEDIUM" ? "var(--warning)" : "var(--text-muted)";
 
   const corsCards = cors?.tested ? [
-    { key: "wildcard", title: "Wildcard Origin",  ok: !cors.wildcardOrigin,    value: cors.wildcardOrigin    ? "⚠ ABERTO"   : "✓ Seguro",
-      desc: "Access-Control-Allow-Origin: * permite qualquer domínio acessar a API.", tip: "Nunca use wildcard em APIs com autenticação ou cookies." },
-    { key: "reflects", title: "Reflects Origin",  ok: !cors.reflectsOrigin,    value: cors.reflectsOrigin    ? "⚠ Reflete"  : "✓ Seguro",
-      desc: "O servidor espelha o header Origin sem validar se é uma origem permitida.", tip: "Implemente whitelist de origens no servidor." },
-    { key: "creds",    title: "Credentials",      ok: !cors.credentialsAllowed, value: cors.credentialsAllowed ? "⚠ Permitido": "✓ Seguro",
-      desc: "Allow-Credentials: true permite envio de cookies em requisições cross-origin.", tip: "Use apenas com origens explícitas, nunca com wildcard." },
-    { key: "null",     title: "Null Origin",       ok: !cors.nullOriginAccepted, value: cors.nullOriginAccepted ? "⚠ Aceito"  : "✓ Seguro",
-      desc: "Origem 'null' é enviada por iframes sandboxed e pode ser explorada.", tip: "Rejeite explicitamente a origem null no backend." },
+    { key: "wildcard", title: t("ativo.wildcardOrigin"),  ok: !cors.wildcardOrigin,    value: cors.wildcardOrigin    ? t("ativo.aberto")   : t("ativo.seguro"),
+      desc: t("ativo.wildcardDesc"), tip: t("ativo.wildcardDica") },
+    { key: "reflects", title: t("ativo.reflectsOrigin"),  ok: !cors.reflectsOrigin,    value: cors.reflectsOrigin    ? t("ativo.reflete")  : t("ativo.seguro"),
+      desc: t("ativo.refleteDesc"), tip: t("ativo.refleteDica") },
+    { key: "creds",    title: t("ativo.credentials"),      ok: !cors.credentialsAllowed, value: cors.credentialsAllowed ? t("ativo.permitido"): t("ativo.seguro"),
+      desc: t("ativo.credentialsDesc"), tip: t("ativo.credentialsDica") },
+    { key: "null",     title: t("ativo.nullOrigin"),       ok: !cors.nullOriginAccepted, value: cors.nullOriginAccepted ? t("ativo.aceito")  : t("ativo.seguro"),
+      desc: t("ativo.nullOriginDesc"), tip: t("ativo.nullOriginDica") },
   ] : [];
 
   const probeCards = [
-    { key: "surface", title: "Input Surface",  neutral: !r.inputSurfaceDetected, ok: false,
-      value: r.inputSurfaceDetected ? "Detectada" : "Não detectada",
-      desc: "Formulários e parâmetros de entrada encontrados na página — superfície de ataque para XSS/SQLi.",
-      tip: "Superfície ampla = maior exposição a injeções e travessal." },
-    { key: "xss",     title: "XSS Probe",      neutral: !r.xssProbePerformed,    ok: r.xssProbePerformed,
-      value: r.xssProbePerformed ? "Executado" : "Não executado",
-      desc: "Payloads XSS injetados nos inputs detectados para verificar reflexão na resposta.",
-      tip: "Probe executado apenas quando há superfície de input detectada." },
-    { key: "rxss",    title: "Reflected XSS",  neutral: !r.xssProbePerformed,    ok: r.xssProbePerformed ? !r.reflectedXssSuspected : true,
-      value: r.xssProbePerformed ? (r.reflectedXssSuspected ? "⚠ Suspeito" : "✓ Clean") : "Sem superfície",
-      desc: "Verifica se payloads XSS são refletidos sem sanitização — permite execução de JS na vítima.",
-      tip: "XSS reflected pode causar roubo de sessão e ataques de phishing internos." },
-    { key: "dberr",   title: "DB Error Leak",   neutral: false,                   ok: !r.dbErrorLeakageSuspected,
-      value: r.dbErrorLeakageSuspected ? "⚠ Suspeito" : "✓ Clean",
-      desc: "Erros de banco expostos revelam estrutura, tipo de BD e queries internas.",
-      tip: "Configure tratamento de erros para nunca expor stack traces em produção." },
+    { key: "surface", title: t("ativo.inputSurface"),  neutral: !r.inputSurfaceDetected, ok: false,
+      value: r.inputSurfaceDetected ? "Detectada" : t("ativo.naoDetectada"),
+      desc: t("ativo.inputSurfaceDesc"),
+      tip: t("ativo.inputSurfaceDica") },
+    { key: "xss",     title: t("ativo.xssProbe"),      neutral: !r.xssProbePerformed,    ok: r.xssProbePerformed,
+      value: r.xssProbePerformed ? "Executado" : t("ativo.naoExecutado"),
+      desc: t("ativo.xssProbeDesc"),
+      tip: t("ativo.xssProbeDica") },
+    { key: "rxss",    title: t("ativo.reflectedXss"),  neutral: !r.xssProbePerformed,    ok: r.xssProbePerformed ? !r.reflectedXssSuspected : true,
+      value: r.xssProbePerformed ? (r.reflectedXssSuspected ? t("ativo.suspeito") : t("selo.limpo")) : t("ativo.semSuperficie"),
+      desc: t("ativo.reflectedXssDesc"),
+      tip: t("ativo.reflectedXssDica") },
+    { key: "dberr",   title: t("ativo.dbErrorLeak"),   neutral: false,                   ok: !r.dbErrorLeakageSuspected,
+      value: r.dbErrorLeakageSuspected ? t("ativo.suspeito") : t("selo.limpo"),
+      desc: t("ativo.dbErrorDesc"),
+      tip: t("ativo.dbErrorDica") },
   ];
 
   const sensitiveItems: FindingItem[] = (r.sensitiveFiles ?? []).map((f: any, i: number) => ({
     id: `sf-${i}`, title: f.path, severity: f.severity,
     extraTags: [{ label: f.exposure, color: f.exposure === "EXPOSED" ? "var(--critical)" : "var(--warning)" }],
-    summary: f.contentPreview ? f.contentPreview.slice(0, 90) + "…" : "Arquivo acessível publicamente",
+    summary: f.contentPreview ? f.contentPreview.slice(0, 90) + "…" : t("ativo.arquivoPublico"),
     details: [
       { label: "PATH",     value: <code style={{ fontFamily: "var(--mono)", fontSize: 10, wordBreak: "break-all" }}>{f.path}</code> },
       { label: "EXPOSURE", value: f.exposure },
@@ -4769,9 +4779,9 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
           top={
             <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
               <div>
-                <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", fontWeight: 700 }}>WAF Detectado</div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", fontWeight: 700 }}>{t("ativo.wafDetectado")}</div>
                 <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: wafColor, marginTop: 2 }}>
-                  {waf?.detected ? (waf.provider ?? "Sim") : "Não confirmado"}
+                  {waf?.detected ? (waf.provider ?? "Sim") : t("ativo.naoConfirmado")}
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
@@ -4781,21 +4791,21 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
             </div>
           }
           mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>
-            Web Application Firewall filtra e bloqueia tráfego malicioso antes de atingir o servidor.
+            {t("ativo.wafDesc")}
           </p>}
           bottom={<>
             {waf?.provider && <div style={{ marginBottom: 6 }}>
               <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)" }}>PROVIDER </span>
               <span style={{ fontSize: 11, color: "var(--accent)", fontFamily: "var(--mono)" }}>{waf.provider}</span>
             </div>}
-            <p style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic", margin: 0 }}>◈ WAF reduz significativamente a superfície de ataque exposta.</p>
+            <p style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic", margin: 0 }}>{t("ativo.wafReduz")}</p>
           </>}
         />,
         <ModCard key="waf-conf" id="waf-conf" color={confColor} isOpen={openSet.has("waf-conf")} onToggle={() => toggle("waf-conf")}
           top={
             <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
               <div>
-                <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", fontWeight: 700 }}>Confiança</div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", fontWeight: 700 }}>{t("ativo.confianca")}</div>
                 <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: confColor, marginTop: 2 }}>{waf?.confidence ?? "—"}</div>
               </div>
               <div style={{ textAlign: "right", fontSize: 14, color: confColor }}>
@@ -4804,14 +4814,14 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
             </div>
           }
           mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>
-            Nível de certeza da detecção com base nas evidências coletadas no scan.
+            {t("ativo.confiancaDesc")}
           </p>}
           bottom={<>
             {waf?.evidence && <div style={{ marginBottom: 8 }}>
-              <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", display: "block", marginBottom: 3 }}>EVIDÊNCIA</span>
+              <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", display: "block", marginBottom: 3 }}>{t("ativo.evidencia")}</span>
               <code style={{ fontSize: 10, color: "var(--accent)", fontFamily: "var(--mono)", wordBreak: "break-all", display: "block" }}>{waf.evidence}</code>
             </div>}
-            <p style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic", margin: 0 }}>◈ HIGH = múltiplas evidências confirmadas. MEDIUM = heurística parcial.</p>
+            <p style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic", margin: 0 }}>{t("ativo.confiancaLegenda")}</p>
           </>}
         />,
         <ModCard key="waf-probe" id="waf-probe" color={probeColor} isOpen={openSet.has("waf-probe")} onToggle={() => toggle("waf-probe")}
@@ -4827,11 +4837,11 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
             </div>
           }
           mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>
-            Payload malicioso enviado para verificar se o WAF bloqueia requisições suspeitas ativamente.
+            {t("ativo.probeDesc")}
           </p>}
           bottom={<>
             {waf?.summary && <div style={{ marginBottom: 8, fontSize: 10, color: "var(--text-dim)", lineHeight: 1.5 }}>{waf.summary}</div>}
-            <p style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic", margin: 0 }}>◈ BLOCKED = WAF funcionando. PASSED = payload chegou ao servidor.</p>
+            <p style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic", margin: 0 }}>{t("ativo.probeLegenda")}</p>
           </>}
         />,
       ]} />
@@ -4872,14 +4882,14 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
           </div>
         )}
       </>) : (
-        <div style={{ color: "var(--text-muted)", fontFamily: "var(--mono)", fontSize: 11, padding: "10px 0" }}>Probe não executado</div>
+        <div style={{ color: "var(--text-muted)", fontFamily: "var(--mono)", fontSize: 11, padding: "10px 0" }}>{t("ativo.probeNaoExecutado")}</div>
       )}
 
       {/* Sensitive Files */}
       <SecLabel label={`SENSITIVE FILES${r.sensitiveFiles?.length ? ` [${r.sensitiveFiles.length}]` : ""}`} />
       {sensitiveItems.length > 0
-        ? <FindingCardsPanel items={sensitiveItems} emptyMsg="Nenhum arquivo sensível exposto" cols={2} />
-        : <SecureEmptyCard msg="Nenhum arquivo sensível exposto" />}
+        ? <FindingCardsPanel items={sensitiveItems} emptyMsg={t("ativo.semArquivosSensiveis")} cols={2} />
+        : <SecureEmptyCard msg={t("ativo.semArquivosSensiveis")} />}
 
       {/* Application Probes */}
       <SecLabel label="APPLICATION PROBES" />
@@ -4921,7 +4931,7 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
             ))}
           </tbody>
         </table>
-      ) : <SecureEmptyCard msg="Sem portas abertas detectadas" />}
+      ) : <SecureEmptyCard msg={t("ativo.semPortas")} />}
     </div>
   );
 }
@@ -6203,7 +6213,7 @@ export default function App() {
   const cveColor      = cveCount === 0 ? "var(--secure)" : maxCvss >= 9 ? "var(--critical)" : maxCvss >= 7 ? "var(--high)" : maxCvss >= 4 ? "var(--warning)" : "var(--info)";
   const ct            = r?.certTransparency;
   const certColor     = !ct ? "var(--text-muted)" : ct.unexpectedIssuer ? "var(--critical)" : ct.wildcardDetected ? "var(--warning)" : "var(--info)";
-  const takeoverVuln  = r?.subdomainTakeover?.filter(t => t.status === "VULNERABLE") ?? [];
+  const takeoverVuln  = r?.subdomainTakeover?.filter(tk => tk.status === "VULNERABLE") ?? [];
   const takeoverColor = takeoverVuln.length > 0 ? "var(--critical)" : (r?.subdomainTakeover?.length ?? 0) > 0 ? "var(--warning)" : "var(--secure)";
   const dns           = r?.dnsSecurityResult;
   // Consulta que não chegou não conta como registro faltando: contar mostraria
