@@ -294,6 +294,108 @@ export const pt: Catalogo = {
   "trava.historico": "Histórico é do plano PRO",
   "trava.historicoDesc":
     "Acompanhe a evolução do score, compare scans e veja exatamente o que mudou entre execuções. Disponível a partir do plano PRO.",
+
+  // ── Cards de Transport Security ───────────────────────────────────────────
+  "card.tls.protocolo": "Protocolo TLS",
+  "card.tls.protocoloDesc": "Versão do protocolo negociada na conexão HTTPS.",
+  "card.tls.protocoloFraco":
+    "Protocolo desatualizado. TLS 1.0/1.1 têm vulnerabilidades (POODLE, BEAST). Atualize para TLS 1.2 mínimo, preferencialmente 1.3.",
+  "card.tls.protocoloOk":
+    "TLS 1.2+ é aceito. TLS 1.3 é o ideal — mais rápido e sem cipher suites legadas.",
+  "card.tls.cipher": "Cipher Suite",
+  "card.tls.cipherDesc": "Conjunto de algoritmos de criptografia da sessão TLS.",
+  "card.cert.valido": "Certificado Válido",
+  "card.cert.sim": "✓ Válido",
+  "card.cert.nao": "✗ Inválido",
+  "card.cert.validoDesc": "Certificado emitido por CA confiável e não expirado.",
+  "card.cert.validoOk": "Certificado válido e confiável pelos principais browsers.",
+  "card.cert.validoRuim":
+    "Certificado inválido ou expirado — browsers bloqueiam o acesso e exibem aviso de segurança.",
+  "card.cert.expiracao": "Data de Expiração",
+  "card.cert.expiracaoDesc": "Data em que o certificado SSL deixa de ser válido.",
+  "card.cert.expiracaoDica":
+    "Certificados expirados afastam usuários imediatamente. Configure renovação automática (Let's Encrypt/ACME) para evitar interrupções.",
+  "card.cert.diasRestantes": "Dias Restantes",
+  "card.cert.diasDesc": "Quantos dias faltam até o certificado expirar.",
+  "card.cert.dias30": "Menos de 30 dias! Renove agora — se expirar, o site fica inacessível.",
+  "card.cert.dias90": "Menos de 90 dias. Configure alertas de renovação para evitar esquecimento.",
+  "card.cert.diasOk": "Certificado com vida útil confortável.",
+  "card.atencao": "ATENÇÃO",
+  "card.fraco": "FRACO",
+  "card.critico": "CRÍTICO",
+  "card.urgente": "URGENTE",
+  "card.verDetalhes": "clique para ver detalhes ›",
+
+  // ── Cards de DNS ──────────────────────────────────────────────────────────
+  "card.dns.spfDesc": "Define quais servidores podem enviar email em nome do domínio.",
+  "card.dns.spfDica": "SPF + DMARC juntos bloqueiam a maioria dos ataques de email spoofing.",
+  "card.dns.dmarcDesc": "Política sobre o que fazer com emails que falham SPF/DKIM.",
+  "card.dns.dmarcDica": "p=reject é o mais seguro. Inicie com p=none para monitorar antes de rejeitar.",
+  "card.dns.naoDetectado": "Não detectado",
+  "card.dns.dkimDesc": "Assina emails criptograficamente para provar autenticidade.",
+  "card.dns.dkimDica":
+    "Configure no seu servidor de email (Google Workspace, Office 365). Detecção passiva por heurística.",
+  "card.dns.caa": "CAA Record",
+  "card.dns.configurado": "Configurado",
+  "card.dns.caaDesc": "Restringe quais CAs podem emitir certificados para o domínio.",
+  "card.dns.caaDica": "Sem CAA, qualquer CA do mundo pode emitir certificados para seu domínio.",
+  "card.dns.mx": "MX Records",
+  "card.dns.semMx": "Sem MX",
+  "card.dns.mxDesc": "Servidores responsáveis por receber email do domínio.",
+  "card.dns.mxDica": "MX ausente significa que o domínio não recebe email — verifique se é intencional.",
+  "card.dns.securityTxt": "Security.txt",
+  "card.dns.securityTxtDesc":
+    "Arquivo RFC 9116 com contato para reporte responsável de vulnerabilidades.",
+  "card.dns.securityTxtDica":
+    "Crie em /.well-known/security.txt para facilitar reports de pesquisadores.",
+  "card.dns.robots": "robots.txt",
+  "card.dns.semExposicoes": "Sem exposições",
+  "card.dns.robotsDesc": "Paths sensíveis expostos em Disallow do robots.txt.",
+  "card.dns.robotsDica":
+    "Disallow revela rotas que você quer esconder — atacantes leem robots.txt como primeiro passo.",
+  "card.dns.foraDoScoreFalha":
+    "Não entrou no score: a consulta DNS não foi concluída, então não dá para afirmar que o registro falta.",
+  "card.dns.foraDoScoreRecomendacao":
+    "Não entrou no score: é uma recomendação, não uma falha.",
+  "card.dns.riscoSpoofing": "RISCO DE EMAIL SPOOFING",
+
+  // ── Cards de cookies ──────────────────────────────────────────────────────
+  "card.cookie.semProblemas": "Nenhum problema detectado nos cookies",
+  "card.cookie.httpOnlyAusente": "HttpOnly ausente",
+  "card.cookie.httpOnlyTexto": "JS pode ler o cookie — XSS vira sequestro de sessão.",
+  "card.cookie.secureAusente": "Secure ausente",
+  "card.cookie.secureTexto": "Cookie enviado em HTTP não criptografado.",
+  "card.cookie.sameSiteAusente": "SameSite ausente/None",
+  "card.cookie.sameSiteTexto": "Cookie enviado em requests cross-site — risco de CSRF.",
+
+  // ── Cards de tecnologia e CVE ─────────────────────────────────────────────
+  "card.tech.vazio": "◈ Nenhuma tecnologia identificável — servidor oculta headers de versão",
+  "card.tech.webServer": "Web Server",
+  "card.tech.linguagemDesc": "Linguagem de programação detectada via headers ou body.",
+  "card.tech.linguagemDica":
+    "X-Powered-By com versão revela o stack. Remova este header em produção.",
+  "card.tech.webServerDesc": "Servidor web detectado nos headers HTTP.",
+  "card.tech.webServerRisco": "Header Server com versão específica facilita busca de CVEs. Oculte ou personalize o header Server em produção.",
+  "card.tech.backendDesc": "Framework backend ou runtime identificado.",
+  "card.tech.backendRisco": "Versões específicas podem ter CVEs públicos. Mantenha atualizado e oculte a versão nos headers.",
+  "card.tech.frameworkDesc": "Framework frontend/fullstack detectado.",
+  "card.tech.frameworkRisco": "Frameworks desatualizados têm CVEs conhecidos. Atualize e monitore novos releases.",
+  "card.tech.cmsDesc": "CMS identificado — WordPress, Drupal, etc.",
+  "card.tech.cmsRisco": "CMS são alvos frequentes por possuírem plugins com vulnerabilidades. Mantenha core e plugins atualizados.",
+  "card.tech.cdnDesc": "CDN ou proxy reverso detectado.",
+  "card.tech.cdnRisco": "CDNs ajudam na segurança, mas verifique que headers de segurança são aplicados na origem também.",
+  "card.tech.libraryDesc": "Biblioteca JavaScript detectada no frontend.",
+  "card.tech.libraryRisco": "Bibliotecas desatualizadas são visíveis para qualquer atacante. Mantenha dependências atualizadas.",
+  "card.tech.evidencias": "EVIDÊNCIAS DETECTADAS",
+  "card.risco": "⚠ Risco:",
+  "card.cve.vazio": "Sem CVEs correlacionados — software não detectado ou servidor oculta versão",
+  "card.cve.verNvd": "Ver no NVD →",
+
+  // ── Cards de headers ──────────────────────────────────────────────────────
+  "card.header.vazio": "◈ Nenhum header retornado.",
+  "card.header.verDetalhes": "ver detalhes",
+  "card.header.verComoCorrigir": "ver como corrigir",
+  "card.header.valorRecomendado": "VALOR RECOMENDADO",
 };
 
 export const en: Catalogo = {
@@ -514,6 +616,103 @@ export const en: Catalogo = {
   "trava.historico": "History is a PRO feature",
   "trava.historicoDesc":
     "Track how the score evolves, compare scans and see exactly what changed between runs. Available from the PRO plan.",
+
+  "card.tls.protocolo": "TLS protocol",
+  "card.tls.protocoloDesc": "Protocol version negotiated on the HTTPS connection.",
+  "card.tls.protocoloFraco":
+    "Outdated protocol. TLS 1.0/1.1 have known vulnerabilities (POODLE, BEAST). Move to TLS 1.2 at a minimum, ideally 1.3.",
+  "card.tls.protocoloOk":
+    "TLS 1.2+ is accepted. TLS 1.3 is ideal — faster and free of legacy cipher suites.",
+  "card.tls.cipher": "Cipher suite",
+  "card.tls.cipherDesc": "Set of encryption algorithms used for the TLS session.",
+  "card.cert.valido": "Valid certificate",
+  "card.cert.sim": "✓ Valid",
+  "card.cert.nao": "✗ Invalid",
+  "card.cert.validoDesc": "Certificate issued by a trusted CA and not expired.",
+  "card.cert.validoOk": "Certificate is valid and trusted by the major browsers.",
+  "card.cert.validoRuim":
+    "Invalid or expired certificate — browsers block access and show a security warning.",
+  "card.cert.expiracao": "Expiry date",
+  "card.cert.expiracaoDesc": "The date the SSL certificate stops being valid.",
+  "card.cert.expiracaoDica":
+    "Expired certificates drive visitors away immediately. Set up automatic renewal (Let's Encrypt/ACME) to avoid outages.",
+  "card.cert.diasRestantes": "Days left",
+  "card.cert.diasDesc": "How many days until the certificate expires.",
+  "card.cert.dias30": "Under 30 days! Renew now — if it expires, the site becomes unreachable.",
+  "card.cert.dias90": "Under 90 days. Set up renewal alerts so it does not slip.",
+  "card.cert.diasOk": "Certificate has a comfortable lifetime left.",
+  "card.atencao": "ATTENTION",
+  "card.fraco": "WEAK",
+  "card.critico": "CRITICAL",
+  "card.urgente": "URGENT",
+  "card.verDetalhes": "click to see details ›",
+
+  "card.dns.spfDesc": "Defines which servers may send email on behalf of the domain.",
+  "card.dns.spfDica": "SPF and DMARC together block most email spoofing attacks.",
+  "card.dns.dmarcDesc": "Policy for what to do with email that fails SPF/DKIM.",
+  "card.dns.dmarcDica": "p=reject is the safest. Start with p=none to monitor before rejecting.",
+  "card.dns.naoDetectado": "Not detected",
+  "card.dns.dkimDesc": "Signs email cryptographically to prove authenticity.",
+  "card.dns.dkimDica":
+    "Configure it on your email provider (Google Workspace, Office 365). Detection here is passive and heuristic.",
+  "card.dns.caa": "CAA record",
+  "card.dns.configurado": "Configured",
+  "card.dns.caaDesc": "Restricts which CAs may issue certificates for the domain.",
+  "card.dns.caaDica": "Without CAA, any CA in the world can issue certificates for your domain.",
+  "card.dns.mx": "MX records",
+  "card.dns.semMx": "No MX",
+  "card.dns.mxDesc": "Servers responsible for receiving email for the domain.",
+  "card.dns.mxDica": "A missing MX means the domain receives no email — check whether that is intended.",
+  "card.dns.securityTxt": "Security.txt",
+  "card.dns.securityTxtDesc":
+    "RFC 9116 file with a contact for responsible vulnerability disclosure.",
+  "card.dns.securityTxtDica":
+    "Create it at /.well-known/security.txt to make life easier for researchers reporting issues.",
+  "card.dns.robots": "robots.txt",
+  "card.dns.semExposicoes": "Nothing exposed",
+  "card.dns.robotsDesc": "Sensitive paths exposed through Disallow in robots.txt.",
+  "card.dns.robotsDica":
+    "Disallow reveals the routes you want hidden — attackers read robots.txt as a first step.",
+  "card.dns.foraDoScoreFalha":
+    "Not counted in the score: the DNS lookup did not complete, so we cannot claim the record is missing.",
+  "card.dns.foraDoScoreRecomendacao":
+    "Not counted in the score: this is a recommendation, not a failure.",
+  "card.dns.riscoSpoofing": "EMAIL SPOOFING RISK",
+
+  "card.cookie.semProblemas": "No problem detected in the cookies",
+  "card.cookie.httpOnlyAusente": "HttpOnly missing",
+  "card.cookie.httpOnlyTexto": "JS can read the cookie — XSS turns into session hijacking.",
+  "card.cookie.secureAusente": "Secure missing",
+  "card.cookie.secureTexto": "Cookie sent over unencrypted HTTP.",
+  "card.cookie.sameSiteAusente": "SameSite missing/None",
+  "card.cookie.sameSiteTexto": "Cookie sent on cross-site requests — CSRF risk.",
+
+  "card.tech.vazio": "◈ No identifiable technology — the server hides version headers",
+  "card.tech.webServer": "Web server",
+  "card.tech.linguagemDesc": "Programming language detected through headers or body.",
+  "card.tech.linguagemDica":
+    "X-Powered-By with a version reveals the stack. Remove this header in production.",
+  "card.tech.webServerDesc": "Web server detected in the HTTP headers.",
+  "card.tech.webServerRisco": "A Server header carrying a specific version makes CVE hunting easy. Hide or customise the Server header in production.",
+  "card.tech.backendDesc": "Backend framework or runtime identified.",
+  "card.tech.backendRisco": "Specific versions may have public CVEs. Keep it updated and hide the version from the headers.",
+  "card.tech.frameworkDesc": "Frontend/fullstack framework detected.",
+  "card.tech.frameworkRisco": "Outdated frameworks carry known CVEs. Update and watch for new releases.",
+  "card.tech.cmsDesc": "CMS identified — WordPress, Drupal and the like.",
+  "card.tech.cmsRisco": "A CMS is a frequent target because of vulnerable plugins. Keep core and plugins updated.",
+  "card.tech.cdnDesc": "CDN or reverse proxy detected.",
+  "card.tech.cdnRisco": "CDNs help with security, but check that security headers are applied at the origin too.",
+  "card.tech.libraryDesc": "JavaScript library detected on the frontend.",
+  "card.tech.libraryRisco": "Outdated libraries are visible to any attacker. Keep dependencies updated.",
+  "card.tech.evidencias": "DETECTED EVIDENCE",
+  "card.risco": "⚠ Risk:",
+  "card.cve.vazio": "No correlated CVEs — software not detected, or the server hides its version",
+  "card.cve.verNvd": "View on NVD →",
+
+  "card.header.vazio": "◈ No header returned.",
+  "card.header.verDetalhes": "see details",
+  "card.header.verComoCorrigir": "see how to fix",
+  "card.header.valorRecomendado": "RECOMMENDED VALUE",
 };
 
 const CATALOGOS: Record<Lang, Catalogo> = { "pt-BR": pt, en };

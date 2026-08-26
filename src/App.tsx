@@ -3909,6 +3909,7 @@ const HEADER_META: Record<string, { short: string; desc: string; risk: string; e
 };
 
 function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, string>; host?: string | null; related?: RelatedHostHeaders[] }) {
+  const { t } = useI18n();
   const [openSet, setOpenSet] = useState<Set<string>>(new Set());
 
   const toggle = (key: string) =>
@@ -3921,7 +3922,7 @@ function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, 
   const entries = Object.entries(headers);
   if (entries.length === 0) return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div className={styles.empty}>◈ Nenhum header retornado.</div>
+      <div className={styles.empty}>{t("card.header.vazio")}</div>
       <RelatedHostsPanel related={related} />
     </div>
   );
@@ -3999,11 +4000,11 @@ function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, 
                   </p>
                 ) : (
                   <p style={{ fontSize: 11, color: "var(--text-dim)", margin: "0 0 8px", lineHeight: 1.5 }}>
-                    <span style={{ color }}>⚠ Risco: </span>{meta.risk}
+                    <span style={{ color }}>{t("card.risco")} </span>{meta.risk}
                   </p>
                 )}
                 <div style={{ marginBottom: 8 }}>
-                  <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", letterSpacing: ".5px", display: "block", marginBottom: 4 }}>VALOR RECOMENDADO</span>
+                  <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", letterSpacing: ".5px", display: "block", marginBottom: 4 }}>{t("card.header.valorRecomendado")}</span>
                   <code style={{ fontSize: 10, color: "var(--accent)", fontFamily: "var(--mono)", wordBreak: "break-all", display: "block", background: "var(--bg)", padding: "5px 8px", borderRadius: 3 }}>
                     {meta.example}
                   </code>
@@ -4117,6 +4118,7 @@ function ModCard({
   id: string; color: string; isOpen: boolean; onToggle: () => void;
   top: React.ReactNode; mid?: React.ReactNode; bottom: React.ReactNode; minH?: number;
 }) {
+  const { t } = useI18n();
   return (
     <div
       onClick={onToggle}
@@ -4140,7 +4142,7 @@ function ModCard({
       {mid && <div style={{ flex: 1 }}>{mid}</div>}
       {!isOpen && (
         <span style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 6, fontFamily: "var(--mono)" }}>
-          clique para ver detalhes ›
+          {t("card.verDetalhes")}
         </span>
       )}
       {isOpen && (
@@ -4184,6 +4186,7 @@ function certRenewalThreshold(totalValidityDays?: number | null): number {
 }
 
 function TransportCardsPanel({ r }: { r: any }) {
+  const { t } = useI18n();
   const { openSet, toggle } = useCardSet();
   const tls = r?.tlsDetails;
   const ssl = r?.sslInfo;
@@ -4205,44 +4208,44 @@ function TransportCardsPanel({ r }: { r: any }) {
 
   const cards = [
     {
-      key: "protocol", title: "Protocolo TLS", value: proto, color: protoColor,
-      icon: tls?.weakProtocol ? "✗" : "✓", status: tls?.weakProtocol ? "FRACO" : "OK",
-      desc: "Versão do protocolo negociada na conexão HTTPS.",
+      key: "protocol", title: t("card.tls.protocolo"), value: proto, color: protoColor,
+      icon: tls?.weakProtocol ? "✗" : "✓", status: tls?.weakProtocol ? t("card.fraco") : "OK",
+      desc: t("card.tls.protocoloDesc"),
       detail: tls?.weakProtocol
-        ? "Protocolo desatualizado. TLS 1.0/1.1 têm vulnerabilidades (POODLE, BEAST). Atualize para TLS 1.2 mínimo, preferencialmente 1.3."
-        : "TLS 1.2+ é aceito. TLS 1.3 é o ideal — mais rápido e sem cipher suites legadas.",
+        ? t("card.tls.protocoloFraco")
+        : t("card.tls.protocoloOk"),
     },
     {
-      key: "cipher", title: "Cipher Suite", value: tls?.cipherSuite ?? "—", color: "var(--info)",
+      key: "cipher", title: t("card.tls.cipher"), value: tls?.cipherSuite ?? "—", color: "var(--info)",
       icon: "◈", status: "INFO",
-      desc: "Conjunto de algoritmos de criptografia da sessão TLS.",
+      desc: t("card.tls.cipherDesc"),
       detail: (tls?.message ?? "") + " Cifras com ECDHE oferecem Perfect Forward Secrecy — sessões passadas permanecem seguras mesmo se a chave privada vazar.",
     },
     {
-      key: "cert", title: "Certificado Válido", value: ssl?.valid ? "✓ Válido" : "✗ Inválido", color: certColor,
-      icon: ssl?.valid ? "✓" : "✗", status: ssl?.valid ? "OK" : "CRÍTICO",
-      desc: "Certificado emitido por CA confiável e não expirado.",
+      key: "cert", title: t("card.cert.valido"), value: ssl?.valid ? t("card.cert.sim") : t("card.cert.nao"), color: certColor,
+      icon: ssl?.valid ? "✓" : "✗", status: ssl?.valid ? "OK" : t("card.critico"),
+      desc: t("card.cert.validoDesc"),
       detail: ssl?.valid
-        ? "Certificado válido e confiável pelos principais browsers."
-        : "Certificado inválido ou expirado — browsers bloqueiam o acesso e exibem aviso de segurança.",
+        ? t("card.cert.validoOk")
+        : t("card.cert.validoRuim"),
     },
     {
-      key: "expiry", title: "Data de Expiração", value: ssl?.expirationDate ?? "—", color: daysColor,
+      key: "expiry", title: t("card.cert.expiracao"), value: ssl?.expirationDate ?? "—", color: daysColor,
       icon: days !== null ? (days < 30 ? "✗" : days < 90 ? "⚠" : "✓") : "—",
-      status: days !== null ? (days < 30 ? "URGENTE" : days < 90 ? "ATENÇÃO" : "OK") : "—",
-      desc: "Data em que o certificado SSL deixa de ser válido.",
-      detail: "Certificados expirados afastam usuários imediatamente. Configure renovação automática (Let's Encrypt/ACME) para evitar interrupções.",
+      status: days !== null ? (days < 30 ? t("card.urgente") : days < 90 ? t("card.atencao") : "OK") : "—",
+      desc: t("card.cert.expiracaoDesc"),
+      detail: t("card.cert.expiracaoDica"),
     },
     {
-      key: "days", title: "Dias Restantes", value: days !== null ? `${days} dias` : "—", color: daysColor,
+      key: "days", title: t("card.cert.diasRestantes"), value: days !== null ? `${days} dias` : "—", color: daysColor,
       icon: days !== null ? (days < 30 ? "✗" : days < 90 ? "⚠" : "✓") : "—",
-      status: days !== null ? (days < 30 ? "URGENTE" : days < 90 ? "ATENÇÃO" : "OK") : "—",
-      desc: "Quantos dias faltam até o certificado expirar.",
+      status: days !== null ? (days < 30 ? t("card.urgente") : days < 90 ? t("card.atencao") : "OK") : "—",
+      desc: t("card.cert.diasDesc"),
       detail: days !== null && days < 30
-        ? "Menos de 30 dias! Renove agora — se expirar, o site fica inacessível."
+        ? t("card.cert.dias30")
         : days !== null && days < 90
-        ? "Menos de 90 dias. Configure alertas de renovação para evitar esquecimento."
-        : "Certificado com vida útil confortável.",
+        ? t("card.cert.dias90")
+        : t("card.cert.diasOk"),
     },
   ];
 
@@ -4273,6 +4276,7 @@ function TransportCardsPanel({ r }: { r: any }) {
 // ── DNS / Recon Cards ──────────────────────────────────────────────────────────
 
 function DnsCardsPanel({ r }: { r: any }) {
+  const { t } = useI18n();
   const { openSet, toggle } = useCardSet();
   const dns = r?.dnsSecurityResult;
 
@@ -4287,57 +4291,57 @@ function DnsCardsPanel({ r }: { r: any }) {
    * verificados por HTTP e continuam válidos mesmo quando o DNS falha.
    */
   const dnsIndisponivel = dns?.lookupFailed === true;
-  const semDns = (valor: string) => (dnsIndisponivel ? "NÃO VERIFICADO" : valor);
+  const semDns = (valor: string) => (dnsIndisponivel ? t("selo.naoVerificado") : valor);
 
   const cards = [
     {
       key: "spf", title: "SPF", present: dns?.spfPresent, warn: false, dependeDeDns: true,
       value: semDns(dns?.spfPresent ? dns.spfPolicy : "AUSENTE"),
-      desc: "Define quais servidores podem enviar email em nome do domínio.",
+      desc: t("card.dns.spfDesc"),
       record: dns?.spfRecord,
-      tip: "SPF + DMARC juntos bloqueiam a maioria dos ataques de email spoofing.",
+      tip: t("card.dns.spfDica"),
     },
     {
       key: "dmarc", title: "DMARC", present: dns?.dmarcPresent, warn: false, dependeDeDns: true,
       value: semDns(dns?.dmarcPresent ? `p=${dns.dmarcPolicy?.toLowerCase()}` : "AUSENTE"),
-      desc: "Política sobre o que fazer com emails que falham SPF/DKIM.",
+      desc: t("card.dns.dmarcDesc"),
       record: dns?.dmarcRecord,
-      tip: "p=reject é o mais seguro. Inicie com p=none para monitorar antes de rejeitar.",
+      tip: t("card.dns.dmarcDica"),
     },
     {
       key: "dkim", title: "DKIM", present: dns?.dkimHintFound, warn: true, dependeDeDns: true,
-      value: semDns(dns?.dkimHintFound ? `seletor: ${dns.dkimSelector}` : "Não detectado"),
-      desc: "Assina emails criptograficamente para provar autenticidade.",
+      value: semDns(dns?.dkimHintFound ? `seletor: ${dns.dkimSelector}` : t("card.dns.naoDetectado")),
+      desc: t("card.dns.dkimDesc"),
       record: null,
-      tip: "Configure no seu servidor de email (Google Workspace, Office 365). Detecção passiva por heurística.",
+      tip: t("card.dns.dkimDica"),
     },
     {
-      key: "caa", title: "CAA Record", present: dns?.caaPresent, warn: true, dependeDeDns: true,
-      value: semDns(dns?.caaPresent ? "Configurado" : "AUSENTE"),
-      desc: "Restringe quais CAs podem emitir certificados para o domínio.",
+      key: "caa", title: t("card.dns.caa"), present: dns?.caaPresent, warn: true, dependeDeDns: true,
+      value: semDns(dns?.caaPresent ? t("card.dns.configurado") : "AUSENTE"),
+      desc: t("card.dns.caaDesc"),
       record: dns?.caaRecord,
-      tip: "Sem CAA, qualquer CA do mundo pode emitir certificados para seu domínio.",
+      tip: t("card.dns.caaDica"),
     },
     {
-      key: "mx", title: "MX Records", present: dns?.mxPresent, warn: true, dependeDeDns: true,
-      value: semDns(dns?.mxPresent ? `${dns.mxRecords?.length ?? 0} servidor(es)` : "Sem MX"),
-      desc: "Servidores responsáveis por receber email do domínio.",
+      key: "mx", title: t("card.dns.mx"), present: dns?.mxPresent, warn: true, dependeDeDns: true,
+      value: semDns(dns?.mxPresent ? `${dns.mxRecords?.length ?? 0} servidor(es)` : t("card.dns.semMx")),
+      desc: t("card.dns.mxDesc"),
       record: dns?.mxRecords?.slice(0, 3).join(", ") ?? null,
-      tip: "MX ausente significa que o domínio não recebe email — verifique se é intencional.",
+      tip: t("card.dns.mxDica"),
     },
     {
-      key: "sectxt", title: "Security.txt", present: r?.securityTxtPresent, warn: true,
+      key: "sectxt", title: t("card.dns.securityTxt"), present: r?.securityTxtPresent, warn: true,
       value: r?.securityTxtPresent ? (r.securityTxtContact || "Presente") : "AUSENTE",
-      desc: "Arquivo RFC 9116 com contato para reporte responsável de vulnerabilidades.",
+      desc: t("card.dns.securityTxtDesc"),
       record: r?.securityTxtContact ? `Contact: ${r.securityTxtContact}` : null,
-      tip: "Crie em /.well-known/security.txt para facilitar reports de pesquisadores.",
+      tip: t("card.dns.securityTxtDica"),
     },
     {
       key: "robots", title: "robots.txt", present: !(r?.sensitiveRobotsPaths?.length > 0), warn: false,
-      value: r?.sensitiveRobotsPaths?.length > 0 ? `${r.sensitiveRobotsPaths.length} path(s) sensíveis` : "Sem exposições",
-      desc: "Paths sensíveis expostos em Disallow do robots.txt.",
+      value: r?.sensitiveRobotsPaths?.length > 0 ? `${r.sensitiveRobotsPaths.length} path(s) sensíveis` : t("card.dns.semExposicoes"),
+      desc: t("card.dns.robotsDesc"),
       record: r?.sensitiveRobotsPaths?.slice(0, 3).join(", ") ?? null,
-      tip: "Disallow revela rotas que você quer esconder — atacantes leem robots.txt como primeiro passo.",
+      tip: t("card.dns.robotsDica"),
     },
   ];
 
@@ -4357,9 +4361,9 @@ function DnsCardsPanel({ r }: { r: any }) {
     // Por que não entrou na nota. Só aparece quando é o caso, para não virar
     // ruído nos cards que de fato pesaram.
     const notaScore = naoVerificado
-      ? "Não entrou no score: a consulta DNS não foi concluída, então não dá para afirmar que o registro falta."
+      ? t("card.dns.foraDoScoreFalha")
       : (c.warn && !c.present)
-        ? "Não entrou no score: é uma recomendação, não uma falha."
+        ? t("card.dns.foraDoScoreRecomendacao")
         : null;
 
     return (
@@ -4431,8 +4435,9 @@ function DnsCardsPanel({ r }: { r: any }) {
 // ── Cookie Cards ───────────────────────────────────────────────────────────────
 
 function CookieCardsPanel({ cookies }: { cookies: any[] }) {
+  const { t } = useI18n();
   const { openSet, toggle } = useCardSet();
-  if (!cookies?.length) return <SecureEmptyCard msg="Nenhum problema detectado nos cookies" />;
+  if (!cookies?.length) return <SecureEmptyCard msg={t("card.cookie.semProblemas")} />;
   return (
     <div style={GRID2}>
       {cookies.map((c, idx) => {
@@ -4456,9 +4461,9 @@ function CookieCardsPanel({ cookies }: { cookies: any[] }) {
             mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{c.issues}</p>}
             bottom={
               <>
-                {!c.httpOnly && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "0 0 5px", lineHeight: 1.5 }}>• <strong>HttpOnly ausente</strong>: JS pode ler o cookie — XSS vira sequestro de sessão.</p>}
-                {!c.secure  && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "0 0 5px", lineHeight: 1.5 }}>• <strong>Secure ausente</strong>: Cookie enviado em HTTP não criptografado.</p>}
-                {(!c.sameSite || c.sameSite === "None") && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>• <strong>SameSite ausente/None</strong>: Cookie enviado em requests cross-site — risco de CSRF.</p>}
+                {!c.httpOnly && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "0 0 5px", lineHeight: 1.5 }}>• <strong>{t("card.cookie.httpOnlyAusente")}</strong>: {t("card.cookie.httpOnlyTexto")}</p>}
+                {!c.secure  && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "0 0 5px", lineHeight: 1.5 }}>• <strong>{t("card.cookie.secureAusente")}</strong>: {t("card.cookie.secureTexto")}</p>}
+                {(!c.sameSite || c.sameSite === "None") && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>• <strong>{t("card.cookie.sameSiteAusente")}</strong>: {t("card.cookie.sameSiteTexto")}</p>}
               </>
             }
           />
@@ -4470,23 +4475,29 @@ function CookieCardsPanel({ cookies }: { cookies: any[] }) {
 
 // ── Technology Cards ───────────────────────────────────────────────────────────
 
-const TECH_RISK: Record<string, { desc: string; risk: string; icon: string }> = {
-  webServer:  { icon: "⬡", desc: "Servidor web detectado nos headers HTTP.", risk: "Header 'Server' com versão específica facilita busca de CVEs. Oculte ou personalize o header Server em produção." },
-  language:   { icon: "⟨⟩", desc: "Linguagem de programação detectada via headers ou body.", risk: "X-Powered-By com versão revela o stack. Remova este header em produção." },
-  backend:    { icon: "◻", desc: "Framework backend ou runtime identificado.", risk: "Versões específicas podem ter CVEs públicos. Mantenha atualizado e oculte a versão nos headers." },
-  framework:  { icon: "◈", desc: "Framework frontend/fullstack detectado.", risk: "Frameworks desatualizados têm CVEs conhecidos. Atualize e monitore novos releases." },
-  cms:        { icon: "▦", desc: "CMS identificado — WordPress, Drupal, etc.", risk: "CMS são alvos frequentes por possuírem plugins com vulnerabilidades. Mantenha core e plugins atualizados." },
-  cdn:        { icon: "◉", desc: "CDN ou proxy reverso detectado.", risk: "CDNs ajudam na segurança, mas verifique que configurações de headers de segurança são aplicadas na origem também." },
-  library:    { icon: "◎", desc: "Biblioteca JavaScript detectada no frontend.", risk: "Bibliotecas outdated são visíveis para qualquer atacante. Mantenha dependências atualizadas." },
+/**
+ * Tabela de módulo, fora de componente — não tem acesso ao `t()`. Por isso guarda
+ * CHAVES de catálogo, não texto: quem renderiza resolve. Foi a armadilha que a
+ * tradução destes cards revelou.
+ */
+const TECH_RISK: Record<string, { descKey: string; riskKey: string; icon: string }> = {
+  webServer:  { icon: "⬡",  descKey: "card.tech.webServerDesc",  riskKey: "card.tech.webServerRisco" },
+  language:   { icon: "⟨⟩", descKey: "card.tech.linguagemDesc",  riskKey: "card.tech.linguagemDica" },
+  backend:    { icon: "◻",  descKey: "card.tech.backendDesc",    riskKey: "card.tech.backendRisco" },
+  framework:  { icon: "◈",  descKey: "card.tech.frameworkDesc",  riskKey: "card.tech.frameworkRisco" },
+  cms:        { icon: "▦",  descKey: "card.tech.cmsDesc",        riskKey: "card.tech.cmsRisco" },
+  cdn:        { icon: "◉",  descKey: "card.tech.cdnDesc",        riskKey: "card.tech.cdnRisco" },
+  library:    { icon: "◎",  descKey: "card.tech.libraryDesc",    riskKey: "card.tech.libraryRisco" },
 };
 
 function TechCardsPanel({ tf }: { tf: any }) {
+  const { t } = useI18n();
   const { openSet, toggle } = useCardSet();
   if (!tf || (!tf.webServer && !tf.backend && !tf.framework && !tf.cms && !tf.cdn && !tf.language && !tf.libraries?.length)) {
-    return <div className={styles.empty}>◈ Nenhuma tecnologia identificável — servidor oculta headers de versão</div>;
+    return <div className={styles.empty}>{t("card.tech.vazio")}</div>;
   }
   const items: { key: string; cat: string; val: string; type: string }[] = [];
-  if (tf.webServer)  items.push({ key: "webServer",  cat: "Web Server", val: tf.webServer,  type: "webServer" });
+  if (tf.webServer)  items.push({ key: "webServer",  cat: t("card.tech.webServer"), val: tf.webServer,  type: "webServer" });
   if (tf.language)   items.push({ key: "language",   cat: "Language",   val: tf.language,   type: "language" });
   if (tf.backend)    items.push({ key: "backend",    cat: "Backend",    val: tf.backend,    type: "backend" });
   if (tf.framework)  items.push({ key: "framework",  cat: "Framework",  val: tf.framework,  type: "framework" });
@@ -4510,14 +4521,14 @@ function TechCardsPanel({ tf }: { tf: any }) {
                 <span style={{ fontSize: 16, color: "var(--info)", lineHeight: 1 }}>{meta.icon}</span>
               </div>
             }
-            mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{meta.desc}</p>}
-            bottom={<p style={{ fontSize: 11, color: "var(--text-dim)", margin: 0, lineHeight: 1.5 }}><span style={{ color: "var(--warning)" }}>⚠ Risco: </span>{meta.risk}</p>}
+            mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{t(meta.descKey)}</p>}
+            bottom={<p style={{ fontSize: 11, color: "var(--text-dim)", margin: 0, lineHeight: 1.5 }}><span style={{ color: "var(--warning)" }}>{t("card.risco")} </span>{t(meta.riskKey)}</p>}
           />
         );
       })}
       {tf.evidence?.length > 0 && (
         <div style={{ gridColumn: "1 / -1", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 14px" }}>
-          <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", letterSpacing: ".5px" }}>EVIDÊNCIAS DETECTADAS</span>
+          <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", letterSpacing: ".5px" }}>{t("card.tech.evidencias")}</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
             {tf.evidence.map((e: string, i: number) => (
               <code key={i} style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--mono)", background: "var(--bg)", padding: "2px 6px", borderRadius: 3 }}>{e}</code>
@@ -4532,8 +4543,9 @@ function TechCardsPanel({ tf }: { tf: any }) {
 // ── CVE Cards ──────────────────────────────────────────────────────────────────
 
 function CveCardsPanel({ cves }: { cves: any[] }) {
+  const { t } = useI18n();
   const { openSet, toggle } = useCardSet();
-  if (!cves?.length) return <SecureEmptyCard msg="Sem CVEs correlacionados — software não detectado ou servidor oculta versão" />;
+  if (!cves?.length) return <SecureEmptyCard msg={t("card.cve.vazio")} />;
   return (
     <div style={GRID2}>
       {cves.map((cve, i) => {
@@ -4563,7 +4575,7 @@ function CveCardsPanel({ cves }: { cves: any[] }) {
                   <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--mono)" }}>Publicado: {cve.publishedDate}</span>
                   <a href={cve.referenceUrl} target="_blank" rel="noopener noreferrer"
                      style={{ fontSize: 10, color: "var(--accent)", fontFamily: "var(--mono)", textDecoration: "none" }}
-                     onClick={e => e.stopPropagation()}>Ver no NVD →</a>
+                     onClick={e => e.stopPropagation()}>{t("card.cve.verNvd")}</a>
                 </div>
               </>
             }
@@ -4603,8 +4615,8 @@ function FindingCardsPanel({ items, emptyMsg, cols = 2 }: { items: FindingItem[]
                 </div>
                 <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end" }}>
                   <span style={{ color, fontSize: 9, fontFamily: "var(--mono)", fontWeight: 700, background: `${color}22`, padding: "2px 5px", borderRadius: 3 }}>{item.severity}</span>
-                  {item.extraTags?.map((t, i) => (
-                    <span key={i} style={{ color: t.color, fontSize: 9, fontFamily: "var(--mono)", fontWeight: 700, background: `${t.color}22`, padding: "2px 5px", borderRadius: 3 }}>{t.label}</span>
+                  {item.extraTags?.map((tag, i) => (
+                    <span key={i} style={{ color: tag.color, fontSize: 9, fontFamily: "var(--mono)", fontWeight: 700, background: `${tag.color}22`, padding: "2px 5px", borderRadius: 3 }}>{tag.label}</span>
                   ))}
                 </div>
               </div>
