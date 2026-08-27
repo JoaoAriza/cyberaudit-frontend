@@ -161,6 +161,14 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* Mesma faixa dentro de modal, que já tem o próprio padding. */
+.langMismatchCompacto {
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
 .scanForm {
   display: flex;
   gap: 12px;

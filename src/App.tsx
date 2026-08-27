@@ -63,6 +63,13 @@ interface ScanResult {
   sourceMapFindings: SourceMapFinding[];
   crlfFindings: CrlfFinding[];
   compliance?: ComplianceReport;
+  /**
+   * Idioma em que o Backend montou os textos deste laudo ("pt", "en").
+   *
+   * Ausente nos registros gravados antes do carimbo existir — nesse caso a tela não
+   * afirma nada sobre o idioma, em vez de chutar.
+   */
+  lang?: string | null;
   /** true p/ guest/FREE: issues vêm sem impacto/correção e o breakdown fica travado. */
   detailsLocked?: boolean;
 }
@@ -1404,8 +1411,47 @@ function LoginPage({ onBack }: { onBack: () => void }) {
  * Avisar é honesto; recarregar apagava o trabalho do usuário para esconder o problema.
  */
 /** Nome do idioma como o seletor o escreve — sempre no próprio idioma. */
-function nomeDoIdioma(code: Lang): string {
-  return IDIOMAS.find(i => i.code === code)?.label ?? code;
+function nomeDoIdioma(code: string): string {
+  const achado = IDIOMAS.find(i => i.code === code || i.code.split("-")[0] === code);
+  return achado?.label ?? code;
+}
+
+/**
+ * Aviso de que o laudo na tela foi gerado em outro idioma.
+ *
+ * O Backend carimba `ScanResult.lang` com o idioma em que montou os textos dos
+ * achados. A interface acompanha a troca de idioma; esse texto não, porque foi
+ * guardado pronto. Avisar é o meio-termo honesto entre fingir que traduziu e
+ * apagar o resultado — que era o que o reload fazia.
+ *
+ * Compara por SUBTAG: o carimbo vem "pt" e o idioma da tela é "pt-BR".
+ *
+ * `onRefazer` é opcional porque nem sempre existe conserto. No scan manual, refazer
+ * é um clique. Num laudo de agendamento, não: aquele scan já passou, e reexecutar
+ * produziria um relatório diferente, não a tradução do que está na tela.
+ */
+function AvisoIdiomaDoLaudo({ langDoLaudo, onRefazer, compacto = false }: {
+  langDoLaudo?: string | null;
+  onRefazer?: () => void;
+  /** Dentro de modal: sem faixa de largura total, que ali fica deslocada. */
+  compacto?: boolean;
+}) {
+  const { lang, t } = useI18n();
+
+  // Sem carimbo não dá para afirmar nada: registro anterior a esta mudança.
+  if (!langDoLaudo) return null;
+  if (langDoLaudo.split("-")[0] === lang.split("-")[0]) return null;
+
+  return (
+    <div className={`${styles.langMismatch} ${compacto ? styles.langMismatchCompacto : ""}`}>
+      <span>{t("resultado.idiomaAnterior", nomeDoIdioma(langDoLaudo))}</span>
+      {onRefazer && (
+        <button className={styles.backLink} onClick={onRefazer}>
+          {t("resultado.refazerNoIdioma", nomeDoIdioma(lang))}
+        </button>
+      )}
+    </div>
+  );
 }
 
 function LanguagePicker({ flutuante = false }: { flutuante?: boolean }) {
@@ -1999,7 +2045,7 @@ function InviteItemRow({ inv, onRevoke, roleBadge }: { inv: InviteDto; onRevoke:
           </div>
           <div style={{ display: "flex", gap: 20, fontSize: 11, color: "var(--text-dim)", flexWrap: "wrap" }}>
             <span>{t("convite.convidadoPor")} <strong style={{ color: "var(--text)" }}>{inv.invitedByName}</strong></span>
-            {inv.jobTitle && <span>Cargo: <strong style={{ color: "var(--text)" }}>{inv.jobTitle}</strong></span>}
+            {inv.jobTitle && <span>{t("convite.cargo")} <strong style={{ color: "var(--text)" }}>{inv.jobTitle}</strong></span>}
           </div>
         </div>
       )}
@@ -2064,13 +2110,18 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
           return (
             <div style={{ padding: "1.25rem" }}>
 
+              {/* Sem `onRefazer` de propósito: este scan já passou. Reexecutar daria
+                  um relatório novo, não a tradução deste — e o que está na tela é o
+                  registro daquela execução. Aqui o aviso só explica. */}
+              <AvisoIdiomaDoLaudo langDoLaudo={r.lang} compacto />
+
               {/* ── Score header ── */}
               <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", marginBottom: "1.25rem" }}>
                 <ScoreGauge score={sc.score} risk={sc.riskLevel} />
                 <div>
                   <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 6 }}>{r.url}</div>
                   <span className={`${styles.tag} ${riskColor(sc.riskLevel)}`}>{sc.riskLevel}</span>
-                  {r.activeMode && <span className={`${styles.tag} ${styles.info}`} style={{ marginLeft: 6 }}>ATIVO</span>}
+                  {r.activeMode && <span className={`${styles.tag} ${styles.info}`} style={{ marginLeft: 6 }}>{t("selo.ativo")}</span>}
                   {sc.notes?.map((n, i) => (
                     <div key={i} className={styles.note} style={{ marginTop: 4 }}>{n}</div>
                   ))}
@@ -2369,7 +2420,7 @@ function SchedulesPage() {
                                   </span>
                                   {/* Active mode badge */}
                                   {h.activeMode && (
-                                    <span className={`${styles.tag} ${styles.info}`} style={{ fontSize: "0.65rem" }}>ATIVO</span>
+                                    <span className={`${styles.tag} ${styles.info}`} style={{ fontSize: "0.65rem" }}>{t("selo.ativo")}</span>
                                   )}
                                   {/* Open icon */}
                                   <span className={styles.muted} style={{ fontSize: "0.75rem" }}>{t("agenda.verDetalhes")}</span>
@@ -6730,17 +6781,13 @@ export default function App() {
                     {/* O laudo foi gerado em outro idioma: avisa em vez de fingir que
                         acompanhou a troca, e oferece o único conserto real, que é
                         refazer o scan. Ver o comentário do LanguagePicker. */}
-                    {resultLang && resultLang !== lang && (
-                      <div className={styles.langMismatch}>
-                        <span>{t("resultado.idiomaAnterior", nomeDoIdioma(resultLang))}</span>
-                        <button
-                          className={styles.backLink}
-                          onClick={() => void iniciarScan(r.finalUrl ?? r.url ?? url)}
-                        >
-                          {t("resultado.refazerNoIdioma", nomeDoIdioma(lang))}
-                        </button>
-                      </div>
-                    )}
+                    {/* `r.lang` é a verdade — o idioma que o Backend usou de fato.
+                        `resultLang` cobre o resultado que veio de uma versão do
+                        Backend sem o carimbo, e some quando essa versão sair do ar. */}
+                    <AvisoIdiomaDoLaudo
+                      langDoLaudo={r.lang ?? resultLang}
+                      onRefazer={() => void iniciarScan(r.finalUrl ?? r.url ?? url)}
+                    />
 
                     <div className={styles.row}>
                       <Card>
