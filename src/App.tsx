@@ -5,6 +5,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceL
 import { useAuth } from "./context/AuthContext";
 import { useI18n } from "./i18n/I18nContext";
 import { IDIOMAS, formatarData, formatarHora, formatarDataHora, formatarMoeda } from "./i18n/catalog";
+import type { Lang } from "./i18n/catalog";
 import type { TwoFactorPending } from "./context/AuthContext";
 
 // ── Backend Types ─────────────────────────────────────────────────────────────
@@ -1388,12 +1389,25 @@ function LoginPage({ onBack }: { onBack: () => void }) {
  * são justamente as primeiras que um estrangeiro vê: sem isto, ele chegaria numa
  * tela em português sem nenhuma forma de trocar.
  *
- * Trocar o idioma recarrega a página. Parece grosseiro, mas é o certo aqui: o
- * resultado do scan que já está na tela veio do Backend no idioma anterior, e
- * re-renderizar só a moldura deixaria metade em cada idioma — exatamente o
- * meio-termo que este bloco existe para evitar. O reload refaz as chamadas com o
- * header novo.
+ * Trocar o idioma NÃO recarrega a página.
+ *
+ * Recarregava, e o motivo era razoável: o resultado do scan veio do Backend no
+ * idioma anterior, e re-renderizar só a moldura deixa metade em cada idioma. Só
+ * que o reload não resolvia isso — jogava o resultado fora. Quem tinha acabado de
+ * escanear perdia o laudo e precisava rodar o scan de novo só por ter clicado em
+ * "EN". Trocar de idioma passou a custar um scan.
+ *
+ * A interface inteira, incluindo os cards de módulo, vive no catálogo e troca na
+ * hora. O que não troca é o texto dos achados, que o Backend monta no idioma da
+ * requisição e o resultado guarda pronto. Para esse pedaço a tela avisa em que
+ * idioma o laudo foi gerado e oferece refazer o scan — ver `resultado.idiomaAnterior`.
+ * Avisar é honesto; recarregar apagava o trabalho do usuário para esconder o problema.
  */
+/** Nome do idioma como o seletor o escreve — sempre no próprio idioma. */
+function nomeDoIdioma(code: Lang): string {
+  return IDIOMAS.find(i => i.code === code)?.label ?? code;
+}
+
 function LanguagePicker({ flutuante = false }: { flutuante?: boolean }) {
   const { lang, setLang, t } = useI18n();
 
@@ -1407,7 +1421,7 @@ function LanguagePicker({ flutuante = false }: { flutuante?: boolean }) {
         <button
           key={i.code}
           className={`${styles.langBtn} ${i.code === lang ? styles.langBtnActive : ""}`}
-          onClick={() => { if (i.code !== lang) { setLang(i.code); window.location.reload(); } }}
+          onClick={() => { if (i.code !== lang) setLang(i.code); }}
           title={t("idioma.mudarPara", i.label)}
           aria-pressed={i.code === lang}
         >
@@ -6068,7 +6082,7 @@ function BillingReturnPage() {
 const FREE_MODULES = ["transport", "tech", "cert"];
 
 export default function App() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { user, loading, logout, isAdmin, isAuthenticated } = useAuth();
   const [view, setView] = useState<View>("scan");
   const [url, setUrl] = useState("github.com");
@@ -6089,6 +6103,14 @@ export default function App() {
   };
   const [notify, setNotify] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
+  /**
+   * Idioma em que o laudo na tela foi gerado.
+   *
+   * O texto dos achados é montado pelo Backend no idioma da requisição e guardado
+   * pronto, então ele não acompanha a troca de idioma como o resto da interface.
+   * Guardar o idioma de origem é o que permite avisar em vez de fingir.
+   */
+  const [resultLang, setResultLang] = useState<Lang | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ownership, setOwnership] = useState<OwnershipState | null>(null);
   const [showSlowToast, setShowSlowToast] = useState(false);
@@ -6131,7 +6153,7 @@ export default function App() {
   useEffect(() => {
     const currentId = user?.id ?? null;
     if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== currentId) {
-      setResult(null); setError(null); setOwnership(null); setOpenModule(null);
+      setResult(null); setResultLang(null); setError(null); setOwnership(null); setOpenModule(null);
       stopPoll(); stopSlowTimer();
     }
     prevUserIdRef.current = currentId;
@@ -6144,29 +6166,43 @@ export default function App() {
     if (slowTimerRef.current) { clearTimeout(slowTimerRef.current); slowTimerRef.current = null; }
   }
 
+  // Sem parâmetro de propósito: é passada direto como onClick, e um parâmetro
+  // posicional receberia o evento do clique no lugar do alvo.
   async function handleScan() {
-    abortRef.current?.abort(); stopPoll(); stopSlowTimer();
-    setResult(null); setError(null); setOwnership(null);
-    slowTimerRef.current = setTimeout(() => setShowSlowToast(true), 30000);
-    setScanLoading(true);
-    await runAsync();
+    await iniciarScan(url);
   }
 
-  async function runAsync() {
+  /**
+   * Limpa a tela e dispara o scan de `alvo`.
+   *
+   * O alvo é explícito porque nem sempre é o que está na caixa de busca: refazer o
+   * laudo depois de trocar de idioma tem de reescanear o host DAQUELE laudo, mesmo
+   * que o usuário já tenha digitado outra coisa.
+   */
+  async function iniciarScan(alvo: string) {
+    setUrl(alvo);
+    abortRef.current?.abort(); stopPoll(); stopSlowTimer();
+    setResult(null); setResultLang(null); setError(null); setOwnership(null);
+    slowTimerRef.current = setTimeout(() => setShowSlowToast(true), 30000);
+    setScanLoading(true);
+    await runAsync(alvo);
+  }
+
+  async function runAsync(alvo: string) {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const res = await api.post("/scan/async", null, { params: { url, active, refresh: true, notify: notify && canEmailNotify }, signal: controller.signal });
+      const res = await api.post("/scan/async", null, { params: { url: alvo, active, refresh: true, notify: notify && canEmailNotify }, signal: controller.signal });
       const scanId = res.data.scanId as string;
       pollRef.current = setInterval(async () => {
         try {
           const status: AsyncStatus = (await api.get(`/scan/async/${scanId}`)).data;
-          if (status.state === "DONE") { stopPoll(); stopSlowTimer(); setResult(status.result); setLastScanId(scanId); setOpenModule("issues"); setScanLoading(false); setGuestRefreshKey(k => k + 1); }
+          if (status.state === "DONE") { stopPoll(); stopSlowTimer(); setResult(status.result); setResultLang(lang); setLastScanId(scanId); setOpenModule("issues"); setScanLoading(false); setGuestRefreshKey(k => k + 1); }
           else if (status.state === "ERROR") {
             stopPoll(); stopSlowTimer(); setScanLoading(false);
             const msg = status.errorMessage ?? "";
             const isUnreachable = msg.includes("UnknownHostException") || msg.includes("Name or service not known") || msg.includes("nodename nor servname provided") || msg.includes("No address associated");
-            setError(isUnreachable ? t("scan.erroInacessivel", url) : t("scan.erroProcessar", msg));
+            setError(isUnreachable ? t("scan.erroInacessivel", alvo) : t("scan.erroProcessar", msg));
           }
         } catch { stopPoll(); stopSlowTimer(); setError(t("scan.falhaStatus")); setScanLoading(false); }
       }, 2000);
@@ -6690,6 +6726,21 @@ export default function App() {
                   <div className={styles.dashboardRight}>
 
                     <div className={styles.scanPanelInline}>{searchPanel}</div>
+
+                    {/* O laudo foi gerado em outro idioma: avisa em vez de fingir que
+                        acompanhou a troca, e oferece o único conserto real, que é
+                        refazer o scan. Ver o comentário do LanguagePicker. */}
+                    {resultLang && resultLang !== lang && (
+                      <div className={styles.langMismatch}>
+                        <span>{t("resultado.idiomaAnterior", nomeDoIdioma(resultLang))}</span>
+                        <button
+                          className={styles.backLink}
+                          onClick={() => void iniciarScan(r.finalUrl ?? r.url ?? url)}
+                        >
+                          {t("resultado.refazerNoIdioma", nomeDoIdioma(lang))}
+                        </button>
+                      </div>
+                    )}
 
                     <div className={styles.row}>
                       <Card>

@@ -60,8 +60,10 @@ export function salvarIdioma(lang: Lang) {
  * via `24/08/2026 14:30` no meio de uma tela em inglês. Data e número não são
  * texto — não passam pelo catálogo — mas são o mesmo idioma.
  *
- * Lê `idiomaAtual()` a cada chamada, como o interceptor HTTP faz com o token:
- * trocar o idioma recarrega a página, então não há estado a sincronizar.
+ * Lê `idiomaAtual()` a cada chamada, como o interceptor HTTP faz com o token. A
+ * fonte é o localStorage, que o `setLang` grava ANTES de mexer no estado do React,
+ * então a re-renderização disparada pela troca já formata no idioma novo — sem
+ * precisar receber o idioma por parâmetro em dezenove pontos do App.
  *
  * O locale dos RELATÓRIOS EXPORTÁVEIS não passa por aqui. Eles são monolíngues em
  * inglês por decisão de produto, e a prévia do cabeçalho do PDF no Frontend fixa
@@ -251,6 +253,8 @@ export const pt: Catalogo = {
     "⚠ Modo PRO — PDF e e-mail restritos a domínios verificados na aba {0}",
 
   // ── Cabeçalhos do resultado ───────────────────────────────────────────────
+  "resultado.idiomaAnterior": "Este laudo foi gerado em {0} — os achados mantêm o idioma da geração.",
+  "resultado.refazerNoIdioma": "Refazer o scan em {0} →",
   "resultado.breakdown": "SCORE BREAKDOWN",
   "resultado.distribuicao": "DISTRIBUIÇÃO DE SEVERIDADE",
   "resultado.issuesTotais": "{0} issues totais",
@@ -1294,6 +1298,8 @@ export const en: Catalogo = {
   "scan.avisoEntregaVerificada":
     "⚠ PRO mode — PDF and email limited to domains verified under {0}",
 
+  "resultado.idiomaAnterior": "This report was generated in {0} — the findings keep the language they were generated in.",
+  "resultado.refazerNoIdioma": "Run the scan again in {0} →",
   "resultado.breakdown": "SCORE BREAKDOWN",
   "resultado.distribuicao": "SEVERITY DISTRIBUTION",
   "resultado.issuesTotais": "{0} issues total",

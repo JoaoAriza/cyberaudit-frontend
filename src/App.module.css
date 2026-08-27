@@ -147,6 +147,20 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* Aviso de que o laudo na tela foi gerado em outro idioma. Informativo, não erro:
+   nada quebrou, e o usuário decide se vale refazer o scan. */
+.langMismatch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 24px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
 .scanForm {
   display: flex;
   gap: 12px;
