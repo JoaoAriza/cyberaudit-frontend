@@ -70,6 +70,11 @@ interface ScanResult {
    * afirma nada sobre o idioma, em vez de chutar.
    */
   lang?: string | null;
+  /**
+   * Ids de módulo com alguma verificação não concluída (timeout ou erro).
+   * Vem pronto do Backend — ver ScanCheck.moduloUi(). Ausente em resultado antigo.
+   */
+  degradedModules?: string[];
   /** true p/ guest/FREE: issues vêm sem impacto/correção e o breakdown fica travado. */
   detailsLocked?: boolean;
 }
@@ -880,28 +885,45 @@ function ModuleInfoModal({ moduleKey, onClose }: { moduleKey: string | null; onC
   );
 }
 
+/**
+ * Item da barra lateral.
+ *
+ * `degraded` existe porque o item mostrava ✓ verde e "SECURE" em módulo cuja
+ * verificação nunca concluiu. O selo é calculado a partir dos achados, e "sem
+ * achados" era indistinguível de "não apurado" — então a tela afirmava segurança
+ * sobre o que o scan não chegou a olhar. Num produto de auditoria isso é pior do
+ * que não mostrar nada.
+ *
+ * Quando degradado, o selo e a métrica são SUBSTITUÍDOS, não decorados: o ✓ não
+ * pode continuar na tela ao lado do aviso, senão restam duas afirmações opostas
+ * sobre o mesmo módulo.
+ *
+ * `locked` tem precedência: quem não pode ver o módulo não precisa saber que ele
+ * também ficou incompleto.
+ */
 function SidebarNavItem({
-  icon, title, color, metric, label, locked, active, onClick,
+  icon, title, color, metric, label, locked, degraded, active, onClick,
 }: {
   icon: string; title: string; color: string;
   metric: React.ReactNode; label: string;
-  locked?: boolean; active?: boolean; onClick?: () => void;
+  locked?: boolean; degraded?: boolean; active?: boolean; onClick?: () => void;
 }) {
   const { t } = useI18n();
+  const avisar = !locked && degraded;
   return (
     <button
-      className={`${styles.sidebarNavItem} ${active ? styles.sidebarNavItemActive : ""} ${locked ? styles.sidebarNavItemLocked : ""}`}
-      style={{ "--mc-color": color } as React.CSSProperties}
+      className={`${styles.sidebarNavItem} ${active ? styles.sidebarNavItemActive : ""} ${locked ? styles.sidebarNavItemLocked : ""} ${avisar ? styles.sidebarNavItemDegraded : ""}`}
+      style={{ "--mc-color": avisar ? "var(--warning)" : color } as React.CSSProperties}
       onClick={onClick}
-      title={locked ? t("nav.moduloBloqueado") : undefined}
+      title={locked ? t("nav.moduloBloqueado") : avisar ? t("nav.moduloNaoVerificado") : undefined}
     >
       <span className={styles.sidebarNavAccent} />
       <span className={styles.sidebarNavIcon}>{icon}</span>
       <div className={styles.sidebarNavInfo}>
         <span className={styles.sidebarNavTitle}>{title}</span>
-        <span className={styles.sidebarNavLabel}>{label}</span>
+        <span className={styles.sidebarNavLabel}>{avisar ? t("selo.naoVerificado") : label}</span>
       </div>
-      <span className={styles.sidebarNavMetric}>{locked ? "🔒" : metric}</span>
+      <span className={styles.sidebarNavMetric}>{locked ? "🔒" : avisar ? "⚠" : metric}</span>
     </button>
   );
 }
@@ -6330,6 +6352,14 @@ export default function App() {
   const badgeHost = (r?.finalUrl ?? r?.url ?? "").replace(/^https?:\/\//, "").split("/")[0];
   // Módulo bloqueado p/ este plano (guest/FREE): não é Issues nem um módulo liberado.
   const modGated = (key: string) => !!r?.detailsLocked && key !== "issues" && !FREE_MODULES.includes(key);
+  /**
+   * Módulo com alguma verificação que não concluiu (timeout ou erro).
+   *
+   * A lista vem pronta do Backend, que é quem sabe qual verificação alimenta qual
+   * módulo. Montá-la aqui exigiria uma tabela paralela, e tabela paralela envelhece
+   * em silêncio — foi assim que o cardápio de planos ficou desatualizado.
+   */
+  const modDegradado = (key: string) => !!r?.degradedModules?.includes(key);
   const badgeUrl = `${import.meta.env.VITE_API_URL ?? "http://localhost:8081"}/badge/${badgeHost}?score=${r?.score?.score ?? 0}&risk=${r?.score?.riskLevel ?? "UNKNOWN"}`;
 
   // ── Module card computed values ──────────────────────────────────────────
@@ -6592,6 +6622,7 @@ export default function App() {
                       metric={issueCount === 0 ? "✓" : issueCount}
                       label={issueCount === 0 ? "SECURE" : (r.score?.issues?.[0]?.severity ?? "FOUND")}
                       active={openModule === "issues"}
+                      degraded={modDegradado("issues")}
                       onClick={() => selectModule("issues")}/>
 
                     <div className={styles.sidebarNavGroup}>{t("grupo.httpHeaders")}</div>
@@ -6601,12 +6632,14 @@ export default function App() {
                       label={missingH + weakH === 0 ? "SECURE" : missingH > 2 ? "CRITICAL" : "MEDIUM"}
                       active={openModule === "headers"}
                       locked={modGated("headers")}
+                      degraded={modDegradado("headers")}
                       onClick={() => selectModule("headers")}/>
                     <SidebarNavItem icon="⬟" title="Transport Security"
                       color={tlsColor}
                       metric={r.sslInfo?.valid ? (r.sslInfo.daysRemaining ?? "?") + "d" : "✗"}
                       label={!r.sslInfo?.valid ? t("selo.certInvalido") : r.tlsDetails?.weakProtocol ? t("selo.protocoloFraco") : "SECURE"}
                       active={openModule === "transport"}
+                      degraded={modDegradado("transport")}
                       onClick={() => selectModule("transport")}/>
                     <SidebarNavItem icon="⚙" title="HTTP Methods"
                       color={httpColor}
@@ -6614,6 +6647,7 @@ export default function App() {
                       label={dangerMethods.length === 0 ? "SECURE" : "DANGEROUS"}
                       active={openModule === "http"}
                       locked={modGated("http")}
+                      degraded={modDegradado("http")}
                       onClick={() => selectModule("http")}/>
                     <SidebarNavItem icon="↪" title="Open Redirect"
                       color={redirectColor}
@@ -6621,6 +6655,7 @@ export default function App() {
                       label={redirectVuln.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "redirect"}
                       locked={modGated("redirect")}
+                      degraded={modDegradado("redirect")}
                       onClick={() => selectModule("redirect")}/>
                     <SidebarNavItem icon="◫" title="Directory Listing"
                       color={dirColor}
@@ -6628,6 +6663,7 @@ export default function App() {
                       label={dirExposed.length === 0 ? "SECURE" : "EXPOSED"}
                       active={openModule === "dirlist"}
                       locked={modGated("dirlist")}
+                      degraded={modDegradado("dirlist")}
                       onClick={() => selectModule("dirlist")}/>
 
                     <div className={styles.sidebarNavGroup}>{t("grupo.dns")}</div>
@@ -6639,12 +6675,14 @@ export default function App() {
                         : dns?.emailSpoofingRisk ? `SPOOFING: ${dns.emailSpoofingRisk}` : "UNKNOWN"}
                       active={openModule === "recon"}
                       locked={modGated("recon")}
+                      degraded={modDegradado("recon")}
                       onClick={() => selectModule("recon")}/>
                     <SidebarNavItem icon="◑" title="Cert Transparency"
                       color={certColor}
                       metric={ct ? ct.totalCertificates : "—"}
                       label={!ct ? "N/A" : ct.unexpectedIssuer ? t("selo.issuerAlerta") : ct.wildcardDetected ? "WILDCARD" : "INFO"}
                       active={openModule === "cert"}
+                      degraded={modDegradado("cert")}
                       onClick={() => selectModule("cert")}/>
                     <SidebarNavItem icon="◎" title="Subdomain Takeover"
                       color={takeoverColor}
@@ -6652,6 +6690,7 @@ export default function App() {
                       label={takeoverVuln.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "takeover"}
                       locked={modGated("takeover")}
+                      degraded={modDegradado("takeover")}
                       onClick={() => selectModule("takeover")}/>
 
                     <div className={styles.sidebarNavGroup}>{t("grupo.aplicacao")}</div>
@@ -6660,6 +6699,7 @@ export default function App() {
                       metric={techFirst}
                       label="DETECTED"
                       active={openModule === "tech"}
+                      degraded={modDegradado("tech")}
                       onClick={() => selectModule("tech")}/>
                     <SidebarNavItem icon="☰" title="Cookie Security"
                       color={cookieColor}
@@ -6667,6 +6707,7 @@ export default function App() {
                       label={cookieCount === 0 ? "SECURE" : t("selo.issuesEncontradas")}
                       active={openModule === "cookies"}
                       locked={modGated("cookies")}
+                      degraded={modDegradado("cookies")}
                       onClick={() => selectModule("cookies")}/>
                     <SidebarNavItem icon="◈" title="API Docs"
                       color={apiDocsColor}
@@ -6674,6 +6715,7 @@ export default function App() {
                       label={apiDocsCount === 0 ? "SECURE" : "EXPOSED"}
                       active={openModule === "apidocs"}
                       locked={modGated("apidocs")}
+                      degraded={modDegradado("apidocs")}
                       onClick={() => selectModule("apidocs")}/>
                     <SidebarNavItem icon="◈" title="GraphQL"
                       color={gqlColor}
@@ -6681,6 +6723,7 @@ export default function App() {
                       label={gqlFindings.length === 0 ? "SECURE" : gqlFindings.some(f => f.playgroundExposed) ? "PLAYGROUND" : "INTROSPECTION"}
                       active={openModule === "graphql"}
                       locked={modGated("graphql")}
+                      degraded={modDegradado("graphql")}
                       onClick={() => selectModule("graphql")}/>
                     <SidebarNavItem icon="◈" title="JWT Security"
                       color={jwtColor}
@@ -6688,6 +6731,7 @@ export default function App() {
                       label={jwtFindings.length === 0 ? "SECURE" : jwtFindings.some(f => f.severity === "CRITICAL") ? "CRITICAL" : t("selo.issuesEncontradas")}
                       active={openModule === "jwt"}
                       locked={modGated("jwt")}
+                      degraded={modDegradado("jwt")}
                       onClick={() => selectModule("jwt")}/>
                     <SidebarNavItem icon="◈" title="Path Traversal"
                       color={ptColor}
@@ -6695,6 +6739,7 @@ export default function App() {
                       label={ptFindings.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "traversal"}
                       locked={modGated("traversal")}
+                      degraded={modDegradado("traversal")}
                       onClick={() => selectModule("traversal")}/>
                     <SidebarNavItem icon="◈" title="SSRF"
                       color={ssrfColor}
@@ -6702,6 +6747,7 @@ export default function App() {
                       label={ssrfFindings.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "ssrf"}
                       locked={modGated("ssrf")}
+                      degraded={modDegradado("ssrf")}
                       onClick={() => selectModule("ssrf")}/>
                     <SidebarNavItem icon="◈" title="CRLF Injection"
                       color={crlfColor}
@@ -6709,6 +6755,7 @@ export default function App() {
                       label={crlfFindings.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "crlf"}
                       locked={modGated("crlf")}
+                      degraded={modDegradado("crlf")}
                       onClick={() => selectModule("crlf")}/>
                     <SidebarNavItem icon="◈" title="Source Map/Debug"
                       color={smColor}
@@ -6716,6 +6763,7 @@ export default function App() {
                       label={smFindings.length === 0 ? "SECURE" : smFindings.some(f => f.severity === "HIGH") ? "HIGH" : "MEDIUM"}
                       active={openModule === "sourcemap"}
                       locked={modGated("sourcemap")}
+                      degraded={modDegradado("sourcemap")}
                       onClick={() => selectModule("sourcemap")}/>
                     <SidebarNavItem icon="◈" title="Host Header"
                       color={hhColor}
@@ -6723,6 +6771,7 @@ export default function App() {
                       label={hhFindings.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "hostheader"}
                       locked={modGated("hostheader")}
+                      degraded={modDegradado("hostheader")}
                       onClick={() => selectModule("hostheader")}/>
                     <SidebarNavItem icon="◈" title="CVE Correlation"
                       color={cveColor}
@@ -6730,6 +6779,7 @@ export default function App() {
                       label={cveCount === 0 ? "SECURE" : maxCvss >= 9 ? "CRITICAL" : maxCvss >= 7 ? "HIGH" : maxCvss >= 4 ? "MEDIUM" : "LOW"}
                       active={openModule === "cve"}
                       locked={modGated("cve")}
+                      degraded={modDegradado("cve")}
                       onClick={() => selectModule("cve")}/>
 
                     {/* ── Compliance ── */}
@@ -6746,6 +6796,7 @@ export default function App() {
                         label={r.compliance.riskLevel}
                         active={openModule === "compliance"}
                         locked={modGated("compliance")}
+                        degraded={modDegradado("compliance")}
                         onClick={() => selectModule("compliance")}/>
                     </>)}
 
@@ -6757,6 +6808,7 @@ export default function App() {
                         label={changesColor === "var(--critical)" ? "DEGRADED" : "CHANGED"}
                         active={openModule === "changes"}
                         locked={modGated("changes")}
+                        degraded={modDegradado("changes")}
                         onClick={() => selectModule("changes")}/>
                     </>)}
 
@@ -6767,6 +6819,7 @@ export default function App() {
                       label={!r.activeMode ? "PASSIVE" : r.wafDetectionResult?.detected ? t("selo.wafDetectado") : "ACTIVE"}
                       active={openModule === "active"}
                       locked={modGated("active")}
+                      degraded={modDegradado("active")}
                       onClick={() => selectModule("active")}/>
 
                   </nav>

@@ -2810,6 +2810,17 @@
   opacity: .72;
 }
 
+/* Módulo cuja verificação não concluiu. Não escurece como o bloqueado: aqui o
+   ponto é CHAMAR atenção, não apagar — o item existe e o dado é que falta. */
+.sidebarNavItemDegraded .sidebarNavLabel,
+.sidebarNavItemDegraded .sidebarNavMetric {
+  color: var(--warning);
+}
+.sidebarNavItemDegraded .sidebarNavTitle {
+  text-decoration: underline dotted var(--warning);
+  text-underline-offset: 3px;
+}
+
 .sidebarNavAccent {
   position: absolute;
   left: 0;

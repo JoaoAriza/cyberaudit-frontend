@@ -961,6 +961,7 @@ export const pt: Catalogo = {
   "toast.wafDesc": "Probes ativos + 21 portas (modo ACTIVE)",
 
   "nav.moduloBloqueado": "Módulo bloqueado — disponível nos planos pagos",
+  "nav.moduloNaoVerificado": "Verificação não concluída — a ausência de achados aqui NÃO significa ausência de risco",
 
   "col.porta": "PORTA",
   "agenda.detalhe.semPortasAbertas": "Nenhuma porta aberta detectada",
@@ -1325,7 +1326,7 @@ export const en: Catalogo = {
 
   "selo.certInvalido": "INVALID CERT",
   "selo.protocoloFraco": "WEAK PROTOCOL",
-  "selo.naoVerificado": "UNVERIFIED",
+  "selo.naoVerificado": "NOT VERIFIED",
   "selo.issuerAlerta": "ISSUER ALERT",
   "selo.issuesEncontradas": "ISSUES FOUND",
   "selo.wafDetectado": "WAF DETECTED",
@@ -1973,6 +1974,7 @@ export const en: Catalogo = {
   "toast.wafDesc": "Active probes + 21 ports (ACTIVE mode)",
 
   "nav.moduloBloqueado": "Module locked — available on paid plans",
+  "nav.moduloNaoVerificado": "Check did not complete — no findings here does NOT mean no risk",
 
   "col.porta": "PORT",
   "agenda.detalhe.semPortasAbertas": "No open port detected",
