@@ -260,13 +260,13 @@ function IssueItem({ issue, onContest, locked, onUpgrade }: { issue: SecurityIss
               </span>
               {onUpgrade && (
                 <button className={`${styles.btn} ${styles.btnScan} ${styles.btnSm}`} onClick={onUpgrade}>
-                  Ver planos →
+                  {t("bloqueio.verPlanos")}
                 </button>
               )}
             </div>
           ) : (
           <>
-          <div><span className={styles.label}>IMPACTO</span> {issue.impact}</div>
+          <div><span className={styles.label}>{t("achado.impacto")}</span> {issue.impact}</div>
           <div>
             <span className={styles.label}>{t("achado.correcao")}</span> {fixText}
             {refUrl && cveId && (
@@ -551,7 +551,7 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
               <div style={{ color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>{t("feedback.enviado")}</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{t("feedback.obrigado")}</div>
               <button className={`${styles.btn} ${styles.btnGhost}`} style={{ marginTop: 16 }} onClick={() => setSent(false)}>
-                Enviar outro
+                {t("feedback.enviarOutro")}
               </button>
             </div>
           ) : (
@@ -662,7 +662,7 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
           disabled={saving}
           onClick={async () => { setSaving(true); try { await onReply(f.id, resp, status); } finally { setSaving(false); } }}
         >
-          {saving ? t("comum.salvando") : "Salvar"}
+          {saving ? t("comum.salvando") : t("comum.salvar")}
         </button>
         {!confirmandoExclusao && (
           <button
@@ -670,7 +670,7 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
             style={{ marginLeft: "auto", color: "var(--critical)", borderColor: "var(--critical)" }}
             onClick={() => { setConfirmandoExclusao(true); setErroExclusao(null); }}
           >
-            Excluir
+            {t("comum.excluir")}
           </button>
         )}
       </div>
@@ -712,7 +712,7 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
               disabled={excluindo}
               onClick={() => { setConfirmandoExclusao(false); setMotivo(""); setErroExclusao(null); }}
             >
-              Cancelar
+              {t("comum.cancelar")}
             </button>
           </div>
         </div>
@@ -945,7 +945,7 @@ function GuestBanner({ onLogin, refreshKey }: { onLogin: () => void; refreshKey:
           <div className={styles.guestBannerTitle}>
             {status.remaining === 0 ? t("visitante.limiteAtingido") : t("visitante.scansRestantes", status.remaining)}
           </div>
-          <div className={styles.guestBannerSub}>{status.used}/{status.dailyLimit} utilizados · reseta meia-noite</div>
+          <div className={styles.guestBannerSub}>{t("visitante.utilizados", status.used, status.dailyLimit)}</div>
           <div className={styles.guestProgress}>
             <div className={styles.guestProgressFill} style={{ width: `${pct}%`, background: critical ? "var(--critical)" : "var(--accent)" }} />
           </div>
@@ -981,7 +981,7 @@ function OwnershipCard({ state, onDismiss }: { state: OwnershipState; onDismiss:
         <div className={styles.ownershipStep}><span className={styles.stepNum}>2</span><div><div className={styles.stepTitle}>{t("posse.conteudoArquivo")}</div><div className={styles.tokenRow}><code className={styles.stepCode}>{state.token ?? "—"}</code><button className={styles.copyBtn} onClick={copy}>{copied ? t("posse.copiado") : "Copiar"}</button></div></div></div>
         <div className={styles.ownershipStep}><span className={styles.stepNum}>3</span><div><div className={styles.stepTitle}>{t("posse.confirme")}</div><div className={styles.tokenRow}><button className={styles.verifyBtn} onClick={check} disabled={checking}>{checking ? t("posse.verificando") : t("posse.checarAgora")}</button>{verified ? <span className={styles.ok}>{t("posse.verificado")}</span> : <span className={styles.bad}>{t("posse.naoEncontrado")}</span>}</div></div></div>
       </div>
-      <button className={styles.dismissBtn} onClick={onDismiss}>Fechar</button>
+      <button className={styles.dismissBtn} onClick={onDismiss}>{t("comum.fechar")}</button>
     </div>
   );
 }
@@ -1928,7 +1928,7 @@ function SetupPage() {
               <>
                 <div className={styles.formGroup}><label className={styles.formLabel}>{t("setup.nomeEmpresa")}</label><input className={styles.formInput} value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder={t("setup.phNomeEmpresa")} required /></div>
                 <div className={styles.formGroup}><label className={styles.formLabel}>{t("setup.cnpj")}</label><input className={styles.formInput} value={cnpj} onChange={e => setCnpj(formatCnpj(e.target.value))} placeholder="XX.XXX.XXX/XXXX-XX" maxLength={18} required /></div>
-                <div className={styles.formGroup}><label className={styles.formLabel}>{t("setup.dominioPrincipal")}</label><input className={styles.formInput} value={companyDomain} onChange={e => setCompanyDomain(e.target.value)} placeholder="empresa.com.br" /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>{t("setup.dominioPrincipal")}</label><input className={styles.formInput} value={companyDomain} onChange={e => setCompanyDomain(e.target.value)} placeholder={t("setup.phDominioPrincipal")} /></div>
                 <div className={styles.formGroup}>
                   <label className={styles.formLabel}>{t("setup.tamanhoEmpresa")}</label>
                   <select className={styles.formInput} value={companySize} onChange={e => setCompanySize(e.target.value)}>
@@ -2052,7 +2052,7 @@ function InviteItemRow({ inv, onRevoke, roleBadge }: { inv: InviteDto; onRevoke:
         <div className={styles.inviteItemLeft}>
           <div className={styles.inviteItemName}>{inv.name}</div>
           <code className={styles.code}>{inv.email}</code>
-          <div className={styles.inviteItemMeta}>{roleBadge(inv.role)}<span className={styles.muted}>· expira {formatarData(inv.expiresAt)}</span></div>
+          <div className={styles.inviteItemMeta}>{roleBadge(inv.role)}<span className={styles.muted}>{t("convite.expira", formatarData(inv.expiresAt))}</span></div>
         </div>
         <div className={styles.actionBtns} onClick={e => e.stopPropagation()}>
           <span className={`${styles.chevron} ${expanded ? styles.chevronOpen : ""}`} style={{ fontSize: 20, color: "var(--text-dim)", cursor: "pointer", padding: "0 6px" }} onClick={() => setExpanded(o => !o)}>›</span>
@@ -2384,7 +2384,7 @@ function SchedulesPage() {
                   <td>{s.notifyEmail ? <span className={styles.ok}>✓</span> : <span className={styles.muted}>—</span>}</td>
                   <td>
                     {s.enabled
-                      ? <span className={styles.ok}>Ativo</span>
+                      ? <span className={styles.ok}>{t("comum.ativo")}</span>
                       : <span className={styles.muted}>{t("agenda.pausado")}</span>}
                   </td>
                   <td>
@@ -2393,7 +2393,7 @@ function SchedulesPage() {
                         {s.enabled ? "Pausar" : "Retomar"}
                       </button>
                       <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => remove(s.id)}>
-                        Remover
+                        {t("comum.remover")}
                       </button>
                     </div>
                   </td>
@@ -2594,7 +2594,7 @@ function AuditLogsTab() {
           </button>
           {hasFilter && (
             <button className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`} onClick={clearFilter}>
-              Limpar
+              {t("comum.limpar")}
             </button>
           )}
         </div>
@@ -2609,7 +2609,7 @@ function AuditLogsTab() {
               <table className={styles.adminTable}>
                 <thead>
                   <tr>
-                    <th>Data/Hora</th>
+                    <th>{t("auditoria.colDataHora")}</th>
                     <th>{t("auditoria.usuario")}</th>
                     <th>{t("auditoria.acao")}</th>
                     <th>Detalhes</th>
@@ -2714,10 +2714,10 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
 
   async function loadUsers() { setLoading(true); try { setUsers((await api.get<UserManagementDto[]>("/admin/users")).data); } catch {} finally { setLoading(false); } }
   async function loadInvites() { try { setInvites((await api.get<InviteDto[]>("/admin/invites")).data); } catch {} }
-  async function deactivate(id: string) { if (!confirm(t("admin.confirmaDesativar"))) return; try { await api.delete(`/admin/users/${id}`); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
-  async function reactivate(id: string) { try { await api.put(`/admin/users/${id}/reactivate`); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
-  async function changeRole(id: string, role: string) { try { await api.put(`/admin/users/${id}/role`, { role }); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
-  async function revokeInvite(id: string) { if (!confirm(t("admin.confirmaRevogar"))) return; try { await api.delete(`/admin/invites/${id}`); loadInvites(); } catch (e: any) { alert(e?.response?.data?.message ?? "Erro"); } }
+  async function deactivate(id: string) { if (!confirm(t("admin.confirmaDesativar"))) return; try { await api.delete(`/admin/users/${id}`); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? t("admin.erro")); } }
+  async function reactivate(id: string) { try { await api.put(`/admin/users/${id}/reactivate`); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? t("admin.erro")); } }
+  async function changeRole(id: string, role: string) { try { await api.put(`/admin/users/${id}/role`, { role }); loadUsers(); } catch (e: any) { alert(e?.response?.data?.message ?? t("admin.erro")); } }
+  async function revokeInvite(id: string) { if (!confirm(t("admin.confirmaRevogar"))) return; try { await api.delete(`/admin/invites/${id}`); loadInvites(); } catch (e: any) { alert(e?.response?.data?.message ?? t("admin.erro")); } }
   async function sendInvite(e: React.FormEvent) {
     e.preventDefault(); setInviting(true); setInvError(null); setNewInvite(null);
     try { const r = await api.post<InviteDto>("/admin/invite", { name: invName, email: invEmail, role: invRole, jobTitle: invJob || null }); setNewInvite(r.data); setInvName(""); setInvEmail(""); setInvJob(""); loadInvites(); }
@@ -2863,7 +2863,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
         {(isCompany || user?.role === "OWNER" || user?.role === "ADMIN") && (
           <div className={styles.adminTabs}>
             {isCompany && user?.role === "OWNER" && (<button className={`${styles.adminTab} ${tab === "users" ? styles.adminTabActive : ""}`} onClick={() => setTab("users")}>{t("admin.abaUsuarios", users.length)}</button>)}
-            {isCompany && (<button className={`${styles.adminTab} ${tab === "invites" ? styles.adminTabActive : ""}`} onClick={() => setTab("invites")}>Convites ({invites.length})</button>)}
+            {isCompany && (<button className={`${styles.adminTab} ${tab === "invites" ? styles.adminTabActive : ""}`} onClick={() => setTab("invites")}>{t("admin.abaConvites", invites.length)}</button>)}
             {(user?.role === "OWNER" || user?.role === "ADMIN") && (<button className={`${styles.adminTab} ${tab === "audit" ? styles.adminTabActive : ""}`} onClick={() => setTab("audit")}>{t("admin.abaAuditoria")}{canReports ? "" : " 🔒"}</button>)}
             {isStaff && (<button className={`${styles.adminTab} ${tab === "feedback" ? styles.adminTabActive : ""}`} onClick={() => setTab("feedback")}>Feedback</button>)}
           </div>
@@ -2874,16 +2874,16 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
           <Card title={t("admin.usuarios")}>
             {loading ? <div className={styles.empty}>{t("app.carregando")}</div> : (
               <table className={styles.adminTable}>
-                <thead><tr><th>Nome</th><th>Email</th><th>Role</th><th>Status</th><th>{t("admin.convidadoPor")}</th><th>{t("admin.acoes")}</th></tr></thead>
+                <thead><tr><th>{t("comum.nome")}</th><th>Email</th><th>{t("comum.role")}</th><th>{t("comum.status")}</th><th>{t("admin.convidadoPor")}</th><th>{t("admin.acoes")}</th></tr></thead>
                 <tbody>
                   {users.map(u => (
                     <tr key={u.id} className={!u.active ? styles.inactiveRow : ""}>
                       <td>{u.name}{u.jobTitle && <span className={styles.jobTitle}> · {u.jobTitle}</span>}</td>
                       <td><code className={styles.code}>{u.email}</code></td>
                       <td>{roleBadge(u.role)}</td>
-                      <td><span className={u.active ? styles.ok : styles.bad}>{u.active ? "Ativo" : "Inativo"}</span></td>
+                      <td><span className={u.active ? styles.ok : styles.bad}>{u.active ? t("comum.ativo") : t("comum.inativo")}</span></td>
                       <td className={styles.muted}>{u.invitedByName}</td>
-                      <td>{u.role !== "OWNER" && (<div className={styles.actionBtns}>{u.active ? <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => deactivate(u.id)}>Desativar</button> : <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => reactivate(u.id)}>Reativar</button>}<select className={styles.roleSelect} value={u.role} onChange={e => changeRole(u.id, e.target.value)}><option value="ADMIN">ADMIN</option><option value="FREE_EMPLOYEE">EMPLOYEE</option></select></div>)}</td>
+                      <td>{u.role !== "OWNER" && (<div className={styles.actionBtns}>{u.active ? <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => deactivate(u.id)}>{t("admin.desativar")}</button> : <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => reactivate(u.id)}>{t("admin.reativar")}</button>}<select className={styles.roleSelect} value={u.role} onChange={e => changeRole(u.id, e.target.value)}><option value="ADMIN">ADMIN</option><option value="FREE_EMPLOYEE">EMPLOYEE</option></select></div>)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2899,7 +2899,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
               <form className={styles.inviteForm} onSubmit={sendInvite}>
                 <div className={styles.formGroup}><label className={styles.formLabel}>{t("admin.nome")}</label><input className={styles.formInput} value={invName} onChange={e => setInvName(e.target.value)} placeholder={t("admin.phNome")} required /></div>
                 <div className={styles.formGroup}><label className={styles.formLabel}>{t("login.emailObrig")}</label><input className={styles.formInput} type="email" value={invEmail} onChange={e => setInvEmail(e.target.value)} placeholder={t("admin.phEmailEmpresa")} required /></div>
-                <div className={styles.formGroup}><label className={styles.formLabel}>CARGO</label><input className={styles.formInput} value={invJob} onChange={e => setInvJob(e.target.value)} placeholder={t("admin.phCargo")} /></div>
+                <div className={styles.formGroup}><label className={styles.formLabel}>{t("admin.cargo")}</label><input className={styles.formInput} value={invJob} onChange={e => setInvJob(e.target.value)} placeholder={t("admin.phCargo")} /></div>
                 <div className={styles.formGroup}>
                   <label className={styles.formLabel}>{t("admin.nivelAcesso")}</label>
                   <div className={styles.roleOptions}>
@@ -2973,7 +2973,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
                     {statusLoading ? "..." : t("admin.regenerarToken")}
                   </button>
                   <button className={`${styles.btn} ${styles.btnDanger} ${styles.btnSm}`} onClick={() => toggleStatusPage(false)} disabled={statusLoading}>
-                    {statusLoading ? "..." : "Desativar"}
+                    {statusLoading ? "..." : t("admin.desativar")}
                   </button>
                 </div>
               </div>
@@ -3027,7 +3027,7 @@ function ScanTimelineRow({
               {formatarDataHora(s.scannedAt, { dateStyle: "short", timeStyle: "short" })}
               {isFirst && <span className={styles.changesLatestBadge}>{t("changes.maisRecente")}</span>}
               {s.activeMode && <span className={`${styles.tag} ${styles.info}`} style={{ fontSize: 9 }}>ACTIVE</span>}
-              {s.origin === "SCHEDULED" && <span className={`${styles.tag} ${styles.warning}`} style={{ fontSize: 9 }}>AGENDADO</span>}
+              {s.origin === "SCHEDULED" && <span className={`${styles.tag} ${styles.warning}`} style={{ fontSize: 9 }}>{t("selo.agendado")}</span>}
             </span>
             <div className={styles.changesScanBadges}>
               <span className={`${styles.tag} ${riskBadgeStyle(s.riskLevel)}`}>{s.riskLevel}</span>
@@ -3041,7 +3041,7 @@ function ScanTimelineRow({
           </div>
         </div>
         <div className={styles.changesScanRight}>
-          {detail?.loading && <span className={styles.muted} style={{ fontSize: 11 }}>carregando...</span>}
+          {detail?.loading && <span className={styles.muted} style={{ fontSize: 11 }}>{t("comum.carregandoMinusculo")}</span>}
           <span className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ""}`}>›</span>
         </div>
       </div>
@@ -3061,7 +3061,7 @@ function ScanTimelineRow({
                 <tr>
                   <th>Tipo</th>
                   <th>Categoria</th>
-                  <th>Campo</th>
+                  <th>{t("changes.colCampo")}</th>
                   <th>{t("changes.severidade")}</th>
                   <th>Antes</th>
                   <th>Depois</th>
@@ -3341,7 +3341,7 @@ function ChangesPage() {
               placeholder={t("scan.placeholder")}
             />
             <button className={`${styles.btn} ${styles.btnScan}`} type="submit" disabled={domainLoading || !searchHost.trim()}>
-              {domainLoading ? "..." : "Buscar"}
+              {domainLoading ? "..." : t("comum.buscar")}
             </button>
           </form>
 
@@ -3440,7 +3440,7 @@ function ChangesPage() {
               type="submit"
               disabled={!analysisSearch.trim()}
             >
-              Buscar
+              {t("comum.buscar")}
             </button>
           </form>
 
@@ -3781,7 +3781,7 @@ function DomainsPage() {
                     </button>
                   )}
                   <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => remove(d.id, d.host)}>
-                    Remover
+                    {t("comum.remover")}
                   </button>
                 </div>
               </div>
@@ -3802,7 +3802,7 @@ function DomainsPage() {
                       <div className={styles.tokenRow}>
                         <code className={styles.stepCode}>{d.verificationToken}</code>
                         <button className={styles.copyBtn} onClick={() => copyToken(d.verificationToken, d.id)}>
-                          {copied === d.id ? t("posse.copiado") : "Copiar"}
+                          {copied === d.id ? t("posse.copiado") : t("comum.copiar")}
                         </button>
                       </div>
                     </div>
@@ -3861,7 +3861,7 @@ function DomainsPage() {
                                 }}
                                 title={t("dominio.copiarScanner")}
                               >
-                                Copiar
+                                {t("comum.copiar")}
                               </button>
                             )}
                           </td>
@@ -3949,7 +3949,7 @@ function IntradayChart({ host }: { host: string }) {
 
       {!loading && points.length === 0 && (
         <div className={styles.empty} style={{ fontSize: 12, padding: "10px 0" }}>
-          ◈ Nenhum scan registrado neste dia.
+          {t("changes.semScanNoDia")}
         </div>
       )}
 
@@ -4140,7 +4140,7 @@ function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, 
               <div style={{ marginTop: 10, borderTop: "1px solid var(--border2)", paddingTop: 8 }} onClick={e => e.stopPropagation()}>
                 {isOk ? (
                   <p style={{ fontSize: 11, color: "var(--secure)", margin: "0 0 6px", fontFamily: "var(--mono)" }}>
-                    ✓ Header presente e configurado corretamente.
+                    {t("card.header.presenteOk")}
                   </p>
                 ) : (
                   <p style={{ fontSize: 11, color: "var(--text-dim)", margin: "0 0 8px", lineHeight: 1.5 }}>
@@ -4441,14 +4441,14 @@ function DnsCardsPanel({ r }: { r: any }) {
   const cards = [
     {
       key: "spf", title: "SPF", present: dns?.spfPresent, warn: false, dependeDeDns: true,
-      value: semDns(dns?.spfPresent ? dns.spfPolicy : "AUSENTE"),
+      value: semDns(dns?.spfPresent ? dns.spfPolicy : t("selo.ausente")),
       desc: t("card.dns.spfDesc"),
       record: dns?.spfRecord,
       tip: t("card.dns.spfDica"),
     },
     {
       key: "dmarc", title: "DMARC", present: dns?.dmarcPresent, warn: false, dependeDeDns: true,
-      value: semDns(dns?.dmarcPresent ? `p=${dns.dmarcPolicy?.toLowerCase()}` : "AUSENTE"),
+      value: semDns(dns?.dmarcPresent ? `p=${dns.dmarcPolicy?.toLowerCase()}` : t("selo.ausente")),
       desc: t("card.dns.dmarcDesc"),
       record: dns?.dmarcRecord,
       tip: t("card.dns.dmarcDica"),
@@ -4462,7 +4462,7 @@ function DnsCardsPanel({ r }: { r: any }) {
     },
     {
       key: "caa", title: t("card.dns.caa"), present: dns?.caaPresent, warn: true, dependeDeDns: true,
-      value: semDns(dns?.caaPresent ? t("card.dns.configurado") : "AUSENTE"),
+      value: semDns(dns?.caaPresent ? t("card.dns.configurado") : t("selo.ausente")),
       desc: t("card.dns.caaDesc"),
       record: dns?.caaRecord,
       tip: t("card.dns.caaDica"),
@@ -4476,7 +4476,7 @@ function DnsCardsPanel({ r }: { r: any }) {
     },
     {
       key: "sectxt", title: t("card.dns.securityTxt"), present: r?.securityTxtPresent, warn: true,
-      value: r?.securityTxtPresent ? (r.securityTxtContact || "Presente") : "AUSENTE",
+      value: r?.securityTxtPresent ? (r.securityTxtContact || t("card.dns.presente")) : t("selo.ausente"),
       desc: t("card.dns.securityTxtDesc"),
       record: r?.securityTxtContact ? `Contact: ${r.securityTxtContact}` : null,
       tip: t("card.dns.securityTxtDica"),
@@ -4544,7 +4544,7 @@ function DnsCardsPanel({ r }: { r: any }) {
             )}
             {c.record && (
               <div style={{ marginBottom: 8 }}>
-                <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", display: "block", marginBottom: 3 }}>REGISTRO</span>
+                <span style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "var(--mono)", display: "block", marginBottom: 3 }}>{t("card.dns.registro")}</span>
                 <code style={{ fontSize: 10, color: "var(--accent)", fontFamily: "var(--mono)", wordBreak: "break-all", display: "block", background: "var(--bg)", padding: "4px 6px", borderRadius: 3 }}>
                   {c.record}
                 </code>
@@ -4849,7 +4849,7 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
             fontFamily: "var(--mono)", fontSize: 12, fontWeight: 700,
             cursor: "pointer", letterSpacing: ".5px",
           }}>
-            VER PLANOS →
+            {t("bloqueio.verPlanosMaiusculo")}
           </button>
         </div>
       </div>
@@ -4916,12 +4916,12 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
               <div>
                 <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)", fontWeight: 700 }}>{t("ativo.wafDetectado")}</div>
                 <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: wafColor, marginTop: 2 }}>
-                  {waf?.detected ? (waf.provider ?? "Sim") : t("ativo.naoConfirmado")}
+                  {waf?.detected ? (waf.provider ?? t("comum.sim")) : t("ativo.naoConfirmado")}
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 14, color: wafColor }}>{waf?.detected ? "✓" : "○"}</div>
-                <div style={{ fontSize: 9, color: wafColor, fontFamily: "var(--mono)", fontWeight: 700 }}>{waf?.detected ? "ATIVO" : "NONE"}</div>
+                <div style={{ fontSize: 9, color: wafColor, fontFamily: "var(--mono)", fontWeight: 700 }}>{waf?.detected ? t("selo.ativo") : t("selo.nenhum")}</div>
               </div>
             </div>
           }
@@ -5166,7 +5166,7 @@ function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFil
               style={{ fontSize: 11, padding: "3px 10px" }}
               onClick={() => { setFromDate(""); setToDate(""); }}
             >
-              Limpar
+              {t("comum.limpar")}
             </button>
           )}
         </div>}
@@ -5364,12 +5364,12 @@ function SettingsPage() {
             <div className={styles.settingsCardTitle}>{t("config.totp")} <span className={styles.settingsBadge2fa}>{t("config.totpApp")}</span></div>
             <div className={styles.settingsCardSub}>{t("config.totpDesc")}</div>
           </div>
-          <span className={totpEnabled ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{totpEnabled ? "ATIVO" : "INATIVO"}</span>
+          <span className={totpEnabled ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{totpEnabled ? t("selo.ativo") : t("selo.inativo")}</span>
         </div>
 
         {!totpEnabled && !totpSetup && (
           <button className={`${styles.btn} ${styles.btnScan}`} disabled={busy} onClick={startTotp}>
-            Ativar TOTP
+            {t("config.ativarTotp")}
           </button>
         )}
 
@@ -5393,7 +5393,7 @@ function SettingsPage() {
                 Confirmar
               </button>
               <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => { setTotpSetup(null); setTotpConfirmCode(""); }}>
-                Cancelar
+                {t("comum.cancelar")}
               </button>
             </div>
           </div>
@@ -5401,7 +5401,7 @@ function SettingsPage() {
 
         {totpEnabled && (
           <button className={`${styles.btn} ${styles.btnDanger}`} disabled={busy} onClick={disableTotp}>
-            Desativar TOTP
+            {t("config.desativarTotp")}
           </button>
         )}
       </div>
@@ -5413,7 +5413,7 @@ function SettingsPage() {
             <div className={styles.settingsCardTitle}>{t("config.emailOtp")}</div>
             <div className={styles.settingsCardSub}>{t("config.otpEnviadoPara", user?.email)}</div>
           </div>
-          <span className={emailEnabled ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{emailEnabled ? "ATIVO" : "INATIVO"}</span>
+          <span className={emailEnabled ? styles.tf2faBadgeOn : styles.tf2faBadgeOff}>{emailEnabled ? t("selo.ativo") : t("selo.inativo")}</span>
         </div>
         <button
           className={`${styles.btn} ${emailEnabled ? styles.btnDanger : styles.btnScan}`}
@@ -5465,13 +5465,13 @@ function SettingsPage() {
                 const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: "application/json" });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement("a");
-                a.href = url; a.download = "cyberaudit-meus-dados.json";
+                a.href = url; a.download = t("config.arquivoDados");
                 document.body.appendChild(a); a.click(); a.remove();
                 window.URL.revokeObjectURL(url);
               } catch { flash(t("config.erroExportar"), true); }
               finally { setBusy(false); }
             }}>
-            ↓ Exportar JSON
+            {t("config.exportarJson")}
           </button>
         </div>
 
@@ -5599,7 +5599,7 @@ function ApiKeysSection() {
             </code>
             <button className={`${styles.btn} ${styles.btnScan}`} style={{ fontSize: 11, whiteSpace: "nowrap" }}
               onClick={() => copyKey(newKey.plainKey!)}>
-              {copied ? t("posse.copiado") : "Copiar"}
+              {copied ? t("posse.copiado") : t("comum.copiar")}
             </button>
           </div>
           <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--text-muted)", marginTop: 8 }}>
@@ -5635,7 +5635,7 @@ function ApiKeysSection() {
       ) : (
         <table className={styles.table} style={{ width: "100%" }}>
           <thead>
-            <tr><th>Nome</th><th>Prefixo</th><th>Criada</th><th>{t("apikey.ultimoUso")}</th><th>Status</th><th></th></tr>
+            <tr><th>{t("comum.nome")}</th><th>{t("apikey.colPrefixo")}</th><th>{t("apikey.colCriada")}</th><th>{t("apikey.ultimoUso")}</th><th>{t("comum.status")}</th><th></th></tr>
           </thead>
           <tbody>
             {keys.map(k => (
@@ -5649,7 +5649,7 @@ function ApiKeysSection() {
                     fontFamily: "var(--mono)", fontSize: 9, fontWeight: 700,
                     color: k.active ? "var(--secure)" : "var(--text-muted)"
                   }}>
-                    {k.active ? "ATIVA" : "REVOGADA"}
+                    {k.active ? t("selo.ativa") : t("selo.revogada")}
                   </span>
                 </td>
                 <td>
@@ -5745,7 +5745,7 @@ function BrandingSection() {
     <div className={styles.settingsCard}>
       <div className={styles.settingsCardHeader}>
         <span>{t("marca.titulo")}</span>
-        <span className={styles.badge} style={{ background: "var(--accent)", color: "#000" }}>EMPRESA</span>
+        <span className={styles.badge} style={{ background: "var(--accent)", color: "#000" }}>{t("selo.empresa")}</span>
       </div>
       <p className={styles.settingsCardDesc}>
         {t("marca.desc")}
@@ -5785,7 +5785,7 @@ function BrandingSection() {
                 <button type="button" className={`${styles.btn}`}
                   style={{ fontSize: 10, padding: "4px 10px", color: "var(--danger)" }}
                   onClick={() => setLogo(null)}>
-                  Remover
+                  {t("comum.remover")}
                 </button>
               )}
             </div>
@@ -5875,7 +5875,7 @@ function BrandingSection() {
 
           {!canBranding && (
             <div className={styles.muted} style={{ fontSize: 10 }}>
-              Somente OWNER e ADMIN podem alterar o branding.
+              {t("marca.somenteOwnerAdmin")}
             </div>
           )}
 
@@ -5917,7 +5917,7 @@ function DeleteAccountButton({ onDelete }: { onDelete: () => void }) {
   if (!confirming) {
     return (
       <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => setConfirming(true)}>
-        Excluir conta
+        {t("config.excluirConta")}
       </button>
     );
   }
@@ -5931,7 +5931,7 @@ function DeleteAccountButton({ onDelete }: { onDelete: () => void }) {
           {busy ? t("config.excluindo") : t("config.simExcluir")}
         </button>
         <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => { setConfirming(false); setErr(null); }}>
-          Cancelar
+          {t("comum.cancelar")}
         </button>
       </div>
     </div>
@@ -6564,7 +6564,7 @@ export default function App() {
               <button className={`${styles.btn} ${styles.btnGhost}`} onClick={logout}>{t("nav.sair")}</button>
             </div>
           ) : (
-            <button className={`${styles.btn} ${styles.btnScan}`} onClick={() => setView("login")}>Login</button>
+            <button className={`${styles.btn} ${styles.btnScan}`} onClick={() => setView("login")}>{t("login.entrar")}</button>
           )}
         </div>
       </header>
@@ -7031,7 +7031,7 @@ export default function App() {
                           items={(r.dangerousHttpMethods ?? []).map((m: any, i: number) => ({
                             id: `${m.method}-${i}`, title: m.method, subtitle: `HTTP ${m.statusCode}`,
                             severity: m.severity, summary: m.risk,
-                            details: [{ label: "STATUS", value: `HTTP ${m.statusCode}` }, { label: "RISCO", value: m.risk }],
+                            details: [{ label: "STATUS", value: `HTTP ${m.statusCode}` }, { label: t("col.risco"), value: m.risk }],
                           }))}
                         />
                       </>
