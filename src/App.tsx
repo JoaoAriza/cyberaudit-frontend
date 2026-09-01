@@ -92,7 +92,8 @@ interface ScanProgressStep {
   module: string;
   label: string;
   phase: "PASSIVA" | "ATIVA";
-  state: "PENDENTE" | "RODANDO" | "OK" | "FALHOU" | "PULADO";
+  /** BLOQUEADO só chega para guest/FREE: sonda ativa que o plano deles não roda. */
+  state: "PENDENTE" | "RODANDO" | "OK" | "FALHOU" | "PULADO" | "BLOQUEADO";
 }
 interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; progress?: ScanProgressStep[]; }
 interface ScheduledScanDto {
@@ -812,22 +813,30 @@ function SlowScanToast({ visible }: { visible: boolean }) {
  * desfazer.
  */
 const ICONE_ETAPA: Record<ScanProgressStep["state"], string> = {
-  PENDENTE: "○",
-  RODANDO:  "◐",
-  OK:       "✓",
-  FALHOU:   "✕",
-  PULADO:   "⊘",
+  PENDENTE:  "○",
+  RODANDO:   "◐",
+  OK:        "✓",
+  FALHOU:    "✕",
+  PULADO:    "⊘",
+  BLOQUEADO: "🔒",
 };
 
-function ScanProgressFeed({ etapas }: { etapas: ScanProgressStep[] }) {
+function ScanProgressFeed({ etapas, onUpgrade }: {
+  etapas: ScanProgressStep[];
+  onUpgrade: () => void;
+}) {
   const { t } = useI18n();
 
   if (etapas.length === 0)
     return <div className={styles.progressFeedWaiting}>{t("progresso.aguardando")}</div>;
 
+  // As bloqueadas ficam fora da conta inteira — numerador e denominador. Não são
+  // trabalho que este scan tem a fazer, e somá-las ao total deixaria o contador
+  // parado em "15 de 25" no fim de um scan que rodou tudo o que tinha para rodar.
+  const doScan     = etapas.filter(e => e.state !== "BLOQUEADO");
   // "Concluída" inclui pulada e falhada: são verificações que não vão mais mudar.
   // Contar só as OK faria o contador travar num scan que na verdade terminou.
-  const encerradas = etapas.filter(e => e.state !== "PENDENTE" && e.state !== "RODANDO").length;
+  const encerradas = doScan.filter(e => e.state !== "PENDENTE" && e.state !== "RODANDO").length;
   const fases: ScanProgressStep["phase"][] = ["PASSIVA", "ATIVA"];
 
   return (
@@ -835,13 +844,13 @@ function ScanProgressFeed({ etapas }: { etapas: ScanProgressStep[] }) {
       <div className={styles.progressFeedHead}>
         <span className={styles.progressFeedTitle}>{t("progresso.titulo")}</span>
         <span className={styles.progressFeedCount}>
-          {t("progresso.concluidas", encerradas, etapas.length)}
+          {t("progresso.concluidas", encerradas, doScan.length)}
         </span>
       </div>
       <div className={styles.progressFeedTrack}>
         <div
           className={styles.progressFeedTrackFill}
-          style={{ width: `${Math.round((encerradas / etapas.length) * 100)}%` }}
+          style={{ width: `${Math.round((encerradas / Math.max(doScan.length, 1)) * 100)}%` }}
         />
       </div>
 
@@ -849,9 +858,24 @@ function ScanProgressFeed({ etapas }: { etapas: ScanProgressStep[] }) {
         {fases.map(fase => {
           const daFase = etapas.filter(e => e.phase === fase);
           if (daFase.length === 0) return null;
+          // Grupo inteiro bloqueado ganha o rótulo do plano no título, e não uma
+          // etiqueta por linha — dez vezes "requer PRO" empilhadas é anúncio, não
+          // informação.
+          const grupoBloqueado = daFase.every(e => e.state === "BLOQUEADO");
           return (
             <div key={fase} className={styles.progressFeedPhase}>
-              <div className={styles.progressFeedPhaseName}>{t(`progresso.fase${fase}`)}</div>
+              {grupoBloqueado ? (
+                <button
+                  type="button"
+                  className={`${styles.progressFeedPhaseName} ${styles.progressFeedPhaseLocked}`}
+                  onClick={onUpgrade}
+                >
+                  {t(`progresso.fase${fase}`)}{" "}
+                  <span className={styles.progressFeedPhaseTag}>{t("progresso.faseRequerPlano")}</span>
+                </button>
+              ) : (
+                <div className={styles.progressFeedPhaseName}>{t(`progresso.fase${fase}`)}</div>
+              )}
               {daFase.map(etapa => (
                 <div
                   key={etapa.check}
@@ -6603,7 +6627,7 @@ export default function App() {
       </div>
       {active && <div className={styles.activeWarning}>{t("scan.avisoModoAtivo")}</div>}
       {scanLoading && <div className={styles.progressBar}><div className={styles.progressFill} /></div>}
-      {scanLoading && <ScanProgressFeed etapas={scanProgress} />}
+      {scanLoading && <ScanProgressFeed etapas={scanProgress} onUpgrade={() => setShowPlans(true)} />}
       {error && <div className={styles.errorBox}>{error}</div>}
     </div>
   );

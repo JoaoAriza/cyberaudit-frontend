@@ -4120,3 +4120,31 @@
 @keyframes girando {
   to { transform: rotate(360deg); }
 }
+
+/* Bloqueada: assentada, não pendente — não gira e não promete que vai rodar. */
+.progressStepBLOQUEADO { color: var(--text-muted); opacity: .85; }
+.progressStepBLOQUEADO .progressStepIcon { font-size: 9px; }
+
+/* O título vira botão quando o grupo inteiro está bloqueado — abre o modal de
+   planos. Herda .progressFeedPhaseName, então só zera o que o botão traz de fábrica. */
+.progressFeedPhaseLocked {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0 0 6px;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.progressFeedPhaseLocked:hover .progressFeedPhaseTag { color: var(--accent); }
+
+.progressFeedPhaseTag {
+  color: var(--warning);
+  letter-spacing: .5px;
+}

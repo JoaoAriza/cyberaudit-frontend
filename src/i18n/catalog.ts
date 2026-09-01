@@ -478,6 +478,8 @@ export const pt: Catalogo = {
   "progresso.PULADO": "pulado",
   "progresso.FALHOU": "não concluiu",
   "progresso.aguardando": "Preparando as verificações…",
+  "progresso.BLOQUEADO": "requer plano",
+  "progresso.faseRequerPlano": "· requer PRO",
 
   // ── Compliance ────────────────────────────────────────────────────────────
   "compliance.riscoGeral": "RISCO GERAL",
@@ -1577,6 +1579,8 @@ export const en: Catalogo = {
   "progresso.PULADO": "skipped",
   "progresso.FALHOU": "did not finish",
   "progresso.aguardando": "Preparing the checks…",
+  "progresso.BLOQUEADO": "plan required",
+  "progresso.faseRequerPlano": "· PRO required",
 
   "compliance.riscoGeral": "OVERALL RISK",
   "compliance.iso": "ISO 27001",
