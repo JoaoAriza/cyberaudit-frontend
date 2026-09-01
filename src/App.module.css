@@ -4121,30 +4121,14 @@
   to { transform: rotate(360deg); }
 }
 
-/* Bloqueada: assentada, não pendente — não gira e não promete que vai rodar. */
-.progressStepBLOQUEADO { color: var(--text-muted); opacity: .85; }
-.progressStepBLOQUEADO .progressStepIcon { font-size: 9px; }
+/* Não executada: mesmo tratamento visual de "pulado" — as duas dizem a mesma
+   coisa ao leitor (não rodou), e o motivo de uma delas vai no título do grupo. */
+.progressStepNAO_EXECUTADA { color: var(--text-muted); opacity: .8; }
 
-/* O título vira botão quando o grupo inteiro está bloqueado — abre o modal de
-   planos. Herda .progressFeedPhaseName, então só zera o que o botão traz de fábrica. */
-.progressFeedPhaseLocked {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  padding: 0 0 6px;
-  font: inherit;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  cursor: pointer;
-}
-
-.progressFeedPhaseLocked:hover .progressFeedPhaseTag { color: var(--accent); }
-
+/* O motivo do grupo inteiro. Sem cor de alerta: não é problema, é escopo. */
 .progressFeedPhaseTag {
-  color: var(--warning);
+  color: var(--text-muted);
+  font-weight: 400;
   letter-spacing: .5px;
+  text-transform: none;
 }

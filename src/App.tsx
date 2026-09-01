@@ -92,8 +92,8 @@ interface ScanProgressStep {
   module: string;
   label: string;
   phase: "PASSIVA" | "ATIVA";
-  /** BLOQUEADO só chega para guest/FREE: sonda ativa que o plano deles não roda. */
-  state: "PENDENTE" | "RODANDO" | "OK" | "FALHOU" | "PULADO" | "BLOQUEADO";
+  /** NAO_EXECUTADA: sonda ativa num scan passivo — não rodou, e o feed diz isso. */
+  state: "PENDENTE" | "RODANDO" | "OK" | "FALHOU" | "PULADO" | "NAO_EXECUTADA";
 }
 interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; progress?: ScanProgressStep[]; }
 interface ScheduledScanDto {
@@ -808,32 +808,38 @@ function SlowScanToast({ visible }: { visible: boolean }) {
  *
  * A lista chega inteira desde o primeiro polling, com as pendentes junto. É
  * deliberado: saber que faltam dezoito é informação, ver linhas surgirem do nada
- * não é. Por isso também o scan passivo não recebe as ativas do Backend — linha
- * que nunca sai do lugar reproduz exatamente a sensação que este feed existe para
- * desfazer.
+ * não é.
+ *
+ * As 25 aparecem para todo mundo, sem distinção de plano. Duas tentativas
+ * anteriores erraram por motivos opostos: esconder as ativas do scan passivo dava
+ * a impressão de um produto menor, e marcá-las com cadeado "requer PRO" dava a
+ * impressão de que elas são a parte paga — quando o gating de detalhe pega quase
+ * todos os módulos, passivos inclusive. O feed relata execução; quem decide o que
+ * o cliente vê do resultado é o entitlement, depois.
+ *
+ * O limite que não se atravessa: sonda que não rodou nunca aparece como
+ * verificada. Um ✓ ali seria afirmar "olhei e está limpo" sobre o que ninguém
+ * olhou.
  */
 const ICONE_ETAPA: Record<ScanProgressStep["state"], string> = {
-  PENDENTE:  "○",
-  RODANDO:   "◐",
-  OK:        "✓",
-  FALHOU:    "✕",
-  PULADO:    "⊘",
-  BLOQUEADO: "🔒",
+  PENDENTE:      "○",
+  RODANDO:       "◐",
+  OK:            "✓",
+  FALHOU:        "✕",
+  PULADO:        "⊘",
+  NAO_EXECUTADA: "⊘",
 };
 
-function ScanProgressFeed({ etapas, onUpgrade }: {
-  etapas: ScanProgressStep[];
-  onUpgrade: () => void;
-}) {
+function ScanProgressFeed({ etapas }: { etapas: ScanProgressStep[] }) {
   const { t } = useI18n();
 
   if (etapas.length === 0)
     return <div className={styles.progressFeedWaiting}>{t("progresso.aguardando")}</div>;
 
-  // As bloqueadas ficam fora da conta inteira — numerador e denominador. Não são
-  // trabalho que este scan tem a fazer, e somá-las ao total deixaria o contador
-  // parado em "15 de 25" no fim de um scan que rodou tudo o que tinha para rodar.
-  const doScan     = etapas.filter(e => e.state !== "BLOQUEADO");
+  // As não executadas ficam fora da conta inteira — numerador e denominador. Não
+  // são trabalho que este scan tem a fazer, e somá-las ao total deixaria o
+  // contador parado em "15 de 25" no fim de um scan que rodou tudo o que tinha.
+  const doScan     = etapas.filter(e => e.state !== "NAO_EXECUTADA");
   // "Concluída" inclui pulada e falhada: são verificações que não vão mais mudar.
   // Contar só as OK faria o contador travar num scan que na verdade terminou.
   const encerradas = doScan.filter(e => e.state !== "PENDENTE" && e.state !== "RODANDO").length;
@@ -858,24 +864,19 @@ function ScanProgressFeed({ etapas, onUpgrade }: {
         {fases.map(fase => {
           const daFase = etapas.filter(e => e.phase === fase);
           if (daFase.length === 0) return null;
-          // Grupo inteiro bloqueado ganha o rótulo do plano no título, e não uma
-          // etiqueta por linha — dez vezes "requer PRO" empilhadas é anúncio, não
-          // informação.
-          const grupoBloqueado = daFase.every(e => e.state === "BLOQUEADO");
+          // O motivo vai no título do grupo, e não em cada linha: dez repetições
+          // da mesma explicação empilhadas viram ruído que se aprende a ignorar.
+          const grupoNaoExecutado = daFase.every(e => e.state === "NAO_EXECUTADA");
           return (
             <div key={fase} className={styles.progressFeedPhase}>
-              {grupoBloqueado ? (
-                <button
-                  type="button"
-                  className={`${styles.progressFeedPhaseName} ${styles.progressFeedPhaseLocked}`}
-                  onClick={onUpgrade}
-                >
-                  {t(`progresso.fase${fase}`)}{" "}
-                  <span className={styles.progressFeedPhaseTag}>{t("progresso.faseRequerPlano")}</span>
-                </button>
-              ) : (
-                <div className={styles.progressFeedPhaseName}>{t(`progresso.fase${fase}`)}</div>
-              )}
+              <div className={styles.progressFeedPhaseName}>
+                {t(`progresso.fase${fase}`)}
+                {grupoNaoExecutado && (
+                  <span className={styles.progressFeedPhaseTag}>
+                    {" "}{t("progresso.faseNaoExecutada")}
+                  </span>
+                )}
+              </div>
               {daFase.map(etapa => (
                 <div
                   key={etapa.check}
@@ -6627,7 +6628,7 @@ export default function App() {
       </div>
       {active && <div className={styles.activeWarning}>{t("scan.avisoModoAtivo")}</div>}
       {scanLoading && <div className={styles.progressBar}><div className={styles.progressFill} /></div>}
-      {scanLoading && <ScanProgressFeed etapas={scanProgress} onUpgrade={() => setShowPlans(true)} />}
+      {scanLoading && <ScanProgressFeed etapas={scanProgress} />}
       {error && <div className={styles.errorBox}>{error}</div>}
     </div>
   );
