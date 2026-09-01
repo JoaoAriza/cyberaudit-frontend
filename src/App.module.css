@@ -3992,3 +3992,131 @@
   font-size: 11px;
   font-family: var(--mono);
 }
+
+/* ── Feed de progresso do scan ────────────────────────────────────────────── */
+
+.progressFeed {
+  margin-top: 18px;
+  padding: 16px 18px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  animation: fadeUp .3s ease;
+}
+
+.progressFeedWaiting {
+  margin-top: 18px;
+  padding: 18px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.progressFeedHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.progressFeedTitle {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  color: var(--accent);
+}
+
+.progressFeedCount {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.progressFeedTrack {
+  margin-top: 10px;
+  height: 2px;
+  background: var(--surface3);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+/* Determinada, ao contrário da .progressBar acima: aqui existe um denominador. */
+.progressFeedTrackFill {
+  height: 100%;
+  background: var(--accent);
+  transition: width .4s ease;
+}
+
+.progressFeedPhases {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px 28px;
+  margin-top: 16px;
+}
+
+.progressFeedPhase {
+  min-width: 0;
+}
+
+.progressFeedPhaseName {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.progressStep {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  min-width: 0;
+}
+
+.progressStepIcon {
+  flex-shrink: 0;
+  width: 12px;
+  text-align: center;
+}
+
+.progressStepLabel {
+  /* min-width:0 é o que faz o ellipsis abaixo funcionar: item flex não encolhe
+     além do próprio conteúdo por padrão, e o nowrap viraria transbordo em vez de
+     reticências numa coluna estreita. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progressStepNote {
+  font-size: 9px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Pendente recuada no contraste: o olho deve cair no que está acontecendo. */
+.progressStepPENDENTE { color: var(--text-muted); opacity: .75; }
+.progressStepRODANDO  { color: var(--text); }
+.progressStepOK       { color: var(--text-muted); }
+.progressStepFALHOU   { color: var(--warning); }
+.progressStepPULADO   { color: var(--text-muted); opacity: .85; }
+
+.progressStepOK .progressStepIcon      { color: var(--secure); }
+.progressStepRODANDO .progressStepIcon {
+  color: var(--accent);
+  animation: girando 1.1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes girando {
+  to { transform: rotate(360deg); }
+}

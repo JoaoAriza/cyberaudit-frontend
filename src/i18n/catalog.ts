@@ -470,6 +470,15 @@ export const pt: Catalogo = {
   "toast.techFingerprint": "Tech Fingerprint",
   "toast.techFingerprintDesc": "Detecta stack via headers e body HTML",
 
+  // ── Feed de progresso do scan ─────────────────────────────────────────────
+  "progresso.titulo": "ANÁLISE EM ANDAMENTO",
+  "progresso.fasePASSIVA": "COLETA PASSIVA",
+  "progresso.faseATIVA": "SONDAS ATIVAS",
+  "progresso.concluidas": "{0} de {1} concluídas",
+  "progresso.PULADO": "pulado",
+  "progresso.FALHOU": "não concluiu",
+  "progresso.aguardando": "Preparando as verificações…",
+
   // ── Compliance ────────────────────────────────────────────────────────────
   "compliance.riscoGeral": "RISCO GERAL",
   "compliance.iso": "ISO 27001",
@@ -1560,6 +1569,14 @@ export const en: Catalogo = {
   "toast.fechar": "close",
   "toast.techFingerprint": "Tech Fingerprint",
   "toast.techFingerprintDesc": "Detects the stack through headers and HTML body",
+
+  "progresso.titulo": "SCAN IN PROGRESS",
+  "progresso.fasePASSIVA": "PASSIVE COLLECTION",
+  "progresso.faseATIVA": "ACTIVE PROBES",
+  "progresso.concluidas": "{0} of {1} done",
+  "progresso.PULADO": "skipped",
+  "progresso.FALHOU": "did not finish",
+  "progresso.aguardando": "Preparing the checks…",
 
   "compliance.riscoGeral": "OVERALL RISK",
   "compliance.iso": "ISO 27001",

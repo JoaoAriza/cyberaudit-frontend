@@ -86,7 +86,15 @@ interface SsrfFinding { parameter: string; payload: string; indicator: string; e
 interface HostHeaderFinding { injectedHeader: string; injectedValue: string; reflectionPoint: string; evidence: string | null; severity: string; }
 interface SourceMapFinding { type: string; url: string; evidence: string | null; severity: string; }
 interface CrlfFinding { parameter: string; payload: string; injectionType: string; evidence: string | null; severity: string; }
-interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; }
+/** Uma verificação do scan e o estado dela agora — ver ScanProgress no Backend. */
+interface ScanProgressStep {
+  check: string;
+  module: string;
+  label: string;
+  phase: "PASSIVA" | "ATIVA";
+  state: "PENDENTE" | "RODANDO" | "OK" | "FALHOU" | "PULADO";
+}
+interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; progress?: ScanProgressStep[]; }
 interface ScheduledScanDto {
   id: string;
   host: string;
@@ -784,6 +792,82 @@ function SlowScanToast({ visible }: { visible: boolean }) {
         <span style={{ color: "var(--warning)", fontSize: 13 }}>⏱</span>
         <span>{t("toast.demorando")} <span style={{ color: "var(--accent)" }}>{expanded ? t("toast.fechar") : t("toast.verCausas")}</span></span>
       </button>
+    </div>
+  );
+}
+
+// ── Feed de progresso do scan ────────────────────────────────────────────────
+
+/**
+ * O que o scan está fazendo, enquanto faz.
+ *
+ * A tela mostrava um spinner e, aos 30 segundos, um aviso de que estava demorando —
+ * sem dizer demorando em quê. O scan roda 25 verificações nomeadas; nenhuma
+ * aparecia. Um minuto olhando uma barra que não anda parece travamento.
+ *
+ * A lista chega inteira desde o primeiro polling, com as pendentes junto. É
+ * deliberado: saber que faltam dezoito é informação, ver linhas surgirem do nada
+ * não é. Por isso também o scan passivo não recebe as ativas do Backend — linha
+ * que nunca sai do lugar reproduz exatamente a sensação que este feed existe para
+ * desfazer.
+ */
+const ICONE_ETAPA: Record<ScanProgressStep["state"], string> = {
+  PENDENTE: "○",
+  RODANDO:  "◐",
+  OK:       "✓",
+  FALHOU:   "✕",
+  PULADO:   "⊘",
+};
+
+function ScanProgressFeed({ etapas }: { etapas: ScanProgressStep[] }) {
+  const { t } = useI18n();
+
+  if (etapas.length === 0)
+    return <div className={styles.progressFeedWaiting}>{t("progresso.aguardando")}</div>;
+
+  // "Concluída" inclui pulada e falhada: são verificações que não vão mais mudar.
+  // Contar só as OK faria o contador travar num scan que na verdade terminou.
+  const encerradas = etapas.filter(e => e.state !== "PENDENTE" && e.state !== "RODANDO").length;
+  const fases: ScanProgressStep["phase"][] = ["PASSIVA", "ATIVA"];
+
+  return (
+    <div className={styles.progressFeed}>
+      <div className={styles.progressFeedHead}>
+        <span className={styles.progressFeedTitle}>{t("progresso.titulo")}</span>
+        <span className={styles.progressFeedCount}>
+          {t("progresso.concluidas", encerradas, etapas.length)}
+        </span>
+      </div>
+      <div className={styles.progressFeedTrack}>
+        <div
+          className={styles.progressFeedTrackFill}
+          style={{ width: `${Math.round((encerradas / etapas.length) * 100)}%` }}
+        />
+      </div>
+
+      <div className={styles.progressFeedPhases}>
+        {fases.map(fase => {
+          const daFase = etapas.filter(e => e.phase === fase);
+          if (daFase.length === 0) return null;
+          return (
+            <div key={fase} className={styles.progressFeedPhase}>
+              <div className={styles.progressFeedPhaseName}>{t(`progresso.fase${fase}`)}</div>
+              {daFase.map(etapa => (
+                <div
+                  key={etapa.check}
+                  className={`${styles.progressStep} ${styles["progressStep" + etapa.state]}`}
+                >
+                  <span className={styles.progressStepIcon}>{ICONE_ETAPA[etapa.state]}</span>
+                  <span className={styles.progressStepLabel}>{etapa.label}</span>
+                  {(etapa.state === "PULADO" || etapa.state === "FALHOU") && (
+                    <span className={styles.progressStepNote}>{t(`progresso.${etapa.state}`)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -6161,6 +6245,7 @@ export default function App() {
   const [url, setUrl] = useState("github.com");
   const [active, setActive] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
+  const [scanProgress, setScanProgress] = useState<ScanProgressStep[]>([]);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [lastScanId, setLastScanId] = useState<string | null>(null);
   const [feedbackTarget, setFeedbackTarget] = useState<FeedbackTarget | null>(null);
@@ -6256,6 +6341,9 @@ export default function App() {
     setUrl(alvo);
     abortRef.current?.abort(); stopPoll(); stopSlowTimer();
     setResult(null); setResultLang(null); setError(null); setOwnership(null);
+    // Zerado aqui, e não ao fim do scan anterior: o feed do scan que acabou
+    // continuaria na tela enquanto o novo ainda não respondeu o primeiro polling.
+    setScanProgress([]);
     slowTimerRef.current = setTimeout(() => setShowSlowToast(true), 30000);
     setScanLoading(true);
     await runAsync(alvo);
@@ -6270,6 +6358,8 @@ export default function App() {
       pollRef.current = setInterval(async () => {
         try {
           const status: AsyncStatus = (await api.get(`/scan/async/${scanId}`)).data;
+          // Backend antigo não manda `progress`; o feed só não aparece.
+          if (status.progress) setScanProgress(status.progress);
           if (status.state === "DONE") { stopPoll(); stopSlowTimer(); setResult(status.result); setResultLang(lang); setLastScanId(scanId); setOpenModule("issues"); setScanLoading(false); setGuestRefreshKey(k => k + 1); }
           else if (status.state === "ERROR") {
             stopPoll(); stopSlowTimer(); setScanLoading(false);
@@ -6278,7 +6368,10 @@ export default function App() {
             setError(isUnreachable ? t("scan.erroInacessivel", alvo) : t("scan.erroProcessar", msg));
           }
         } catch { stopPoll(); stopSlowTimer(); setError(t("scan.falhaStatus")); setScanLoading(false); }
-      }, 2000);
+        // 1s, não 2s: o feed é a única coisa que se move na tela, e a resposta é
+        // uma leitura de mapa em memória. A dois segundos, blocos inteiros de
+        // verificações apareciam concluídos de uma vez.
+      }, 1000);
     } catch (err: any) { stopSlowTimer(); handleError(err); setScanLoading(false); }
   }
 
@@ -6510,6 +6603,7 @@ export default function App() {
       </div>
       {active && <div className={styles.activeWarning}>{t("scan.avisoModoAtivo")}</div>}
       {scanLoading && <div className={styles.progressBar}><div className={styles.progressFill} /></div>}
+      {scanLoading && <ScanProgressFeed etapas={scanProgress} />}
       {error && <div className={styles.errorBox}>{error}</div>}
     </div>
   );
