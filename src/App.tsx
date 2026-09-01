@@ -2251,8 +2251,8 @@ function SchedulesPage() {
         preferredHour: hour, notifyEmail,
       });
       setHost(""); await load();
-    } catch (e: any) {
-      setError(e?.response?.data?.message ?? t("agenda.erroCriar"));
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? t("agenda.erroCriar"));
     } finally { setCreating(false); }
   }
 
@@ -2721,7 +2721,7 @@ function AdminPanel({ onUpgrade }: { onUpgrade: () => void }) {
   async function sendInvite(e: React.FormEvent) {
     e.preventDefault(); setInviting(true); setInvError(null); setNewInvite(null);
     try { const r = await api.post<InviteDto>("/admin/invite", { name: invName, email: invEmail, role: invRole, jobTitle: invJob || null }); setNewInvite(r.data); setInvName(""); setInvEmail(""); setInvJob(""); loadInvites(); }
-    catch (e: any) { setInvError(e?.response?.data?.message ?? t("admin.erroConvite")); }
+    catch (err: any) { setInvError(err?.response?.data?.message ?? t("admin.erroConvite")); }
     finally { setInviting(false); }
   }
   function copyLink() { if (!newInvite?.acceptLink) return; navigator.clipboard.writeText(window.location.origin + newInvite.acceptLink); setCopied(true); setTimeout(() => setCopied(false), 2000); }
@@ -3497,7 +3497,7 @@ function CompliancePanel({ compliance }: { compliance: ComplianceReport }) {
     compliance.overallScore >= 60 ? "var(--info)" :
     compliance.overallScore >= 40 ? "var(--warning)" : "var(--critical)";
 
-  const riskColor =
+  const riskLevelColor =
     compliance.riskLevel === "COMPLIANT" ? "var(--secure)" :
     compliance.riskLevel === "LOW"       ? "var(--info)"   :
     compliance.riskLevel === "MEDIUM"    ? "var(--warning)":
@@ -3529,7 +3529,7 @@ function CompliancePanel({ compliance }: { compliance: ComplianceReport }) {
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-muted)" }}>{t("compliance.riscoGeral")}</span>
-            <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700, color: riskColor }}>{compliance.riskLevel}</span>
+            <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700, color: riskLevelColor }}>{compliance.riskLevel}</span>
           </div>
           <div style={{ display: "flex", gap: 12 }}>
             <span style={{ fontFamily: "var(--mono)", fontSize: 10 }}>
@@ -3677,7 +3677,7 @@ function DomainsPage() {
     if (!host.trim()) return;
     setAdding(true); setError(null);
     try { await api.post("/domains", { host: host.trim() }); setHost(""); await load(); }
-    catch (e: any) { setError(e?.response?.data?.message ?? t("dominio.erroCadastrar")); }
+    catch (err: any) { setError(err?.response?.data?.message ?? t("dominio.erroCadastrar")); }
     finally { setAdding(false); }
   }
 
@@ -5542,7 +5542,7 @@ function ApiKeysSection() {
       setNewKey(res.data);
       setNewName("");
       await load();
-    } catch (e: any) { setError(e?.response?.data?.message ?? t("apikey.erroCriar")); }
+    } catch (err: any) { setError(err?.response?.data?.message ?? t("apikey.erroCriar")); }
     finally { setCreating(false); }
   }
 
