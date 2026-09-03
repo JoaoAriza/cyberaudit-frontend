@@ -6478,6 +6478,19 @@ export default function App() {
    * em silêncio — foi assim que o cardápio de planos ficou desatualizado.
    */
   const modDegradado = (key: string) => !!r?.degradedModules?.includes(key);
+  /**
+   * A mensagem de "nada encontrado" de um módulo, ou o aviso de que ele não foi
+   * verificado.
+   *
+   * O ⚠ da barra lateral consertava só o rótulo: o painel do módulo continuava
+   * dizendo "Nenhum SSRF detectado" — afirmação positiva sobre o que ninguém
+   * checou, e a mais perigosa das duas porque é a que o cliente lê por extenso.
+   *
+   * Aplicado por ora nos quatro módulos de sonda ativa, que num scan passivo caem
+   * nesse caso SEMPRE. Os demais só caem quando dá timeout; ver a tarefa aberta.
+   */
+  const vazioDe = (key: string, msg: string) =>
+    modDegradado(key) ? t("vazio.naoVerificado") : msg;
   const badgeUrl = `${import.meta.env.VITE_API_URL ?? "http://localhost:8081"}/badge/${badgeHost}?score=${r?.score?.score ?? 0}&risk=${r?.score?.riskLevel ?? "UNKNOWN"}`;
 
   // ── Module card computed values ──────────────────────────────────────────
@@ -6938,7 +6951,10 @@ export default function App() {
                       label={!r.activeMode ? "PASSIVE" : r.wafDetectionResult?.detected ? t("selo.wafDetectado") : "ACTIVE"}
                       active={openModule === "active"}
                       locked={modGated("active")}
-                      degraded={modDegradado("active")}
+                      /* Em passivo o próprio item já diz PASSIVE com 🔒, que informa mais
+                         que "não verificado" — explica o motivo. O ⚠ fica para o
+                         ativo, onde só aparece se a sonda de fato falhou. */
+                      degraded={r.activeMode && modDegradado("active")}
                       onClick={() => selectModule("active")}/>
 
                   </nav>
@@ -7165,7 +7181,7 @@ export default function App() {
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("redirect")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg={t("vazio.openRedirect")}
+                          emptyMsg={vazioDe("redirect", t("vazio.openRedirect"))}
                           items={redirectVuln.map((f: any, i: number) => ({
                             id: `redirect-${i}`, title: `?${f.parameter}=`, severity: "HIGH",
                             summary: t("achado.redirecionaPara", f.redirectedTo),
@@ -7294,7 +7310,7 @@ export default function App() {
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("traversal")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg={t("vazio.pathTraversal")}
+                          emptyMsg={vazioDe("traversal", t("vazio.pathTraversal"))}
                           items={ptFindings.map((pt: any, i: number) => ({
                             id: `pt-${i}`, title: `?${pt.parameter}=`, severity: "CRITICAL",
                             summary: t("achado.arquivoAlvo", pt.target),
@@ -7317,7 +7333,7 @@ export default function App() {
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("ssrf")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg={t("vazio.ssrf")}
+                          emptyMsg={vazioDe("ssrf", t("vazio.ssrf"))}
                           items={ssrfFindings.map((f: any, i: number) => ({
                             id: `ssrf-${i}`, title: `param: ${f.parameter}`, severity: "CRITICAL",
                             summary: t("achado.indicador", f.indicator),
@@ -7339,7 +7355,7 @@ export default function App() {
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("crlf")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg={t("vazio.crlf")}
+                          emptyMsg={vazioDe("crlf", t("vazio.crlf"))}
                           items={crlfFindings.map((f: any, i: number) => ({
                             id: `crlf-${i}`, title: `param: ${f.parameter}`, severity: "HIGH",
                             subtitle: t("achado.tipo", f.injectionType),
