@@ -6331,6 +6331,24 @@ export default function App() {
   useEffect(() => { if (user && view === "login") setView("scan"); }, [user]);
   useEffect(() => () => { pollRef.current && clearInterval(pollRef.current); }, []);
 
+  /**
+   * ACTIVE desliga sozinho quando a sessão não pode rodar scan ativo.
+   *
+   * O checkbox já ficava DESABILITADO para FREE — mas desabilitar não desmarca.
+   * Quem ligava o toggle como visitante (ali ele é clicável, porque a regra olha
+   * `!!user && !canActiveScan`) e depois entrava numa conta FREE ficava com ele
+   * marcado e sem como desmarcar: cada scan saía com `active=true` e voltava 402,
+   * e a conta simplesmente parava de escanear. Mesmo efeito para um PRO que caia
+   * para FREE com a sessão aberta.
+   *
+   * A permissão é a fonte da verdade, não a interface. Mora aqui, junto dos outros
+   * hooks, porque `canActiveScan` é calculado depois dos returns antecipados — e
+   * hook depois de return condicional quebra a ordem entre renders.
+   */
+  useEffect(() => {
+    if (user && user.account?.activeScanAllowed !== true) setActive(false);
+  }, [user]);
+
   // Limpa resultado ao trocar de conta (login/logout)
   const prevUserIdRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
@@ -6415,7 +6433,15 @@ export default function App() {
     const message = data?.message ?? err?.message ?? "";
     const isUnreachable = message.toLowerCase().includes("connect timed out") || message.toLowerCase().includes("connection refused") || message.toLowerCase().includes("unknown host") || message.toLowerCase().includes("name or service not known") || message.toLowerCase().includes("no route to host") || message.toLowerCase().includes("network is unreachable") || err?.response?.status === 400;
     if (isUnreachable) { setError(t("scan.erroInacessivel", url)); return; }
-    setError(err?.response ? t("scan.erroHttp", err.response.status, JSON.stringify(err.response.data)) : t("scan.falha", err.message));
+    // A mensagem do Backend é escrita para ser lida ("Scan ativo requer plano PRO
+    // ou superior."). O JSON cru só entra quando não existe mensagem nenhuma —
+    // antes ele aparecia SEMPRE, chaves e status HTTP no meio, e engolia a única
+    // parte da resposta que o cliente conseguia entender.
+    if (err?.response) {
+      setError(message ? message : t("scan.erroHttp", err.response.status, JSON.stringify(data)));
+      return;
+    }
+    setError(t("scan.falha", err.message));
   }
 
   async function handlePdf() {
