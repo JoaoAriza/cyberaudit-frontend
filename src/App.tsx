@@ -730,73 +730,6 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
   );
 }
 
-// ── Terminal Loader ───────────────────────────────────────────────────────────
-
-// ── Slow Scan Toast ───────────────────────────────────────────────────────────
-
-function SlowScanToast({ visible }: { visible: boolean }) {
-  const { t } = useI18n();
-  const [expanded, setExpanded] = useState(false);
-  const checks = [
-    { icon: "⬟", label: "SSL / TLS",         detail: t("toast.sslDesc") },
-    { icon: "⬡", label: "Security Headers",   detail: t("toast.headersDesc") },
-    { icon: "◉", label: "DNS Security",       detail: t("toast.dnsDesc") },
-    { icon: "⟨⟩", label: t("toast.techFingerprint"),  detail: t("toast.techFingerprintDesc") },
-    { icon: "◈", label: "CVE Lookup",         detail: t("toast.cveDesc") },
-    { icon: "▣", label: "WAF & Port Scan",    detail: t("toast.wafDesc") },
-  ];
-  if (!visible) return null;
-  return (
-    <div style={{
-      position: "fixed", bottom: 24, right: 24, zIndex: 9999,
-      fontFamily: "var(--mono)", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8,
-    }}>
-      {expanded && (
-        <div style={{
-          width: 320, background: "var(--surface)",
-          border: "1px solid rgba(0,212,160,.25)", borderRadius: "var(--radius)",
-          boxShadow: "0 8px 32px rgba(0,0,0,.7)",
-          overflow: "hidden", animation: "fadeUp .25s ease",
-        }}>
-          <div style={{ height: 2, background: "linear-gradient(90deg, var(--accent), var(--info))" }} />
-          <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", letterSpacing: ".5px" }}>{t("toast.porQue")}</div>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>{t("toast.cadaModulo")}</div>
-          </div>
-          <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
-            {checks.map((c, i) => (
-              <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <span style={{ color: "var(--accent)", fontSize: 12, marginTop: 1, flexShrink: 0 }}>{c.icon}</span>
-                <div>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", marginRight: 6 }}>{c.label}</span>
-                  <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{c.detail}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      <button
-        onClick={() => setExpanded(v => !v)}
-        style={{
-          display: "flex", alignItems: "center", gap: 8,
-          padding: "8px 14px",
-          background: "var(--surface)",
-          border: "1px solid rgba(0,212,160,.35)",
-          borderLeft: "3px solid var(--accent)",
-          borderRadius: "var(--radius)",
-          boxShadow: "0 4px 16px rgba(0,0,0,.6)",
-          cursor: "pointer", fontFamily: "var(--mono)", color: "var(--text)",
-          fontSize: 11, animation: "fadeUp .3s ease",
-        }}
-      >
-        <span style={{ color: "var(--warning)", fontSize: 13 }}>⏱</span>
-        <span>{t("toast.demorando")} <span style={{ color: "var(--accent)" }}>{expanded ? t("toast.fechar") : t("toast.verCausas")}</span></span>
-      </button>
-    </div>
-  );
-}
-
 // ── Feed de progresso do scan ────────────────────────────────────────────────
 
 /**
@@ -6296,7 +6229,6 @@ export default function App() {
   const [resultLang, setResultLang] = useState<Lang | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ownership, setOwnership] = useState<OwnershipState | null>(null);
-  const [showSlowToast, setShowSlowToast] = useState(false);
   const [guestRefreshKey, setGuestRefreshKey] = useState(0);
   const [openModule, setOpenModule] = useState<string | null>(null);
   const [openModuleInfo, setOpenModuleInfo] = useState<string | null>(null);
@@ -6316,7 +6248,6 @@ export default function App() {
   };
   const abortRef = useRef<AbortController | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [showPlans, setShowPlans] = useState(false);
 
@@ -6355,17 +6286,12 @@ export default function App() {
     const currentId = user?.id ?? null;
     if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== currentId) {
       setResult(null); setResultLang(null); setError(null); setOwnership(null); setOpenModule(null);
-      stopPoll(); stopSlowTimer();
+      stopPoll();
     }
     prevUserIdRef.current = currentId;
   }, [user]);
 
   const stopPoll = useCallback(() => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } }, []);
-
-  function stopSlowTimer() {
-    setShowSlowToast(false);
-    if (slowTimerRef.current) { clearTimeout(slowTimerRef.current); slowTimerRef.current = null; }
-  }
 
   // Sem parâmetro de propósito: é passada direto como onClick, e um parâmetro
   // posicional receberia o evento do clique no lugar do alvo.
@@ -6382,12 +6308,11 @@ export default function App() {
    */
   async function iniciarScan(alvo: string) {
     setUrl(alvo);
-    abortRef.current?.abort(); stopPoll(); stopSlowTimer();
+    abortRef.current?.abort(); stopPoll();
     setResult(null); setResultLang(null); setError(null); setOwnership(null);
     // Zerado aqui, e não ao fim do scan anterior: o feed do scan que acabou
     // continuaria na tela enquanto o novo ainda não respondeu o primeiro polling.
     setScanProgress([]);
-    slowTimerRef.current = setTimeout(() => setShowSlowToast(true), 30000);
     setScanLoading(true);
     await runAsync(alvo);
   }
@@ -6403,19 +6328,19 @@ export default function App() {
           const status: AsyncStatus = (await api.get(`/scan/async/${scanId}`)).data;
           // Backend antigo não manda `progress`; o feed só não aparece.
           if (status.progress) setScanProgress(status.progress);
-          if (status.state === "DONE") { stopPoll(); stopSlowTimer(); setResult(status.result); setResultLang(lang); setLastScanId(scanId); setOpenModule("issues"); setScanLoading(false); setGuestRefreshKey(k => k + 1); }
+          if (status.state === "DONE") { stopPoll(); setResult(status.result); setResultLang(lang); setLastScanId(scanId); setOpenModule("issues"); setScanLoading(false); setGuestRefreshKey(k => k + 1); }
           else if (status.state === "ERROR") {
-            stopPoll(); stopSlowTimer(); setScanLoading(false);
+            stopPoll(); setScanLoading(false);
             const msg = status.errorMessage ?? "";
             const isUnreachable = msg.includes("UnknownHostException") || msg.includes("Name or service not known") || msg.includes("nodename nor servname provided") || msg.includes("No address associated");
             setError(isUnreachable ? t("scan.erroInacessivel", alvo) : t("scan.erroProcessar", msg));
           }
-        } catch { stopPoll(); stopSlowTimer(); setError(t("scan.falhaStatus")); setScanLoading(false); }
+        } catch { stopPoll(); setError(t("scan.falhaStatus")); setScanLoading(false); }
         // 1s, não 2s: o feed é a única coisa que se move na tela, e a resposta é
         // uma leitura de mapa em memória. A dois segundos, blocos inteiros de
         // verificações apareciam concluídos de uma vez.
       }, 1000);
-    } catch (err: any) { stopSlowTimer(); handleError(err); setScanLoading(false); }
+    } catch (err: any) { handleError(err); setScanLoading(false); }
   }
 
   function handleError(err: any) {
@@ -6649,7 +6574,7 @@ export default function App() {
         )}
         <div className={styles.actions}>
           {scanLoading
-            ? <button className={`${styles.btn} ${styles.btnCancel}`} onClick={() => { abortRef.current?.abort(); stopPoll(); stopSlowTimer(); setScanLoading(false); }}>{t("scan.cancelar")}</button>
+            ? <button className={`${styles.btn} ${styles.btnCancel}`} onClick={() => { abortRef.current?.abort(); stopPoll(); setScanLoading(false); }}>{t("scan.cancelar")}</button>
             : <button className={`${styles.btn} ${styles.btnScan}`} onClick={handleScan}>{t("scan.botao")}</button>}
           <button
             className={`${styles.btn} ${styles.btnGhost}`}
@@ -6674,7 +6599,6 @@ export default function App() {
 
   return (
     <div className={styles.app}>
-      <SlowScanToast visible={showSlowToast} />
       {showPlans && <PlansModal onClose={() => setShowPlans(false)} />}
       {feedbackTarget && <FeedbackModal target={feedbackTarget} onClose={() => setFeedbackTarget(null)} />}
 

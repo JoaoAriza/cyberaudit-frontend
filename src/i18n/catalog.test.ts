@@ -41,7 +41,6 @@ const IGUAL_DE_PROPOSITO = new Set<string>([
   "ativo.wafDetection",
   "ativo.wildcardOrigin",
   "ativo.xssSqli",
-  "toast.techFingerprint",
   "grupo.httpHeaders",
   "apikey.titulo",
 

@@ -462,15 +462,6 @@ export const pt: Catalogo = {
   "posse.naoEncontrado": "Arquivo não encontrado ainda.",
   "posse.copiado": "✓ Copiado",
 
-  // ── Toast de scan demorado ────────────────────────────────────────────────
-  "toast.demorando": "Scan demorando ·",
-  "toast.porQue": "Por que alguns checks demoram?",
-  "toast.cadaModulo": "Cada módulo faz requests reais ao servidor alvo",
-  "toast.verCausas": "ver possíveis causas →",
-  "toast.fechar": "fechar",
-  "toast.techFingerprint": "Tech Fingerprint",
-  "toast.techFingerprintDesc": "Detecta stack via headers e body HTML",
-
   // ── Feed de progresso do scan ─────────────────────────────────────────────
   "progresso.titulo": "ANÁLISE EM ANDAMENTO",
   "progresso.fasePASSIVA": "COLETA PASSIVA",
@@ -1023,12 +1014,6 @@ export const pt: Catalogo = {
   "achado.verNvd": "Ver {0} no NVD ↗",
   "achado.issoEstaErrado": "⚑ Isso está errado?",
 
-  "toast.sslDesc": "Handshake real + validação do certificado",
-  "toast.headersDesc": "Analisa 8+ headers na resposta HTTP",
-  "toast.dnsDesc": "Consultas DNS: SPF, DMARC, DKIM, CAA, MX",
-  "toast.cveDesc": "Cruza versões detectadas com base NVD/CVE",
-  "toast.wafDesc": "Probes ativos + 21 portas (modo ACTIVE)",
-
   "nav.moduloBloqueado": "Módulo bloqueado — disponível nos planos pagos",
   "nav.moduloNaoVerificado": "Verificação não concluída — a ausência de achados aqui NÃO significa ausência de risco",
 
@@ -1566,14 +1551,6 @@ export const en: Catalogo = {
   "posse.naoEncontrado": "File not found yet.",
   "posse.copiado": "✓ Copied",
 
-  "toast.demorando": "Scan taking a while ·",
-  "toast.porQue": "Why do some checks take longer?",
-  "toast.cadaModulo": "Each module makes real requests to the target server",
-  "toast.verCausas": "see possible causes →",
-  "toast.fechar": "close",
-  "toast.techFingerprint": "Tech Fingerprint",
-  "toast.techFingerprintDesc": "Detects the stack through headers and HTML body",
-
   "progresso.titulo": "SCAN IN PROGRESS",
   "progresso.fasePASSIVA": "PASSIVE COLLECTION",
   "progresso.faseATIVA": "ACTIVE PROBES",
@@ -2100,12 +2077,6 @@ export const en: Catalogo = {
     "Evidence, risks and fixes for each module are available on paid plans.",
   "achado.verNvd": "View {0} on the NVD ↗",
   "achado.issoEstaErrado": "⚑ Is this wrong?",
-
-  "toast.sslDesc": "Real handshake + certificate validation",
-  "toast.headersDesc": "Analyses 8+ headers in the HTTP response",
-  "toast.dnsDesc": "DNS lookups: SPF, DMARC, DKIM, CAA, MX",
-  "toast.cveDesc": "Cross-references detected versions with the NVD/CVE database",
-  "toast.wafDesc": "Active probes + 21 ports (ACTIVE mode)",
 
   "nav.moduloBloqueado": "Module locked — available on paid plans",
   "nav.moduloNaoVerificado": "Check did not complete — no findings here does NOT mean no risk",
