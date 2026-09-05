@@ -1458,6 +1458,38 @@
   color: var(--text-muted);
 }
 
+/*
+ * Autofill do Chrome: o campo preenchido pelo gerenciador de senhas vinha branco
+ * no tema escuro.
+ *
+ * `background-color` não resolve — o Chrome pinta o fundo do :-webkit-autofill
+ * num passo próprio que a propriedade não alcança. A saída é uma sombra INTERNA
+ * grande o bastante para cobrir o campo inteiro: ela é desenhada acima daquele
+ * fundo. Mesma coisa com a cor do texto, que precisa de -webkit-text-fill-color;
+ * `color` sozinho é ignorado.
+ *
+ * As cores saem das variáveis, então o tema claro continua correto sem regra
+ * extra. Só o Chromium tem esse comportamento — Firefox e Safari respeitam o
+ * background normal, e para eles estas regras são inertes.
+ */
+.formInput:-webkit-autofill,
+.formInput:-webkit-autofill:hover,
+.formInput:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface2) inset;
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+}
+
+/*
+ * No foco as duas sombras convivem: o anel de foco é externo, o preenchimento é
+ * interno. Sem repetir a interna aqui, o :focus acima sobrescreveria a lista
+ * inteira e o branco voltaria no instante em que o campo recebesse o cursor.
+ */
+.formInput:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 3px rgba(0, 212, 160, .1),
+                      0 0 0 1000px var(--surface2) inset;
+}
+
 .btnFull {
   width: 100%;
   justify-content: center;
