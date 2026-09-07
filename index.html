@@ -5,6 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>CyberAudit</title>
+    <!--
+      O app é uma página só: a navegação entre Scanner, Domínios, Histórico etc.
+      é estado interno, não rota. Então TODA URL do site é a mesma página, e o
+      canonical fixo é o correto — não há caminho a preservar.
+
+      Resolve duas duplicações de uma vez: apex vs www (o redirect no Cloudflare
+      é a defesa principal, este é o cinto de segurança) e o fallback do SPA, que
+      responde 200 com este HTML em qualquer caminho pedido — sem canonical, uma
+      URL inventada que alguém linkasse virava página indexável.
+    -->
+    <link rel="canonical" href="https://www.cyberauditapp.com/" />
+
+    <meta name="description" content="Auditoria de segurança web em segundos: headers, TLS, DNS, certificados e exposições, com score de 0 a 100 e relatório em PDF." />
+
+    <!--
+      Open Graph e Twitter Card: sem estas tags o link colado no LinkedIn sai
+      como URL crua, sem título, resumo nem imagem.
+
+      og:image precisa ser URL absoluta e formato raster — LinkedIn e Twitter
+      não renderizam SVG, então não dá para reaproveitar o favicon.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CyberAudit" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:url" content="https://www.cyberauditapp.com/" />
+    <meta property="og:title" content="CyberAudit — auditoria de segurança web em segundos" />
+    <meta property="og:description" content="Escaneie qualquer domínio e receba um score de 0 a 100: headers, TLS, DNS, Certificate Transparency, cookies e exposições — com relatório em PDF." />
+    <meta property="og:image" content="https://www.cyberauditapp.com/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="CyberAudit — auditoria de segurança web em segundos" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CyberAudit — auditoria de segurança web em segundos" />
+    <meta name="twitter:description" content="Escaneie qualquer domínio e receba um score de 0 a 100: headers, TLS, DNS, Certificate Transparency, cookies e exposições — com relatório em PDF." />
+    <meta name="twitter:image" content="https://www.cyberauditapp.com/og-image.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
