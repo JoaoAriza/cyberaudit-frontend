@@ -43,8 +43,8 @@ interface ScanResult {
   serverVersionExposed: boolean; activeMode: boolean; inputSurfaceDetected: boolean;
   dbErrorLeakageSuspected: boolean; xssProbePerformed: boolean; reflectedXssSuspected: boolean;
   openPorts: PortFinding[]; corsResult: CorsResult; cookieIssues: CookieFinding[];
-  sensitiveRobotsPaths: string[]; robotsTxtPresent?: boolean; sensitiveFiles: SensitiveFileFinding[];
-  dangerousHttpMethods: HttpMethodFinding[]; securityTxtPresent: boolean;
+  sensitiveRobotsPaths: string[]; robotsTxtPresent?: boolean | null; sensitiveFiles: SensitiveFileFinding[];
+  dangerousHttpMethods: HttpMethodFinding[]; securityTxtPresent: boolean | null;
   securityTxtContact: string | null; openRedirectFindings: OpenRedirectFinding[];
   directoryListingFindings: DirectoryListingFinding[]; score: ScoreResult;
   dnsSecurityResult: DnsSecurityResult | null; wafDetectionResult: WafDetectionResult | null;
@@ -4517,8 +4517,16 @@ function DnsCardsPanel({ r }: { r: any }) {
       tip: t("card.dns.mxDica"),
     },
     {
-      key: "sectxt", title: t("card.dns.securityTxt"), present: r?.securityTxtPresent, warn: true,
-      value: r?.securityTxtPresent ? (r.securityTxtContact || t("card.dns.presente")) : t("selo.ausente"),
+      // null = módulo não concluiu. Dizer "AUSENTE" nesse caso afirma sobre o
+      // alvo uma coisa que o scanner não chegou a verificar.
+      key: "sectxt", title: t("card.dns.securityTxt"),
+      present: r?.securityTxtPresent === true, warn: true,
+      naoVerificado: r?.securityTxtPresent === null,
+      value: r?.securityTxtPresent === null
+        ? t("selo.naoVerificado")
+        : r?.securityTxtPresent
+          ? (r.securityTxtContact || t("card.dns.presente"))
+          : t("selo.ausente"),
       desc: t("card.dns.securityTxtDesc"),
       record: r?.securityTxtContact ? `Contact: ${r.securityTxtContact}` : null,
       tip: t("card.dns.securityTxtDica"),
@@ -4529,9 +4537,13 @@ function DnsCardsPanel({ r }: { r: any }) {
       key: "robots", title: t("card.dns.robots"),
       // undefined = scan salvo antes do campo existir: mantém o veredito antigo
       // em vez de pintar de vermelho um histórico que nunca foi avaliado assim.
-      present: r?.robotsTxtPresent !== false && !(r?.sensitiveRobotsPaths?.length > 0),
+      present: r?.robotsTxtPresent !== false && r?.robotsTxtPresent !== null
+        && !(r?.sensitiveRobotsPaths?.length > 0),
       warn: r?.robotsTxtPresent === false,
-      value: r?.robotsTxtPresent === false
+      naoVerificado: r?.robotsTxtPresent === null,
+      value: r?.robotsTxtPresent === null
+        ? t("selo.naoVerificado")
+        : r?.robotsTxtPresent === false
         ? t("selo.ausente")
         : r?.sensitiveRobotsPaths?.length > 0
           ? t("card.dns.pathsSensiveis", r.sensitiveRobotsPaths.length)
@@ -4546,7 +4558,10 @@ function DnsCardsPanel({ r }: { r: any }) {
     // Três estados, não dois: encontrado, não encontrado e NÃO CONSULTADO.
     // O terceiro usa âmbar de propósito — vermelho afirmaria um problema que
     // não sabemos existir, e verde esconderia que a verificação não ocorreu.
-    const naoVerificado = c.dependeDeDns === true && dnsIndisponivel;
+    // Duas origens: o módulo de DNS caiu inteiro, ou este check específico não
+    // concluiu (o Backend manda null em vez de um veredito que não tem).
+    const naoVerificado = c.naoVerificado === true
+      || (c.dependeDeDns === true && dnsIndisponivel);
 
     const color = naoVerificado ? "var(--warning)"
                 : c.present     ? "var(--secure)"
