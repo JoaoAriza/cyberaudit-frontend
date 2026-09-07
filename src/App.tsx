@@ -4955,8 +4955,8 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
       value: r.xssProbePerformed ? (r.reflectedXssSuspected ? t("ativo.suspeito") : t("selo.limpo")) : t("ativo.semSuperficie"),
       desc: t("ativo.reflectedXssDesc"),
       tip: t("ativo.reflectedXssDica") },
-    { key: "dberr",   title: t("ativo.dbErrorLeak"),   neutral: false,                   ok: !r.dbErrorLeakageSuspected,
-      value: r.dbErrorLeakageSuspected ? t("ativo.suspeito") : t("selo.limpo"),
+    { key: "dberr",   title: t("ativo.dbErrorLeak"),   neutral: !r.inputSurfaceDetected,  ok: r.inputSurfaceDetected && !r.dbErrorLeakageSuspected,
+      value: !r.inputSurfaceDetected ? t("ativo.naoExecutado") : r.dbErrorLeakageSuspected ? t("ativo.suspeito") : t("selo.limpo"),
       desc: t("ativo.dbErrorDesc"),
       tip: t("ativo.dbErrorDica") },
   ];
@@ -6533,10 +6533,15 @@ export default function App() {
   const gqlColor       = gqlFindings.length === 0 ? "var(--secure)" : gqlFindings.some(f => f.severity === "HIGH") ? "var(--high)" : "var(--warning)";
   const jwtFindings    = r?.jwtSecurity ?? [];
   const jwtColor       = jwtFindings.length === 0 ? "var(--secure)" : jwtFindings.some(f => f.severity === "CRITICAL") ? "var(--critical)" : jwtFindings.some(f => f.severity === "HIGH") ? "var(--high)" : "var(--warning)";
+  // Sondas de injeção (XSS, path traversal, SSRF, db error) só rodam quando há
+  // superfície de input — um ?param na URL para injetar. Sem ela foram SKIPPED,
+  // sem requisição. Pintar de verde afirmaria um teste que não aconteceu — o
+  // mesmo falso verde do robots.txt. inputSurfaceDetected é o gate no backend.
+  const injectionProbed = r?.inputSurfaceDetected === true;
   const ptFindings     = r?.pathTraversal ?? [];
-  const ptColor        = ptFindings.length === 0 ? "var(--secure)" : "var(--critical)";
+  const ptColor        = !injectionProbed ? "var(--text-muted)" : ptFindings.length === 0 ? "var(--secure)" : "var(--critical)";
   const ssrfFindings   = r?.ssrfFindings ?? [];
-  const ssrfColor      = ssrfFindings.length === 0 ? "var(--secure)" : "var(--critical)";
+  const ssrfColor      = !injectionProbed ? "var(--text-muted)" : ssrfFindings.length === 0 ? "var(--secure)" : "var(--critical)";
   const hhFindings     = r?.hostHeaderFindings ?? [];
   const hhColor        = hhFindings.length === 0 ? "var(--secure)" : "var(--high)";
   const smFindings     = r?.sourceMapFindings ?? [];
@@ -6842,16 +6847,16 @@ export default function App() {
                       onClick={() => selectModule("jwt")}/>
                     <SidebarNavItem icon="◈" title="Path Traversal"
                       color={ptColor}
-                      metric={ptFindings.length === 0 ? "✓" : ptFindings.length}
-                      label={ptFindings.length === 0 ? "SECURE" : "VULNERABLE"}
+                      metric={!injectionProbed ? "–" : ptFindings.length === 0 ? "✓" : ptFindings.length}
+                      label={!injectionProbed ? "N/A" : ptFindings.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "traversal"}
                       locked={modGated("traversal")}
                       degraded={modDegradado("traversal")}
                       onClick={() => selectModule("traversal")}/>
                     <SidebarNavItem icon="◈" title="SSRF"
                       color={ssrfColor}
-                      metric={ssrfFindings.length === 0 ? "✓" : ssrfFindings.length}
-                      label={ssrfFindings.length === 0 ? "SECURE" : "VULNERABLE"}
+                      metric={!injectionProbed ? "–" : ssrfFindings.length === 0 ? "✓" : ssrfFindings.length}
+                      label={!injectionProbed ? "N/A" : ssrfFindings.length === 0 ? "SECURE" : "VULNERABLE"}
                       active={openModule === "ssrf"}
                       locked={modGated("ssrf")}
                       degraded={modDegradado("ssrf")}
@@ -7285,7 +7290,7 @@ export default function App() {
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("traversal")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg={vazioDe("traversal", t("vazio.pathTraversal"))}
+                          emptyMsg={!injectionProbed ? t("ativo.injecaoNaoExecutada") : vazioDe("traversal", t("vazio.pathTraversal"))}
                           items={ptFindings.map((pt: any, i: number) => ({
                             id: `pt-${i}`, title: `?${pt.parameter}=`, severity: "CRITICAL",
                             summary: t("achado.arquivoAlvo", pt.target),
@@ -7302,13 +7307,13 @@ export default function App() {
 
                                       {openModule === "ssrf" && (
                       <>
-                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": "var(--critical)" } as React.CSSProperties}>
+                        <div className={styles.sidebarContentTitle} style={{ "--mc-color": ssrfColor } as React.CSSProperties}>
                           <span className={styles.sidebarContentIcon}>◈</span>
                           <span className={styles.sidebarContentTitleText}>SSRF</span>
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("ssrf")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
                         <FindingCardsPanel
-                          emptyMsg={vazioDe("ssrf", t("vazio.ssrf"))}
+                          emptyMsg={!injectionProbed ? t("ativo.injecaoNaoExecutada") : vazioDe("ssrf", t("vazio.ssrf"))}
                           items={ssrfFindings.map((f: any, i: number) => ({
                             id: `ssrf-${i}`, title: `param: ${f.parameter}`, severity: "CRITICAL",
                             summary: t("achado.indicador", f.indicator),

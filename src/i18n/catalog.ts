@@ -517,6 +517,7 @@ export const pt: Catalogo = {
   "ativo.inputSurfaceDica": "Superfície ampla = maior exposição a injeções e travessal.",
   "ativo.xssProbe": "XSS Probe",
   "ativo.naoExecutado": "Não executado",
+  "ativo.injecaoNaoExecutada": "Sonda não executada — esta URL não tem superfície de input (?parâmetro) para injetar. Ausência de achados aqui NÃO significa ausência de risco.",
   "ativo.xssProbeDesc":
     "Payloads XSS injetados nos inputs detectados para verificar reflexão na resposta.",
   "ativo.xssProbeDica": "Probe executado apenas quando há superfície de input detectada.",
@@ -1605,6 +1606,7 @@ export const en: Catalogo = {
   "ativo.inputSurfaceDica": "A wider surface means more exposure to injection and traversal.",
   "ativo.xssProbe": "XSS Probe",
   "ativo.naoExecutado": "Not run",
+  "ativo.injecaoNaoExecutada": "Probe not run — this URL has no input surface (?parameter) to inject into. Absence of findings here does NOT mean absence of risk.",
   "ativo.xssProbeDesc":
     "XSS payloads injected into the detected inputs to check for reflection in the response.",
   "ativo.xssProbeDica": "The probe runs only when an input surface is detected.",
