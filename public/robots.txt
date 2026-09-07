@@ -1,0 +1,8 @@
+# CyberAudit - https://www.cyberauditapp.com
+# Vulnerability disclosure: https://www.cyberauditapp.com/.well-known/security.txt
+
+# No Disallow rules by design: listing private routes here would advertise them
+# to anyone reading robots.txt as a first recon step, and those routes already
+# require authentication. Pages that must stay out of the index use meta robots.
+User-agent: *
+Allow: /
