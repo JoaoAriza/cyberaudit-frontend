@@ -391,6 +391,8 @@ export const pt: Catalogo = {
   "card.dns.robotsDesc": "Paths sensíveis expostos em Disallow do robots.txt.",
   "card.dns.robotsDica":
     "Disallow revela rotas que você quer esconder — atacantes leem robots.txt como primeiro passo.",
+  "card.dns.robotsAusenteDica":
+    "O domínio não serve robots.txt. Não é falha de segurança, mas em hospedagem de SPA qualquer caminho responde 200 com o index.html — buscadores acabam indexando páginas que não existem.",
   "card.dns.foraDoScoreFalha":
     "Não entrou no score: a consulta DNS não foi concluída, então não dá para afirmar que o registro falta.",
   "card.dns.foraDoScoreRecomendacao":
@@ -1485,6 +1487,8 @@ export const en: Catalogo = {
   "card.dns.robotsDesc": "Sensitive paths exposed through Disallow in robots.txt.",
   "card.dns.robotsDica":
     "Disallow reveals the routes you want hidden — attackers read robots.txt as a first step.",
+  "card.dns.robotsAusenteDica":
+    "The domain serves no robots.txt. Not a security flaw, but on SPA hosting any path answers 200 with index.html — search engines end up indexing pages that don't exist.",
   "card.dns.foraDoScoreFalha":
     "Not counted in the score: the DNS lookup did not complete, so we cannot claim the record is missing.",
   "card.dns.foraDoScoreRecomendacao":

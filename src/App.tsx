@@ -43,7 +43,7 @@ interface ScanResult {
   serverVersionExposed: boolean; activeMode: boolean; inputSurfaceDetected: boolean;
   dbErrorLeakageSuspected: boolean; xssProbePerformed: boolean; reflectedXssSuspected: boolean;
   openPorts: PortFinding[]; corsResult: CorsResult; cookieIssues: CookieFinding[];
-  sensitiveRobotsPaths: string[]; sensitiveFiles: SensitiveFileFinding[];
+  sensitiveRobotsPaths: string[]; robotsTxtPresent?: boolean; sensitiveFiles: SensitiveFileFinding[];
   dangerousHttpMethods: HttpMethodFinding[]; securityTxtPresent: boolean;
   securityTxtContact: string | null; openRedirectFindings: OpenRedirectFinding[];
   directoryListingFindings: DirectoryListingFinding[]; score: ScoreResult;
@@ -4524,11 +4524,21 @@ function DnsCardsPanel({ r }: { r: any }) {
       tip: t("card.dns.securityTxtDica"),
     },
     {
-      key: "robots", title: t("card.dns.robots"), present: !(r?.sensitiveRobotsPaths?.length > 0), warn: false,
-      value: r?.sensitiveRobotsPaths?.length > 0 ? t("card.dns.pathsSensiveis", r.sensitiveRobotsPaths.length) : t("card.dns.semExposicoes"),
+      // Ausência do arquivo é recomendação (warn), path sensível exposto é falha
+      // (crítico). Antes os dois casos caíam no mesmo "sem exposições" verde.
+      key: "robots", title: t("card.dns.robots"),
+      // undefined = scan salvo antes do campo existir: mantém o veredito antigo
+      // em vez de pintar de vermelho um histórico que nunca foi avaliado assim.
+      present: r?.robotsTxtPresent !== false && !(r?.sensitiveRobotsPaths?.length > 0),
+      warn: r?.robotsTxtPresent === false,
+      value: r?.robotsTxtPresent === false
+        ? t("selo.ausente")
+        : r?.sensitiveRobotsPaths?.length > 0
+          ? t("card.dns.pathsSensiveis", r.sensitiveRobotsPaths.length)
+          : t("card.dns.semExposicoes"),
       desc: t("card.dns.robotsDesc"),
       record: r?.sensitiveRobotsPaths?.slice(0, 3).join(", ") ?? null,
-      tip: t("card.dns.robotsDica"),
+      tip: r?.robotsTxtPresent === false ? t("card.dns.robotsAusenteDica") : t("card.dns.robotsDica"),
     },
   ];
 
