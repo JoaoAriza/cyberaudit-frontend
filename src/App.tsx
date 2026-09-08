@@ -2662,7 +2662,8 @@ function AuditLogsTab() {
                   {logs.map(log => (
                     <tr key={log.id} className={log.success ? "" : styles.inactiveRow}>
                       <td className={styles.muted} style={{ whiteSpace: "nowrap", fontSize: 11 }}>
-                        {formatarDataHora(log.timestamp, { dateStyle: "short", timeStyle: "medium" })}
+                        {/* timeStyle "long" mostra o fuso ("09:24:58 GMT-3"): num log de auditoria, hora sem fuso e hora errada valem a mesma coisa. */}
+                        {formatarDataHora(log.timestamp, { dateStyle: "short", timeStyle: "long" })}
                       </td>
                       <td>
                         <div style={{ lineHeight: 1.3 }}>
