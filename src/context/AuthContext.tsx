@@ -38,6 +38,10 @@ export interface UserDto {
   /** Equipe da plataforma (PLATFORM_STAFF_EMAILS) — nao e o dono da conta */
   platformStaff?: boolean;
   jobTitle: string | null; country: string | null;
+  /** Fuso IANA da conta; null = seguir o navegador. Ver TimeZoneSection. */
+  timezone: string | null;
+  /** true quando escolhido no perfil — a detecção automática não o sobrepõe. */
+  timezoneManual: boolean;
   remainingScans: number | null; dailyLimit: number | null;
   account: AccountDto | null;
 }
@@ -99,6 +103,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener("auth:logout", handler);
     return () => window.removeEventListener("auth:logout", handler);
   }, []);
+
+
+  /**
+   * Manda para a conta o fuso que o navegador detectou.
+   *
+   * Fica aqui, e não no login, porque toda entrada em sessão passa por setUser —
+   * login, verificação de 2FA, registro, aceite de convite e a sessão retomada
+   * pelo token guardado. Capturar no login deixaria de fora justamente a última,
+   * que é a mais comum no uso diário.
+   *
+   * Só chama a API quando há divergência, e falha em silêncio: o fuso serve ao
+   * PDF e ao agendamento, não à sessão — não é motivo para atrapalhar quem entrou.
+   */
+  useEffect(() => {
+    if (!user || user.timezoneManual) return;
+    const detectado = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!detectado || detectado === user.timezone) return;
+
+    api.put("/user/timezone", { timezone: detectado, manual: false })
+      .then(() => setUser(u => (u ? { ...u, timezone: detectado } : u)))
+      .catch(() => { /* fuso é conveniência; sessão não depende dele */ });
+  }, [user?.id, user?.timezone, user?.timezoneManual]);
 
   const login = async (email: string, password: string): Promise<TwoFactorPending | null> => {
     const res = await api.post<{

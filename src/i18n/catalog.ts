@@ -612,6 +612,14 @@ export const pt: Catalogo = {
     "Nenhum subdomínio encontrado nos logs de Certificate Transparency.",
 
   // ── Configurações de segurança ────────────────────────────────────────────
+  "config.fuso": "Fuso horário",
+  "config.fusoDesc":
+    "Vale para o que o servidor gera sozinho: hora do scan agendado, carimbo do PDF, filtros por data.",
+  "config.fusoAuto": "Automático (navegador)",
+  "config.fusoOnde":
+    "O horário na tela sempre segue este navegador. Esta opção muda só o que roda ou é gerado sem ele.",
+  "config.fusoErro": "Não foi possível salvar o fuso horário.",
+  "agenda.fusoDaConta": "Horário no fuso {0} — altere em Segurança › Fuso horário.",
   "config.titulo": "Configurações de segurança",
   "config.totp": "Autenticador TOTP",
   "config.totpApp": "Google Authenticator / Authy",
@@ -1697,6 +1705,14 @@ export const en: Catalogo = {
   "dominio.semSubdominios": "No subdomain found in the Certificate Transparency logs.",
 
   "config.titulo": "Security settings",
+  "config.fuso": "Time zone",
+  "config.fusoDesc":
+    "Used by what the server generates on its own: scheduled scan time, PDF stamp, date filters.",
+  "config.fusoAuto": "Automatic (browser)",
+  "config.fusoOnde":
+    "Screen times always follow this browser. This setting only changes what runs or is generated without it.",
+  "config.fusoErro": "Could not save the time zone.",
+  "agenda.fusoDaConta": "Time in {0} — change it under Security › Time zone.",
   "config.totp": "TOTP authenticator",
   "config.totpApp": "Google Authenticator / Authy",
   "config.totpDesc": "A rotating code generated on your phone. Safer than email OTP.",

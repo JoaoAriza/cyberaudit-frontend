@@ -107,6 +107,8 @@ interface ScheduledScanDto {
   enabled: boolean;
   notifyEmail: boolean;
   createdAt: string;
+  /** Fuso em que preferredHour deve ser lido; ausente nos agendamentos antigos (UTC). */
+  timezone: string | null;
 }
 interface OwnershipState { message: string; host: string; token: string | null; passiveResult: ScanResult | null; }
 interface GuestStatus { used: number; remaining: number; dailyLimit: number; resetsAt: string; }
@@ -2255,6 +2257,9 @@ function SchedulesPage() {
   // Agendar já é PRO+, então o e-mail está sempre liberado aqui — o que pode
   // barrar é o domínio: no Pro pessoal, só os verificados.
   const reportVerifiedOnly = user?.account?.reportOnVerifiedOnly === true;
+  // Fuso em que a hora escolhida sera lida — o mesmo que o backend congela no
+  // agendamento. Sem conta com fuso gravado, o do proprio navegador.
+  const fusoDaConta = user?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const [schedules, setSchedules]   = useState<ScheduledScanDto[]>([]);
   const [loading, setLoading]       = useState(true);
   const [host, setHost]             = useState("");
@@ -2366,7 +2371,7 @@ function SchedulesPage() {
           disabled={creating}
         >
           {Array.from({ length: 24 }, (_, i) => (
-            <option key={i} value={i}>{String(i).padStart(2, "0")}:00 UTC</option>
+            <option key={i} value={i}>{String(i).padStart(2, "0")}:00</option>
           ))}
         </select>
         <label className={styles.toggle} title={reportVerifiedOnly
@@ -2383,6 +2388,11 @@ function SchedulesPage() {
           {creating ? "..." : t("agenda.agendar")}
         </button>
       </form>
+
+      {/* A hora do agendamento vale no fuso da conta (ver TimeZoneSection), nao mais em UTC fixo. */}
+      <div className={styles.muted} style={{ fontSize: 11, marginTop: 6 }}>
+        {t("agenda.fusoDaConta", fusoDaConta)}
+      </div>
 
       {error && <div className={styles.errorBox}>{error}</div>}
 
@@ -2418,7 +2428,7 @@ function SchedulesPage() {
                     </button>
                   </td>
                   <td>
-                    {s.frequency === "DAILY" ? t("agenda.diario") : t("agenda.semanal")} {String(s.preferredHour).padStart(2, "0")}:00 UTC
+                    {s.frequency === "DAILY" ? t("agenda.diario") : t("agenda.semanal")} {String(s.preferredHour).padStart(2, "0")}:00 {s.timezone ?? "UTC"}
                     {s.active && <span className={`${styles.tag} ${styles.warning}`} style={{ marginLeft: 6, fontSize: "0.65rem" }}>ACTIVE</span>}
                   </td>
                   <td className={styles.muted}>{fmtDate(s.nextRun)}</td>
@@ -5553,11 +5563,86 @@ function SettingsPage() {
         </div>
       </div>
 
+      {/* ── Fuso horário ── */}
+      <TimeZoneSection />
+
       {/* ── API Keys ── */}
       <ApiKeysSection />
 
       {/* ── Identidade Visual (EMPRESA) ── */}
       <BrandingSection />
+    </div>
+  );
+}
+
+// ── Fuso horário (dentro de SettingsPage via componente separado) ──────────────
+
+/**
+ * O fuso da conta serve ao que o SERVIDOR gera sem navegador na frente: hora em
+ * que o agendamento dispara, carimbo do PDF, corte de dia dos filtros por
+ * período. O que aparece na tela não passa por aqui — ali o próprio navegador
+ * converte o instante UTC que a API manda, e acompanha quem viaja.
+ *
+ * Por isso o padrão é "automático": a escolha manual existe para quem opera de um
+ * fuso e emite relatório para outro.
+ */
+function TimeZoneSection() {
+  const { t } = useI18n();
+  const { user, refreshUser } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr]   = useState<string | null>(null);
+
+  const detectado = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  // Intl.supportedValuesOf é ES2022 e pode não existir; sem ele, o seletor cai
+  // para o que já se sabe, em vez de sumir da tela.
+  const zonas: string[] = (() => {
+    try { return (Intl as any).supportedValuesOf?.("timeZone") ?? []; }
+    catch { return []; }
+  })();
+  const lista = zonas.length ? zonas
+              : Array.from(new Set([detectado, user?.timezone, "UTC"].filter(Boolean) as string[]));
+
+  const emUso    = user?.timezone ?? detectado;
+  const escolhido = user?.timezoneManual ? (user.timezone ?? "") : "auto";
+
+  async function trocar(novo: string) {
+    setBusy(true); setErr(null);
+    try {
+      // Voltar ao automático limpa a marca no servidor; o AuthContext reenvia o
+      // fuso do navegador logo em seguida.
+      if (novo === "auto") await api.delete("/user/timezone");
+      else                 await api.put("/user/timezone", { timezone: novo, manual: true });
+      await refreshUser();
+    } catch { setErr(t("config.fusoErro")); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className={styles.settingsCard}>
+      <div className={styles.settingsCardHeader}>
+        <div>
+          <div className={styles.settingsCardTitle}>{t("config.fuso")}</div>
+          <div className={styles.settingsCardSub}>{t("config.fusoDesc")}</div>
+        </div>
+        <span className={styles.muted} style={{ fontSize: 11 }}>{emUso}</span>
+      </div>
+
+      {err && <div className={styles.errorBox}>{err}</div>}
+
+      <select
+        className={styles.roleSelect}
+        value={escolhido}
+        disabled={busy}
+        onChange={e => trocar(e.target.value)}
+      >
+        <option value="auto">{t("config.fusoAuto")} — {detectado}</option>
+        {lista.map(z => <option key={z} value={z}>{z}</option>)}
+      </select>
+
+      <div className={styles.settingsCardSub} style={{ marginTop: 8 }}>
+        {t("config.fusoOnde")}
+      </div>
     </div>
   );
 }
