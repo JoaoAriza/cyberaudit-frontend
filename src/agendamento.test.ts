@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agruparFamilias, familiaDaUrl } from "./agendamento";
+import { agruparFamilias, familiaDaUrl, separarUrl } from "./agendamento";
 
 describe("agruparFamilias", () => {
   it("junta www e sem www na mesma familia", () => {
@@ -44,5 +44,21 @@ describe("familiaDaUrl", () => {
     expect(familiaDaUrl("https://www.linkedin.com/in/joaoariza/")).toBe("linkedin.com");
     expect(familiaDaUrl("linkedin.com")).toBe("linkedin.com");
     expect(familiaDaUrl("  HTTP://WWW.Site.com:8443/login?x=1 ")).toBe("site.com");
+  });
+});
+
+describe("separarUrl", () => {
+  it("devolve caminho nulo quando so o dominio foi digitado", () => {
+    expect(separarUrl("sgsistemas.com.br")).toEqual({ host: "sgsistemas.com.br", path: null });
+  });
+  it("separa o caminho e descarta barra final e query", () => {
+    expect(separarUrl("https://SGSistemas.com.br/solucoes/cartao-private-label/?utm=x"))
+      .toEqual({ host: "sgsistemas.com.br", path: "/solucoes/cartao-private-label" });
+  });
+  it("barra sozinha e a raiz", () => {
+    expect(separarUrl("site.com/")).toEqual({ host: "site.com", path: "/" });
+  });
+  it("ignora porta no host", () => {
+    expect(separarUrl("site.com:8443/login")).toEqual({ host: "site.com", path: "/login" });
   });
 });

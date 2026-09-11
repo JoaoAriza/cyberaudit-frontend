@@ -7,7 +7,7 @@ import { useI18n } from "./i18n/I18nContext";
 import { IDIOMAS, formatarData, formatarHora, formatarDataHora, formatarMoeda } from "./i18n/catalog";
 import type { Lang } from "./i18n/catalog";
 import type { TwoFactorPending } from "./context/AuthContext";
-import { agruparFamilias, familiaDaUrl } from "./agendamento";
+import { agruparFamilias, familiaDaUrl, separarUrl } from "./agendamento";
 
 // ── Backend Types ─────────────────────────────────────────────────────────────
 
@@ -3191,6 +3191,13 @@ function ScanTimelineRow({
           <div className={styles.changesScanInfo}>
             <span className={styles.changesScanDate}>
               {showHost && <code className={styles.code} style={{ fontSize: 11, marginRight: 6 }}>{s.host}</code>}
+              {/* Na lista do dominio, scan de uma pagina interna aparecia igual ao da
+                  raiz. O caminho vem da URL gravada no scan. */}
+              {(separarUrl(s.url).path ?? "/") !== "/" && (
+                <code className={styles.code} style={{ fontSize: 11, marginRight: 6, color: "var(--accent)" }}>
+                  {separarUrl(s.url).path}
+                </code>
+              )}
               {formatarDataHora(s.scannedAt, { dateStyle: "short", timeStyle: "short" })}
               {isFirst && <span className={styles.changesLatestBadge}>{t("changes.maisRecente")}</span>}
               {s.activeMode && <span className={`${styles.tag} ${styles.info}`} style={{ fontSize: 9 }}>ACTIVE</span>}
@@ -3263,6 +3270,8 @@ function ChangesPage() {
   // ── Análise tab state ──────────────────────────────────────────────────────
   const [analysisHost, setAnalysisHost]     = useState<string | null>(null);
   const [analysisSearch, setAnalysisSearch] = useState("");
+  // Caminho em analise. Nulo = deixa a tela escolher (raiz, ou o mais recente).
+  const [analysisPath, setAnalysisPath]     = useState<string | null>(null);
   // ── Overview tab state ────────────────────────────────────────────────────
   const [overviewList, setOverviewList]       = useState<HistorySummary[]>([]);
   const [overviewLoading, setOverviewLoading] = useState(false);
@@ -3327,7 +3336,7 @@ function ChangesPage() {
   const [openPathHost, setOpenPathHost] = useState<string | null>(null);
 
   useEffect(() => {
-    if (tab !== "paths") return;
+    if (tab !== "paths" && tab !== "analysis") return;
     setPathLoading(true);
     api.get<PathSummary[]>("/history/paths")
       .then(r => setPathList(r.data))
@@ -3342,6 +3351,21 @@ function ChangesPage() {
     for (const p of pathList) m.set(p.host, [...(m.get(p.host) ?? []), p]);
     return Array.from(m.entries());
   }, [pathList]);
+
+  // Caminhos do dominio em analise, do mais recente para o mais antigo — a
+  // mesma lista da aba Caminhos. O host da lista vem sem "www." (o backend
+  // grava assim), entao a comparacao tira o "www." do lado da tela tambem.
+  const caminhosEmAnalise = useMemo(() => {
+    if (!analysisHost) return [];
+    const h = analysisHost.replace(/^www\./, "");
+    return pathList.filter(p => p.host === h);
+  }, [pathList, analysisHost]);
+
+  // Sem caminho escolhido: a raiz, se o dominio tiver scan dela; senao o caminho
+  // mais recente. Abrir um dominio que so tem scans de /login num grafico vazio
+  // da raiz seria pior do que nao ter seletor nenhum.
+  const caminhoEmAnalise = analysisPath
+    ?? (caminhosEmAnalise.some(p => p.path === "/") ? "/" : caminhosEmAnalise[0]?.path ?? null);
 
   // ── Tab: Por domínio ───────────────────────────────────────────────────────
   const [registeredDomains, setRegisteredDomains] = useState<DomainDto[]>([]);
@@ -3587,7 +3611,7 @@ function ChangesPage() {
                                 <button
                                   className={`${styles.btn} ${styles.btnGhost}`}
                                   style={{ fontSize: 10, padding: "2px 8px" }}
-                                  onClick={() => { setTab("analysis"); setAnalysisHost(host); }}
+                                  onClick={() => { setTab("analysis"); setAnalysisHost(host); setAnalysisPath(p.path); }}
                                 >
                                   {t("changes.verAnalise")}
                                 </button>
@@ -3705,7 +3729,7 @@ function ChangesPage() {
                   <button
                     key={d.id}
                     className={`${styles.changesChip} ${analysisHost === d.host ? styles.changesChipActive : ""}`}
-                    onClick={() => setAnalysisHost(d.host)}
+                    onClick={() => { setAnalysisHost(d.host); setAnalysisPath(null); }}
                   >
                     {d.verified && <span className={styles.ok} style={{ fontSize: 10 }}>✓ </span>}
                     {d.host}
@@ -3717,8 +3741,10 @@ function ChangesPage() {
           <form
             onSubmit={e => {
               e.preventDefault();
-              const h = analysisSearch.trim().replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
-              if (h) setAnalysisHost(h);
+              // Antes cortava o caminho com split("/")[0]: buscar site.com/login
+              // abria o grafico do dominio inteiro.
+              const { host: h, path: p } = separarUrl(analysisSearch);
+              if (h) { setAnalysisHost(h); setAnalysisPath(p); }
             }}
             className={styles.scheduleForm}
           >
@@ -3740,10 +3766,29 @@ function ChangesPage() {
           {analysisHost && (
             <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
               <div className={styles.muted} style={{ fontFamily: "var(--mono)", fontSize: 11 }}>
-                ◈ Analisando: <code style={{ color: "var(--accent)" }}>{analysisHost}</code>
+                ◈ {t("changes.analisando")}{" "}
+                <code style={{ color: "var(--accent)" }}>
+                  {analysisHost}{caminhoEmAnalise && caminhoEmAnalise !== "/" ? caminhoEmAnalise : ""}
+                </code>
               </div>
-              <ScoreHistoryChart host={analysisHost} showFilter />
-              <IntradayChart host={analysisHost} />
+              {/* Uma serie por pagina: com mais de um caminho, o seletor troca qual
+                  pagina o grafico mostra, em vez de misturar todas numa linha so. */}
+              {caminhosEmAnalise.length > 1 && (
+                <div className={styles.changesChips}>
+                  {caminhosEmAnalise.map(p => (
+                    <button
+                      key={p.path}
+                      className={`${styles.changesChip} ${caminhoEmAnalise === p.path ? styles.changesChipActive : ""}`}
+                      onClick={() => setAnalysisPath(p.path)}
+                      title={`${p.score}/100`}
+                    >
+                      {p.path === "/" ? t("changes.raiz") : p.path}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <ScoreHistoryChart host={analysisHost} path={caminhoEmAnalise} showFilter />
+              <IntradayChart host={analysisHost} path={caminhoEmAnalise} />
             </div>
           )}
 
@@ -4186,7 +4231,7 @@ function DomainsPage() {
 
 // ── Intraday Score Chart ──────────────────────────────────────────────────────
 
-function IntradayChart({ host }: { host: string }) {
+function IntradayChart({ host, path = null }: { host: string; path?: string | null }) {
   const { t } = useI18n();
   const todayStr = new Date().toISOString().slice(0, 10);
   const [selectedDate, setSelectedDate] = useState(todayStr);
@@ -4197,13 +4242,13 @@ function IntradayChart({ host }: { host: string }) {
     if (!host || !selectedDate) return;
     setLoading(true);
     setScans([]);
-    api.get<HistorySummary[]>(`/history/${host}?from=${selectedDate}&to=${selectedDate}`)
+    api.get<HistorySummary[]>(`/history/${host}?from=${selectedDate}&to=${selectedDate}${path ? `&path=${encodeURIComponent(path)}` : ""}`)
       .then(res => setScans([...res.data].sort((a, b) =>
         new Date(a.scannedAt).getTime() - new Date(b.scannedAt).getTime()
       )))
       .catch(() => setScans([]))
       .finally(() => setLoading(false));
-  }, [host, selectedDate]);
+  }, [host, path, selectedDate]);
 
   const points = scans.map(s => {
     const dt = new Date(s.scannedAt);
@@ -5394,24 +5439,29 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFilter?: boolean }) {
+function ScoreHistoryChart({ host, path = null, showFilter = false }: { host: string; path?: string | null; showFilter?: boolean }) {
   const { t } = useI18n();
   const [allData, setAllData] = useState<HistorySummary[]>([]);
   const [fromDate, setFromDate] = useState("");
   const [toDate,   setToDate]   = useState("");
+  const [carregado, setCarregado] = useState(false);
 
   useEffect(() => {
     if (!host) return;
     setAllData([]);
     setFromDate("");
     setToDate("");
-    api.get<HistorySummary[]>(`/history/${host}`)
+    setCarregado(false);
+    // Com caminho, a serie e so daquela pagina: a home e o /login do mesmo
+    // dominio tem notas diferentes, e misturados viram uma tendencia que nao existe.
+    api.get<HistorySummary[]>(`/history/${host}${path ? `?path=${encodeURIComponent(path)}` : ""}`)
       .then(res => {
         // Oldest first for the chart
         setAllData([...res.data].reverse());
       })
-      .catch(() => {});
-  }, [host]);
+      .catch(() => {})
+      .finally(() => setCarregado(true));
+  }, [host, path]);
 
   // Without filter (Scanner sidebar): last 30 records. With filter: apply date range.
   const data = showFilter
@@ -5423,7 +5473,20 @@ function ScoreHistoryChart({ host, showFilter = false }: { host: string; showFil
       })
     : allData.slice(-30);
 
-  if (allData.length < 2) return null;
+  if (allData.length < 2) {
+    // Na barra do scanner, sem grafico e melhor do que um card vazio. Na aba de
+    // analise o usuario PEDIU o grafico daquela pagina: sumir sem explicacao
+    // parece defeito — e com o historico separado por caminho, pagina com um
+    // scan so passou a ser o caso comum.
+    if (!showFilter || !carregado) return null;
+    return (
+      <Card title={t("grafico.historico")}>
+        <div className={styles.empty}>
+          {allData.length === 0 ? t("grafico.semScansPagina") : t("grafico.umScan", allData[0].score)}
+        </div>
+      </Card>
+    );
+  }
 
   // Um ponto por dia — último scan do dia
   const pointsMap = new Map<string, typeof data[0]>();
@@ -6773,6 +6836,11 @@ export default function App() {
   const risk = r?.score?.riskLevel;
   const tf = r?.techFingerprint;
   const badgeHost = (r?.finalUrl ?? r?.url ?? "").replace(/^https?:\/\//, "").split("/")[0];
+  // Caminho do scan pela URL PEDIDA, que e a que o historico grava (ScanRecord.url) —
+  // assim o grafico da barra lateral mostra a serie DESTA pagina, e nao a do
+  // dominio inteiro. O badgeHost continua so dominio: selo publico e contestacao
+  // sao por dominio.
+  const badgePath = separarUrl(r?.url ?? "").path ?? "/";
   // Módulo bloqueado p/ este plano (guest/FREE): não é Issues nem um módulo liberado.
   const modGated = (key: string) => !!r?.detailsLocked && key !== "issues" && !FREE_MODULES.includes(key);
   /**
@@ -7054,7 +7122,10 @@ export default function App() {
                       </div>
                       <div className={styles.sidebarTargetMeta}>
                         <div className={`${styles.sidebarTargetRisk} ${riskColor(risk)}`}>{risk}</div>
-                        <div className={styles.sidebarTargetUrl}>{badgeHost}</div>
+                        <div className={styles.sidebarTargetUrl}>
+                          {badgeHost}
+                          {badgePath !== "/" && <span style={{ color: "var(--accent)" }}>{badgePath}</span>}
+                        </div>
                       </div>
                     </div>
                     <div className={styles.sidebarNavGroup}>{t("grupo.visaoGeral")}</div>
@@ -7339,7 +7410,7 @@ export default function App() {
                       </Card>
                     </div>
 
-                    {badgeHost && canHistory && <ScoreHistoryChart host={badgeHost} />}
+                    {badgeHost && canHistory && <ScoreHistoryChart host={badgeHost} path={badgePath} />}
 
                     <div className={styles.sidebarContent} ref={moduleContentRef}>
 

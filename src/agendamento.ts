@@ -46,3 +46,21 @@ export function familiaDaUrl(url: string): string {
   const host = semEsquema.split(/[/?#]/)[0].split(":")[0];
   return chaveDaFamilia(host);
 }
+
+/**
+ * Separa dominio e caminho de uma URL digitada ("https://site.com/login?x=1").
+ *
+ * Caminho nulo quando so o dominio foi digitado — quem chama decide o padrao
+ * (a aba de analise escolhe a raiz, ou o caminho mais recente se nao houver raiz).
+ * Barra final e query nao entram, igual a normalizacao do backend
+ * (ScanHistoryService.normalizarCaminho).
+ */
+export function separarUrl(url: string): { host: string; path: string | null } {
+  const semEsquema = url.trim().replace(/^https?:\/\//i, "");
+  const corte = semEsquema.search(/[/?#]/);
+  const host = (corte >= 0 ? semEsquema.slice(0, corte) : semEsquema).split(":")[0].toLowerCase();
+  if (corte < 0 || semEsquema[corte] !== "/") return { host, path: null };
+  const bruto = semEsquema.slice(corte).split(/[?#]/)[0];
+  const path = bruto.length > 1 ? bruto.replace(/\/+$/, "") : "/";
+  return { host, path: path || "/" };
+}

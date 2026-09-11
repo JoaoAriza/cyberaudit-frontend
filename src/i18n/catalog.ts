@@ -822,6 +822,7 @@ export const pt: Catalogo = {
   "changes.nCaminhos": "{0} caminho(s)",
   "changes.raiz": "/ (raiz)",
   "changes.verAnalise": "Gráfico de score",
+  "changes.analisando": "Analisando:",
   "changes.vazio": "◈ Nenhum scan registrado ainda. Escaneie um domínio para começar.",
   "changes.dominiosCadastrados": "DOMÍNIOS CADASTRADOS",
   "changes.semFiltro": "◈ Nenhum scan com esse filtro.",
@@ -835,6 +836,8 @@ export const pt: Catalogo = {
   // ── Gráficos ──────────────────────────────────────────────────────────────
   "grafico.intraday": "SCORE INTRADAY",
   "grafico.historico": "SCORE HISTÓRICO",
+  "grafico.semScansPagina": "Nenhum scan registrado desta página.",
+  "grafico.umScan": "Só há um scan desta página ({0}/100). O gráfico aparece a partir do segundo.",
   "grafico.carregando": "carregando...",
   "grafico.periodo": "Período:",
   "grafico.semScans": "Nenhum scan no período selecionado.",
@@ -1924,6 +1927,7 @@ export const en: Catalogo = {
   "changes.nCaminhos": "{0} path(s)",
   "changes.raiz": "/ (root)",
   "changes.verAnalise": "Score chart",
+  "changes.analisando": "Analyzing:",
   "changes.vazio": "◈ No scan recorded yet. Scan a domain to get started.",
   "changes.dominiosCadastrados": "REGISTERED DOMAINS",
   "changes.semFiltro": "◈ No scan matches this filter.",
@@ -1936,6 +1940,8 @@ export const en: Catalogo = {
 
   "grafico.intraday": "INTRADAY SCORE",
   "grafico.historico": "SCORE HISTORY",
+  "grafico.semScansPagina": "No scans recorded for this page.",
+  "grafico.umScan": "There is only one scan of this page ({0}/100). The chart appears from the second one.",
   "grafico.carregando": "loading...",
   "grafico.periodo": "Period:",
   "grafico.semScans": "No scan in the selected period.",
