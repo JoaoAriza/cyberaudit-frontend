@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./App.module.css";
 import { api, setToken } from "./api/client";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
@@ -7,6 +7,7 @@ import { useI18n } from "./i18n/I18nContext";
 import { IDIOMAS, formatarData, formatarHora, formatarDataHora, formatarMoeda } from "./i18n/catalog";
 import type { Lang } from "./i18n/catalog";
 import type { TwoFactorPending } from "./context/AuthContext";
+import { agruparFamilias } from "./agendamento";
 
 // ── Backend Types ─────────────────────────────────────────────────────────────
 
@@ -2267,7 +2268,6 @@ function SchedulesPage() {
   const [host, setHost]             = useState("");
   const [frequency, setFrequency]   = useState<"DAILY" | "WEEKLY">("DAILY");
   const [hour, setHour]             = useState(8);
-  const [path, setPath]             = useState("");
   // Dominios ja registrados viram sugestao no campo: o agendamento passa a nascer
   // de um dominio conhecido, e o caminho e adicionado por cima dele.
   const [dominios, setDominios]     = useState<DomainDto[]>([]);
@@ -2277,7 +2277,10 @@ function SchedulesPage() {
   const [error, setError]           = useState<string | null>(null);
 
   // history per host
-  const [expandedHost, setExpandedHost]     = useState<string | null>(null);
+  // Expansao por AGENDAMENTO, nao por host: com a raiz e o /login do mesmo
+  // dominio agendados, chavear por host abria os dois historicos juntos.
+  const [expandedId, setExpandedId]         = useState<string | null>(null);
+  const hostInputRef                        = useRef<HTMLInputElement>(null);
   const [hostHistory, setHostHistory]       = useState<Record<string, HistorySummary[]>>({});
   const [historyLoading, setHistoryLoading] = useState<Record<string, boolean>>({});
 
@@ -2301,10 +2304,10 @@ function SchedulesPage() {
     setCreating(true); setError(null);
     try {
       await api.post("/scheduled-scans", {
-        host: host.trim(), active: activeMode, frequency, path: path.trim(),
+        host: host.trim(), active: activeMode, frequency,
         preferredHour: hour, notifyEmail,
       });
-      setHost(""); setPath(""); await load();
+      setHost(""); await load();
     } catch (err: any) {
       setError(err?.response?.data?.message ?? t("agenda.erroCriar"));
     } finally { setCreating(false); }
@@ -2321,19 +2324,47 @@ function SchedulesPage() {
     catch { setError(t("agenda.erroRemover")); }
   }
 
-  async function toggleHistory(h: string) {
-    if (expandedHost === h) { setExpandedHost(null); return; }
-    setExpandedHost(h);
-    if (hostHistory[h]) return; // already loaded
-    setHistoryLoading(p => ({ ...p, [h]: true }));
+  async function toggleHistory(s: ScheduledScanDto) {
+    if (expandedId === s.id) { setExpandedId(null); return; }
+    setExpandedId(s.id);
+    if (hostHistory[s.id]) return; // ja carregado
+    setHistoryLoading(p => ({ ...p, [s.id]: true }));
     try {
-      const res = await api.get<HistorySummary[]>(`/history/${h}?origin=SCHEDULED`);
-      setHostHistory(p => ({ ...p, [h]: res.data.slice(0, 10) }));
+      // Filtra pelo caminho do agendamento — a raiz manda "/" para NAO trazer
+      // os scans dos outros caminhos da mesma familia.
+      const caminho = encodeURIComponent(s.path || "/");
+      const res = await api.get<HistorySummary[]>(`/history/${s.host}?origin=SCHEDULED&path=${caminho}`);
+      setHostHistory(p => ({ ...p, [s.id]: res.data.slice(0, 10) }));
     } catch {
-      setHostHistory(p => ({ ...p, [h]: [] }));
+      setHostHistory(p => ({ ...p, [s.id]: [] }));
     } finally {
-      setHistoryLoading(p => ({ ...p, [h]: false }));
+      setHistoryLoading(p => ({ ...p, [s.id]: false }));
     }
+  }
+
+  // ── Familias ─────────────────────────────────────────────────────────────
+  // Regra em src/agendamento.ts (testada): dominio sem "www.", raiz primeiro.
+  const familias = useMemo(() => agruparFamilias(schedules), [schedules]);
+
+  /** Abre o formulario ja com o dominio da familia — basta completar o caminho. */
+  function adicionarNaFamilia(host: string) {
+    setHost(`${host}/`);
+    hostInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    hostInputRef.current?.focus();
+  }
+
+  /**
+   * Pausa a familia inteira se houver algum ativo; retoma se todos estiverem
+   * pausados. Chama o toggle so em quem precisa mudar, porque o endpoint INVERTE
+   * o estado — mandar para todos religaria os que ja estavam pausados.
+   */
+  async function alternarFamilia(lista: ScheduledScanDto[]) {
+    const alvo = !lista.some(s => s.enabled);
+    try {
+      await Promise.all(lista.filter(s => s.enabled !== alvo)
+        .map(s => api.patch(`/scheduled-scans/${s.id}/toggle`)));
+      await load();
+    } catch { setError(t("agenda.erroAtualizar")); }
   }
 
   function fmtDate(d: string | null) {
@@ -2362,21 +2393,13 @@ function SchedulesPage() {
           placeholder={t("scan.placeholder")}
           disabled={creating}
           list="dominios-registrados"
+          ref={hostInputRef}
         />
         {/* Dominios ja registrados aparecem como sugestao — o campo continua
             aceitando texto livre para quem ainda nao registrou nenhum. */}
         <datalist id="dominios-registrados">
           {dominios.map(d => <option key={d.id} value={d.host} />)}
         </datalist>
-        <input
-          className={styles.urlInput}
-          style={{ maxWidth: 160 }}
-          value={path}
-          onChange={e => setPath(e.target.value)}
-          placeholder={t("agenda.caminhoPlaceholder")}
-          title={t("agenda.caminhoAjuda")}
-          disabled={creating}
-        />
         <select
           className={styles.roleSelect}
           value={frequency}
@@ -2426,7 +2449,7 @@ function SchedulesPage() {
         <table className={styles.userTable}>
           <thead>
             <tr>
-              <th>{t("agenda.dominio")}</th>
+              <th>{t("agenda.caminho")}</th>
               <th>{t("agenda.frequencia")}</th>
               <th>{t("agenda.proximoScan")}</th>
               <th>{t("agenda.ultimoScan")}</th>
@@ -2436,20 +2459,54 @@ function SchedulesPage() {
             </tr>
           </thead>
           <tbody>
-            {schedules.map(s => (
-              <>
+            {familias.map(([familia, lista]) => (
+            <Fragment key={familia}>
+            {/* Cabecalho da familia: o dominio, quantos caminhos ele tem e as acoes
+                que valem para o grupo todo. */}
+            <tr>
+              <td colSpan={7} style={{ padding: "14px 8px 6px", borderBottom: "1px solid var(--border)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <code style={{ color: "var(--accent)", fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700 }}>
+                      {familia}
+                    </code>
+                    <span className={`${styles.tag} ${styles.info}`}>
+                      {t("agenda.nAgendamentos", lista.length)}
+                    </span>
+                  </div>
+                  <div className={styles.actionBtns}>
+                    <button
+                      className={`${styles.btn} ${styles.btnGhost}`}
+                      style={{ fontSize: 11 }}
+                      onClick={() => adicionarNaFamilia(lista[0].host)}
+                      title={t("agenda.adicionarCaminhoAjuda")}
+                    >
+                      {t("agenda.adicionarCaminho")}
+                    </button>
+                    {lista.length > 1 && (
+                      <button
+                        className={`${styles.btn} ${styles.btnGhost}`}
+                        style={{ fontSize: 11 }}
+                        onClick={() => alternarFamilia(lista)}
+                      >
+                        {lista.some(s => s.enabled) ? t("agenda.pausarTodos") : t("agenda.retomarTodos")}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </td>
+            </tr>
+            {lista.map(s => (
+              <Fragment key={s.id}>
                 <tr key={s.id}>
                   <td>
                     <button
                       className={`${styles.btn} ${styles.btnGhost}`}
                       style={{ fontFamily: "var(--mono)", fontSize: "0.78rem", padding: "2px 8px" }}
-                      onClick={() => toggleHistory(s.host)}
+                      onClick={() => toggleHistory(s)}
                       title={t("agenda.verHistorico")}
                     >
-                      {expandedHost === s.host ? "▾" : "▸"} {s.host}
-                      {s.path && s.path !== "/" && (
-                        <code style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--accent)", marginLeft: 4 }}>{s.path}</code>
-                      )}
+                      {expandedId === s.id ? "▾" : "▸"} {s.path && s.path !== "/" ? s.path : t("changes.raiz")}
                     </button>
                   </td>
                   <td>
@@ -2467,7 +2524,7 @@ function SchedulesPage() {
                   <td>
                     <div className={styles.actionBtns}>
                       <button className={`${styles.btn} ${styles.btnGhost}`} onClick={() => toggle(s.id)}>
-                        {s.enabled ? "Pausar" : "Retomar"}
+                        {s.enabled ? t("agenda.pausar") : t("agenda.retomar")}
                       </button>
                       <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => remove(s.id)}>
                         {t("comum.remover")}
@@ -2477,21 +2534,21 @@ function SchedulesPage() {
                 </tr>
 
                 {/* ── Histórico expandido ── */}
-                {expandedHost === s.host && (
+                {expandedId === s.id && (
                   <tr key={`${s.id}-history`}>
                     <td colSpan={7} style={{ padding: "0 0 0 1rem", background: "var(--bg)" }}>
                       <div style={{ borderLeft: "2px solid var(--border2)", padding: "0.75rem 1rem", margin: "0.25rem 0 0.5rem" }}>
-                        {historyLoading[s.host] ? (
+                        {historyLoading[s.id] ? (
                           <div className={styles.muted} style={{ fontSize: "0.8rem" }}>{t("agenda.carregandoScans")}</div>
-                        ) : !hostHistory[s.host]?.length ? (
+                        ) : !hostHistory[s.id]?.length ? (
                           <div style={{ fontSize: "0.8rem", display: "flex", alignItems: "center", gap: 8 }}><span className={`${styles.tag} ${styles.warning}`}>{t("agenda.pendente")}</span><span className={styles.muted}>{t("agenda.nenhumExecutado", fmtDate(s.nextRun))}</span></div>
                         ) : (
                           <>
                             <div style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "1.5px", color: "var(--text-muted)", marginBottom: "0.5rem", textTransform: "uppercase" }}>
-                              {t("agenda.ultimosScans", hostHistory[s.host].length)}
+                              {t("agenda.ultimosScans", hostHistory[s.id].length)}
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                              {hostHistory[s.host].map(h => (
+                              {hostHistory[s.id].map(h => (
                                 <button
                                   key={h.id}
                                   onClick={() => setDetailId(h.id)}
@@ -2532,7 +2589,9 @@ function SchedulesPage() {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
+            ))}
+            </Fragment>
             ))}
           </tbody>
         </table>
