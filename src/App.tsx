@@ -2541,14 +2541,21 @@ function SchedulesPage() {
                   </td>
                   <td>
                     {s.frequency === "DAILY" ? t("agenda.diario") : t("agenda.semanal")} {String(s.preferredHour).padStart(2, "0")}:00 {s.timezone ?? "UTC"}
-                    {s.active && <span className={`${styles.tag} ${styles.warning}`} style={{ marginLeft: 6, fontSize: "0.65rem" }}>ACTIVE</span>}
+                    {/* Modo sempre visivel: antes "passivo" era a AUSENCIA do selo, e o
+                        "Ativo" da coluna Status parecia responder por ele. */}
+                    {s.active
+                      ? <span className={`${styles.tag} ${styles.warning}`} style={{ marginLeft: 6, fontSize: "0.65rem" }} title={t("agenda.modoAtivo")}>ACTIVE</span>
+                      : <span className={styles.tag} style={{ marginLeft: 6, fontSize: "0.65rem", color: "var(--text-muted)" }} title={t("agenda.modoPassivo")}>PASSIVE</span>}
                   </td>
                   <td className={styles.muted}>{fmtDate(s.nextRun)}</td>
                   <td className={styles.muted}>{fmtDate(s.lastRun)}</td>
                   <td>{s.notifyEmail ? <span className={styles.ok}>✓</span> : <span className={styles.muted}>—</span>}</td>
                   <td>
+                    {/* "Agendado", e nao "Ativo": aqui a pergunta e se a rotina roda ou esta
+                        pausada. "Ativo" colidia com o modo ACTIVE do scan, e em ingles os
+                        dois viravam "Active". */}
                     {s.enabled
-                      ? <span className={styles.ok}>{t("comum.ativo")}</span>
+                      ? <span className={styles.ok}>{t("agenda.agendado")}</span>
                       : <span className={styles.muted}>{t("agenda.pausado")}</span>}
                   </td>
                   <td>

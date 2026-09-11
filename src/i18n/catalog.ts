@@ -582,6 +582,8 @@ export const pt: Catalogo = {
   "agenda.verHistorico": "Ver histórico de scans",
   "agenda.verDetalhes": "Ver detalhes →",
   "agenda.pausado": "Pausado",
+  "agenda.agendado": "Agendado",
+  "agenda.modoPassivo": "Scan passivo: só observa o que o site já expõe, sem enviar payloads.",
   "agenda.carregandoScans": "Carregando scans...",
 
   // ── Detalhe do scan agendado ──────────────────────────────────────────────
@@ -1697,6 +1699,8 @@ export const en: Catalogo = {
   "agenda.verHistorico": "View scan history",
   "agenda.verDetalhes": "View details →",
   "agenda.pausado": "Paused",
+  "agenda.agendado": "Scheduled",
+  "agenda.modoPassivo": "Passive scan: only observes what the site already exposes, without sending payloads.",
   "agenda.carregandoScans": "Loading scans...",
 
   "agenda.detalhe.titulo": "Scan Result",
