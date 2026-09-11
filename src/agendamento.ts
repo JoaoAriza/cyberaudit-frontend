@@ -35,3 +35,14 @@ export function agruparFamilias<T extends AgendamentoDaFamilia>(lista: T[]): [st
   }
   return Array.from(m.entries());
 }
+
+/**
+ * Familia de uma URL digitada no formulario — que pode vir com esquema, caminho
+ * e porta ("https://www.site.com:8443/login"). Serve para abrir o grupo certo
+ * logo depois de agendar, sem esperar o servidor devolver o host limpo.
+ */
+export function familiaDaUrl(url: string): string {
+  const semEsquema = url.trim().replace(/^https?:\/\//i, "");
+  const host = semEsquema.split(/[/?#]/)[0].split(":")[0];
+  return chaveDaFamilia(host);
+}

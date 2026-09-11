@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agruparFamilias } from "./agendamento";
+import { agruparFamilias, familiaDaUrl } from "./agendamento";
 
 describe("agruparFamilias", () => {
   it("junta www e sem www na mesma familia", () => {
@@ -36,5 +36,13 @@ describe("agruparFamilias", () => {
       { host: "wwwsite.com", path: null },
     ]);
     expect(grupos).toHaveLength(2);
+  });
+});
+
+describe("familiaDaUrl", () => {
+  it("tira esquema, www, porta e caminho", () => {
+    expect(familiaDaUrl("https://www.linkedin.com/in/joaoariza/")).toBe("linkedin.com");
+    expect(familiaDaUrl("linkedin.com")).toBe("linkedin.com");
+    expect(familiaDaUrl("  HTTP://WWW.Site.com:8443/login?x=1 ")).toBe("site.com");
   });
 });

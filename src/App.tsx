@@ -7,7 +7,7 @@ import { useI18n } from "./i18n/I18nContext";
 import { IDIOMAS, formatarData, formatarHora, formatarDataHora, formatarMoeda } from "./i18n/catalog";
 import type { Lang } from "./i18n/catalog";
 import type { TwoFactorPending } from "./context/AuthContext";
-import { agruparFamilias } from "./agendamento";
+import { agruparFamilias, familiaDaUrl } from "./agendamento";
 
 // ── Backend Types ─────────────────────────────────────────────────────────────
 
@@ -2281,6 +2281,9 @@ function SchedulesPage() {
   // dominio agendados, chavear por host abria os dois historicos juntos.
   const [expandedId, setExpandedId]         = useState<string | null>(null);
   const hostInputRef                        = useRef<HTMLInputElement>(null);
+  // Familias comecam recolhidas: a lista mostra so os dominios, e o clique no
+  // dominio abre os caminhos dele. Varias podem ficar abertas ao mesmo tempo.
+  const [familiasAbertas, setFamiliasAbertas] = useState<Set<string>>(new Set());
   const [hostHistory, setHostHistory]       = useState<Record<string, HistorySummary[]>>({});
   const [historyLoading, setHistoryLoading] = useState<Record<string, boolean>>({});
 
@@ -2307,6 +2310,10 @@ function SchedulesPage() {
         host: host.trim(), active: activeMode, frequency,
         preferredHour: hour, notifyEmail,
       });
+      // Abre a familia do agendamento novo: recolhida, a confirmacao de que ele
+      // entrou ficaria escondida.
+      const nova = familiaDaUrl(host);
+      setFamiliasAbertas(prev => new Set(prev).add(nova));
       setHost(""); await load();
     } catch (err: any) {
       setError(err?.response?.data?.message ?? t("agenda.erroCriar"));
@@ -2345,6 +2352,16 @@ function SchedulesPage() {
   // ── Familias ─────────────────────────────────────────────────────────────
   // Regra em src/agendamento.ts (testada): dominio sem "www.", raiz primeiro.
   const familias = useMemo(() => agruparFamilias(schedules), [schedules]);
+
+  const algumaAberta = familias.some(([f]) => familiasAbertas.has(f));
+
+  function alternarAberta(familia: string) {
+    setFamiliasAbertas(prev => {
+      const n = new Set(prev);
+      if (n.has(familia)) n.delete(familia); else n.add(familia);
+      return n;
+    });
+  }
 
   /** Abre o formulario ja com o dominio da familia — basta completar o caminho. */
   function adicionarNaFamilia(host: string) {
@@ -2447,6 +2464,7 @@ function SchedulesPage() {
         <div className={styles.empty}>{t("agenda.vazio")}</div>
       ) : (
         <table className={styles.userTable}>
+          {algumaAberta && (
           <thead>
             <tr>
               <th>{t("agenda.caminho")}</th>
@@ -2458,6 +2476,7 @@ function SchedulesPage() {
               <th></th>
             </tr>
           </thead>
+          )}
           <tbody>
             {familias.map(([familia, lista]) => (
             <Fragment key={familia}>
@@ -2466,14 +2485,25 @@ function SchedulesPage() {
             <tr>
               <td colSpan={7} style={{ padding: "14px 8px 6px", borderBottom: "1px solid var(--border)" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <button
+                    onClick={() => alternarAberta(familia)}
+                    aria-expanded={familiasAbertas.has(familia)}
+                    title={familiasAbertas.has(familia) ? t("agenda.recolher") : t("agenda.expandir")}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      background: "transparent", border: "none", padding: 0, cursor: "pointer",
+                    }}
+                  >
+                    <span style={{ color: "var(--text-muted)", fontSize: 11, width: 10 }}>
+                      {familiasAbertas.has(familia) ? "▾" : "▸"}
+                    </span>
                     <code style={{ color: "var(--accent)", fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700 }}>
                       {familia}
                     </code>
                     <span className={`${styles.tag} ${styles.info}`}>
                       {t("agenda.nAgendamentos", lista.length)}
                     </span>
-                  </div>
+                  </button>
                   <div className={styles.actionBtns}>
                     <button
                       className={`${styles.btn} ${styles.btnGhost}`}
@@ -2496,7 +2526,7 @@ function SchedulesPage() {
                 </div>
               </td>
             </tr>
-            {lista.map(s => (
+            {familiasAbertas.has(familia) && lista.map(s => (
               <Fragment key={s.id}>
                 <tr key={s.id}>
                   <td>
