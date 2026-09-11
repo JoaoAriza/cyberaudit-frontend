@@ -560,6 +560,9 @@ export const pt: Catalogo = {
   "agenda.confirmaRemover": "Remover este agendamento?",
   "agenda.diario": "Diário",
   "agenda.semanal": "Semanal",
+  "agenda.caminhoPlaceholder": "/caminho (opcional)",
+  "agenda.caminhoAjuda":
+    "Página dentro do domínio a monitorar, ex: /login. Vazio escaneia a home.",
   "agenda.emailAoConcluir": "Receber email ao concluir",
   "agenda.modoAtivo":
     "Modo ativo: executa probes adicionais (XSS, SSRF, etc). Use apenas em domínios autorizados.",
@@ -806,6 +809,12 @@ export const pt: Catalogo = {
   "changes.visaoGeral": "Visão Geral",
   "changes.porDominio": "Por domínio",
   "changes.analiseScore": "Análise de Score",
+  "changes.caminhos": "Caminhos",
+  "changes.caminhosDesc":
+    "Cada domínio agrupa as páginas medidas dentro dele. O score de uma página não é o score do domínio — abra o domínio para comparar.",
+  "changes.nCaminhos": "{0} caminho(s)",
+  "changes.raiz": "/ (raiz)",
+  "changes.verAnalise": "Gráfico de score",
   "changes.vazio": "◈ Nenhum scan registrado ainda. Escaneie um domínio para começar.",
   "changes.dominiosCadastrados": "DOMÍNIOS CADASTRADOS",
   "changes.semFiltro": "◈ Nenhum scan com esse filtro.",
@@ -1656,6 +1665,9 @@ export const en: Catalogo = {
   "agenda.confirmaRemover": "Remove this schedule?",
   "agenda.diario": "Daily",
   "agenda.semanal": "Weekly",
+  "agenda.caminhoPlaceholder": "/path (optional)",
+  "agenda.caminhoAjuda":
+    "Page inside the domain to monitor, e.g. /login. Leave empty to scan the home page.",
   "agenda.emailAoConcluir": "Email me when it finishes",
   "agenda.modoAtivo":
     "Active mode: runs extra probes (XSS, SSRF and others). Use only on domains you are authorised to test.",
@@ -1892,6 +1904,12 @@ export const en: Catalogo = {
   "changes.visaoGeral": "Overview",
   "changes.porDominio": "By domain",
   "changes.analiseScore": "Score analysis",
+  "changes.caminhos": "Paths",
+  "changes.caminhosDesc":
+    "Each domain groups the pages measured under it. The score of a page is not the score of the domain — open the domain to compare them.",
+  "changes.nCaminhos": "{0} path(s)",
+  "changes.raiz": "/ (root)",
+  "changes.verAnalise": "Score chart",
   "changes.vazio": "◈ No scan recorded yet. Scan a domain to get started.",
   "changes.dominiosCadastrados": "REGISTERED DOMAINS",
   "changes.semFiltro": "◈ No scan matches this filter.",

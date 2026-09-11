@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./App.module.css";
 import { api, setToken } from "./api/client";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
@@ -102,6 +102,8 @@ interface ScheduledScanDto {
   active: boolean;
   frequency: "DAILY" | "WEEKLY";
   preferredHour: number;
+  /** Caminho dentro do dominio; ausente nos agendamentos antigos (raiz). */
+  path: string | null;
   nextRun: string | null;
   lastRun: string | null;
   enabled: boolean;
@@ -2265,6 +2267,10 @@ function SchedulesPage() {
   const [host, setHost]             = useState("");
   const [frequency, setFrequency]   = useState<"DAILY" | "WEEKLY">("DAILY");
   const [hour, setHour]             = useState(8);
+  const [path, setPath]             = useState("");
+  // Dominios ja registrados viram sugestao no campo: o agendamento passa a nascer
+  // de um dominio conhecido, e o caminho e adicionado por cima dele.
+  const [dominios, setDominios]     = useState<DomainDto[]>([]);
   const [notifyEmail, setNotifyEmail] = useState(false);
   const [activeMode, setActiveMode] = useState(false);
   const [creating, setCreating]     = useState(false);
@@ -2287,6 +2293,7 @@ function SchedulesPage() {
   }
 
   useEffect(() => { load(); }, []);
+  useEffect(() => { api.get<DomainDto[]>("/domains").then(r => setDominios(r.data)).catch(() => {}); }, []);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -2294,10 +2301,10 @@ function SchedulesPage() {
     setCreating(true); setError(null);
     try {
       await api.post("/scheduled-scans", {
-        host: host.trim(), active: activeMode, frequency,
+        host: host.trim(), active: activeMode, frequency, path: path.trim(),
         preferredHour: hour, notifyEmail,
       });
-      setHost(""); await load();
+      setHost(""); setPath(""); await load();
     } catch (err: any) {
       setError(err?.response?.data?.message ?? t("agenda.erroCriar"));
     } finally { setCreating(false); }
@@ -2353,6 +2360,21 @@ function SchedulesPage() {
           value={host}
           onChange={e => setHost(e.target.value)}
           placeholder={t("scan.placeholder")}
+          disabled={creating}
+          list="dominios-registrados"
+        />
+        {/* Dominios ja registrados aparecem como sugestao — o campo continua
+            aceitando texto livre para quem ainda nao registrou nenhum. */}
+        <datalist id="dominios-registrados">
+          {dominios.map(d => <option key={d.id} value={d.host} />)}
+        </datalist>
+        <input
+          className={styles.urlInput}
+          style={{ maxWidth: 160 }}
+          value={path}
+          onChange={e => setPath(e.target.value)}
+          placeholder={t("agenda.caminhoPlaceholder")}
+          title={t("agenda.caminhoAjuda")}
           disabled={creating}
         />
         <select
@@ -2425,6 +2447,9 @@ function SchedulesPage() {
                       title={t("agenda.verHistorico")}
                     >
                       {expandedHost === s.host ? "▾" : "▸"} {s.host}
+                      {s.path && s.path !== "/" && (
+                        <code style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--accent)", marginLeft: 4 }}>{s.path}</code>
+                      )}
                     </button>
                   </td>
                   <td>
@@ -3145,7 +3170,7 @@ function ScanTimelineRow({
 
 function ChangesPage() {
   const { t } = useI18n();
-  const [tab, setTab] = useState<"overview" | "domain" | "analysis">("overview");
+  const [tab, setTab] = useState<"overview" | "paths" | "domain" | "analysis">("overview");
   // ── Análise tab state ──────────────────────────────────────────────────────
   const [analysisHost, setAnalysisHost]     = useState<string | null>(null);
   const [analysisSearch, setAnalysisSearch] = useState("");
@@ -3203,6 +3228,32 @@ function ChangesPage() {
       .finally(() => setOverviewLoading(false));
   }, [tab]);
 
+
+  // ── Tab: Caminhos ─────────────────────────────────────────────────────────
+  // O historico agrupa por dominio; esta aba abre o dominio para mostrar QUE
+  // paginas dele foram medidas. Sem ela, o score do /login aparecia com o nome
+  // do dominio e se misturava ao da home.
+  const [pathList, setPathList]       = useState<PathSummary[]>([]);
+  const [pathLoading, setPathLoading] = useState(false);
+  const [openPathHost, setOpenPathHost] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tab !== "paths") return;
+    setPathLoading(true);
+    api.get<PathSummary[]>("/history/paths")
+      .then(r => setPathList(r.data))
+      .catch(() => setPathList([]))
+      .finally(() => setPathLoading(false));
+  }, [tab]);
+
+  // O backend ja manda do scan mais recente para o mais antigo; o Map preserva
+  // essa ordem, entao o dominio escaneado por ultimo fica no topo.
+  const caminhosPorDominio = useMemo(() => {
+    const m = new Map<string, PathSummary[]>();
+    for (const p of pathList) m.set(p.host, [...(m.get(p.host) ?? []), p]);
+    return Array.from(m.entries());
+  }, [pathList]);
+
   // ── Tab: Por domínio ───────────────────────────────────────────────────────
   const [registeredDomains, setRegisteredDomains] = useState<DomainDto[]>([]);
   const [searchHost, setSearchHost]               = useState("");
@@ -3247,6 +3298,10 @@ function ChangesPage() {
           className={`${styles.adminTab} ${tab === "domain" ? styles.adminTabActive : ""}`}
           onClick={() => setTab("domain")}
         >{t("changes.porDominio")}</button>
+        <button
+          className={`${styles.adminTab} ${tab === "paths" ? styles.adminTabActive : ""}`}
+          onClick={() => setTab("paths")}
+        >{t("changes.caminhos")}</button>
         <button
           className={`${styles.adminTab} ${tab === "analysis" ? styles.adminTabActive : ""}`}
           onClick={() => setTab("analysis")}
@@ -3358,6 +3413,102 @@ function ChangesPage() {
                       </span>
                     </div>
                   </button>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Aba: Caminhos ── */}
+      {tab === "paths" && (
+        <>
+          {pathLoading && <div className={styles.empty}>{t("app.carregando")}</div>}
+          {!pathLoading && caminhosPorDominio.length === 0 && (
+            <div className={styles.empty}>{t("changes.vazio")}</div>
+          )}
+          {!pathLoading && caminhosPorDominio.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+              <div className={styles.settingsCardSub} style={{ marginBottom: 4 }}>
+                {t("changes.caminhosDesc")}
+              </div>
+              {caminhosPorDominio.map(([host, caminhos]) => {
+                const aberto = openPathHost === host;
+                return (
+                  <div key={host} style={{
+                    background: "var(--surface)", border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)", overflow: "hidden",
+                  }}>
+                    <button
+                      onClick={() => setOpenPathHost(aberto ? null : host)}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        width: "100%", padding: "14px 18px", background: "transparent",
+                        border: "none", cursor: "pointer", textAlign: "left",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ color: "var(--text-muted)", fontSize: 11 }}>{aberto ? "▾" : "▸"}</span>
+                        <code style={{ color: "var(--accent)", fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700 }}>
+                          {host}
+                        </code>
+                      </div>
+                      <span className={`${styles.tag} ${styles.info}`}>
+                        {t("changes.nCaminhos", caminhos.length)}
+                      </span>
+                    </button>
+
+                    {aberto && (
+                      <div style={{ borderTop: "1px solid var(--border)" }}>
+                        {caminhos.map(p => {
+                          const corRisco = p.riskLevel === "SECURE" ? "var(--secure)"
+                            : p.riskLevel === "LOW"    ? "var(--info)"
+                            : p.riskLevel === "MEDIUM" ? "var(--warning)"
+                            : p.riskLevel === "HIGH"   ? "var(--high)"
+                            : "var(--critical)";
+                          const clsRisco = p.riskLevel === "SECURE" ? styles.secure
+                            : p.riskLevel === "LOW"    ? styles.low
+                            : p.riskLevel === "MEDIUM" ? styles.warning
+                            : p.riskLevel === "HIGH"   ? styles.high
+                            : styles.critical;
+                          return (
+                            <div key={p.id} style={{
+                              display: "flex", alignItems: "center", justifyContent: "space-between",
+                              gap: 12, padding: "10px 18px 10px 34px",
+                              borderTop: "1px solid var(--border)",
+                            }}>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <code style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text)" }}>
+                                    {p.path === "/" ? t("changes.raiz") : p.path}
+                                  </code>
+                                  <span className={`${styles.tag} ${clsRisco}`}>{p.riskLevel}</span>
+                                  {p.activeMode && (
+                                    <span className={`${styles.tag} ${styles.info}`} style={{ fontSize: "0.65rem" }}>ACTIVE</span>
+                                  )}
+                                </div>
+                                <div className={styles.muted} style={{ fontSize: 10, marginTop: 3 }}>
+                                  {formatarDataHora(p.scannedAt, { dateStyle: "short", timeStyle: "short" })}
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <span style={{ fontFamily: "var(--mono)", fontWeight: 700, fontSize: 16, color: corRisco }}>
+                                  {p.score}<span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>/100</span>
+                                </span>
+                                <button
+                                  className={`${styles.btn} ${styles.btnGhost}`}
+                                  style={{ fontSize: 10, padding: "2px 8px" }}
+                                  onClick={() => { setTab("analysis"); setAnalysisHost(host); }}
+                                >
+                                  {t("changes.verAnalise")}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -4080,6 +4231,9 @@ function IntradayChart({ host }: { host: string }) {
 // ── Score History Chart ───────────────────────────────────────────────────────
 
 interface HistorySummary { id: string; url: string; host: string; scannedAt: string; activeMode: boolean; score: number; riskLevel: string; origin?: string; }
+
+/** Um caminho scaneado dentro de um dominio, com o score do scan mais recente dele. */
+interface PathSummary extends HistorySummary { path: string; }
 
 // ── Security Headers — Card Grid ──────────────────────────────────────────────
 
