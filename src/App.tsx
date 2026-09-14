@@ -93,6 +93,8 @@ interface ScanResult {
   impactIndicators?: SinalImpacto[] | null;
   /** Por que não há `impact`: HTTP_STATUS, EMPTY ou JS_RENDERED. */
   impactUndetermined?: string | null;
+  /** Caminhos de conta e checkout que a página linka — o próximo scan a fazer. */
+  suggestedPaths?: { level: string; path: string; url: string }[] | null;
   /** Plataforma de loja hospedada que responde pelo checkout (Shopify, VTEX, Nuvemshop). */
   managedPlatform?: string | null;
 }
@@ -293,16 +295,19 @@ function ImpactTag({ level }: { level?: string | null }) {
  * Os indícios do domínio (cookie de sessão, JWT, API) têm linha própria porque não
  * sustentam o nível — um cookie anônimo já fez uma home só com busca sair CONTA.
  */
-function ImpactPanel({ level, signals, indicators, undetermined, httpStatus, managedPlatform, locked, onUpgrade, onOpenModule }: {
+function ImpactPanel({ level, signals, indicators, undetermined, httpStatus, managedPlatform, suggestedPaths, locked, onUpgrade, onOpenModule, onScan }: {
   level?: string | null;
   signals?: SinalImpacto[] | null;
   indicators?: SinalImpacto[] | null;
   undetermined?: string | null;
   httpStatus?: number;
   managedPlatform?: string | null;
+  suggestedPaths?: { level: string; path: string; url: string }[] | null;
   locked: boolean;
   onUpgrade: () => void;
   onOpenModule: (modulo: string) => void;
+  /** Escaneia o caminho sugerido. O rótulo é por página, e o scanner não navega pelo site. */
+  onScan: (url: string) => void;
 }) {
   const { t } = useI18n();
   const nivel = ehNivelImpacto(level) ? level : null;
@@ -380,6 +385,18 @@ function ImpactPanel({ level, signals, indicators, undetermined, httpStatus, man
         <button type="button" className={styles.impactCta} onClick={onUpgrade}>
           🔒 {t("impacto.verDetectado")}
         </button>
+      )}
+
+      {(suggestedPaths ?? []).length > 0 && (
+        <div className={styles.impactSources}>
+          <span>{t("impacto.sugestoes")}</span>
+          {(suggestedPaths ?? []).map(s => (
+            <button key={s.url} type="button" className={styles.impactSource}
+              onClick={() => onScan(s.url)} title={s.url}>
+              {t(`impacto.sugestao.${s.level}`, s.path)} <span aria-hidden="true">→</span>
+            </button>
+          ))}
+        </div>
       )}
 
       {managedPlatform && (
@@ -7553,6 +7570,8 @@ export default function App() {
                               undetermined={r.impactUndetermined}
                               httpStatus={r.httpStatus}
                               managedPlatform={r.managedPlatform}
+                              suggestedPaths={r.suggestedPaths}
+                              onScan={(alvo) => void iniciarScan(alvo)}
                               locked={!!r.detailsLocked}
                               onUpgrade={() => setShowPlans(true)}
                               onOpenModule={selectModule}
