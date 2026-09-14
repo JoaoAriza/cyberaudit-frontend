@@ -8,6 +8,8 @@ import { IDIOMAS, formatarData, formatarHora, formatarDataHora, formatarMoeda } 
 import type { Lang } from "./i18n/catalog";
 import type { TwoFactorPending } from "./context/AuthContext";
 import { agruparFamilias, familiaDaUrl, separarUrl } from "./agendamento";
+import { MODULO_DA_ORIGEM, ehNivelImpacto, origensDosSinais } from "./impacto";
+import type { NivelImpacto, SinalImpacto } from "./impacto";
 
 // ── Backend Types ─────────────────────────────────────────────────────────────
 
@@ -78,6 +80,15 @@ interface ScanResult {
   degradedModules?: string[];
   /** true p/ guest/FREE: issues vêm sem impacto/correção e o breakdown fica travado. */
   detailsLocked?: boolean;
+  /**
+   * Rótulo de impacto (SHOWCASE → PAYMENT) e o que o sustenta. Ausentes em laudo
+   * anterior ao rótulo — a tela então não mostra nada, em vez de chutar VITRINE.
+   * Para guest/FREE, cada sinal chega sem `detail`.
+   */
+  impact?: string | null;
+  impactSignals?: SinalImpacto[] | null;
+  /** Plataforma de loja hospedada que responde pelo checkout (Shopify, VTEX, Nuvemshop). */
+  managedPlatform?: string | null;
 }
 interface ApiDocsExposureFinding { path: string; type: string; severity: string; evidence: string | null; description: string; }
 interface GraphQlIntrospectionFinding { endpoint: string; introspectionEnabled: boolean; playgroundExposed: boolean; typeCount: number; severity: string; evidence: string | null; }
@@ -239,6 +250,106 @@ function ScoreGauge({ score, risk }: { score: number; risk: string }) {
         <div className={styles.gaugeScore} style={{ color }}>{score}</div>
         <div className={styles.gaugeLabel}>/100</div>
       </div>
+    </div>
+  );
+}
+
+// ── Rótulo de impacto ─────────────────────────────────────────────────────────
+
+const IMPACT_CLASS: Record<NivelImpacto, string> = {
+  SHOWCASE: styles.impactShowcase,
+  CONTACT:  styles.impactContact,
+  ACCOUNT:  styles.impactAccount,
+  PAYMENT:  styles.impactPayment,
+};
+
+/** O nível sozinho, em selo. Nada quando o laudo não tem rótulo. */
+function ImpactTag({ level }: { level?: string | null }) {
+  const { t } = useI18n();
+  if (!ehNivelImpacto(level)) return null;
+  return (
+    <span className={`${styles.impactTag} ${IMPACT_CLASS[level]}`} title={t(`impacto.frase.${level}`)}>
+      {t(`impacto.nivel.${level}`)}
+    </span>
+  );
+}
+
+/**
+ * O rótulo de impacto no card de resumo, ao lado do gauge.
+ *
+ * Duas versões do mesmo painel. Com o detalhe liberado, lista o que casou e leva
+ * ao módulo. Travado (guest/FREE), diz EM QUAL módulo a página é sensível e para
+ * aí: clicar abre os planos. É o pedido do produto — chamar atenção para o risco
+ * sem entregar o porquê. O porquê nem chega ao navegador: o Backend corta o
+ * `detail` antes de responder.
+ */
+function ImpactPanel({ level, signals, managedPlatform, locked, onUpgrade, onOpenModule }: {
+  level?: string | null;
+  signals?: SinalImpacto[] | null;
+  managedPlatform?: string | null;
+  locked: boolean;
+  onUpgrade: () => void;
+  onOpenModule: (modulo: string) => void;
+}) {
+  const { t } = useI18n();
+  if (!ehNivelImpacto(level)) return null;
+
+  const origens   = origensDosSinais(signals);
+  const detalhes  = (signals ?? []).filter(s => s.detail);
+  const temRisco  = level !== "SHOWCASE";
+
+  return (
+    <div className={`${styles.impactPanel} ${IMPACT_CLASS[level]}`}>
+      <div className={styles.impactLabel}>{t("impacto.titulo")}</div>
+      <div className={styles.impactPanelHead}>
+        {locked && temRisco && <span className={styles.impactPulse} aria-hidden="true" />}
+        <ImpactTag level={level} />
+        <span className={styles.impactPhrase}>{t(`impacto.frase.${level}`)}</span>
+      </div>
+
+      {origens.length > 0 && (
+        <div className={styles.impactSources}>
+          <span>{t("impacto.sensivelEm")}</span>
+          {origens.map(origem => {
+            const rotulo = t(`impacto.fonte.${origem}`);
+            const modulo = MODULO_DA_ORIGEM[origem];
+            if (locked) return (
+              <button key={origem} type="button" className={styles.impactSource}
+                onClick={onUpgrade} title={t("impacto.bloqueadoDica")}>
+                {rotulo} <span aria-hidden="true">🔒</span>
+              </button>
+            );
+            if (modulo) return (
+              <button key={origem} type="button" className={styles.impactSource}
+                onClick={() => onOpenModule(modulo)} title={t("impacto.abrirModulo")}>
+                {rotulo} <span aria-hidden="true">↗</span>
+              </button>
+            );
+            return <span key={origem} className={styles.impactSource}>{rotulo}</span>;
+          })}
+        </div>
+      )}
+
+      {!locked && detalhes.length > 0 && (
+        <ul className={styles.impactDetails}>
+          {detalhes.map((s, idx) => (
+            <li key={`${s.source}-${idx}`}>
+              {t(`impacto.fonte.${s.source}`)}:{" "}
+              {s.source === "FORM" ? t(`impacto.detalhe.${s.detail}`) : <code>{s.detail}</code>}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {locked && origens.length > 0 && (
+        <button type="button" className={styles.impactCta} onClick={onUpgrade}>
+          🔒 {t("impacto.verDetectado")}
+        </button>
+      )}
+
+      {managedPlatform && (
+        <div className={styles.impactPlatform}>ⓘ {t("impacto.plataforma", managedPlatform)}</div>
+      )}
     </div>
   );
 }
@@ -7118,6 +7229,7 @@ export default function App() {
                       </div>
                       <div className={styles.sidebarTargetMeta}>
                         <div className={`${styles.sidebarTargetRisk} ${riskColor(risk)}`}>{risk}</div>
+                        {ehNivelImpacto(r.impact) && <div><ImpactTag level={r.impact} /></div>}
                         <div className={styles.sidebarTargetUrl}>
                           {badgeHost}
                           {badgePath !== "/" && <span style={{ color: "var(--accent)" }}>{badgePath}</span>}
@@ -7359,6 +7471,14 @@ export default function App() {
                           <ScoreGauge score={r.score?.score ?? 0} risk={risk ?? "CRITICAL"} />
                           <div className={styles.overviewMeta}>
                             <div className={`${styles.riskBadge} ${riskColor(risk)}`}>{risk}</div>
+                            <ImpactPanel
+                              level={r.impact}
+                              signals={r.impactSignals}
+                              managedPlatform={r.managedPlatform}
+                              locked={!!r.detailsLocked}
+                              onUpgrade={() => setShowPlans(true)}
+                              onOpenModule={selectModule}
+                            />
                             <KV label="URL"            value={r.finalUrl ?? r.url} />
                             <KV label="HTTP"           value={r.httpStatus} />
                             <KV label="HTTPS REDIRECT" value={boolIcon(r.redirectsToHttps)} />

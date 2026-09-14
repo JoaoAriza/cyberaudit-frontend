@@ -16,6 +16,7 @@
   --high: #ff6b35;
   --info: #3b9eff;
   --low: #7ec8a0;
+  --impact-showcase: #8797a8;
   --mono: 'JetBrains Mono', monospace;
   --sans: 'Barlow', sans-serif;
   --radius: 6px;
@@ -41,6 +42,7 @@
   --high: #d1541b;
   --info: #1f6fd0;
   --low: #4b9e78;
+  --impact-showcase: #66788a;
   --shadow: 0 4px 20px rgba(20, 40, 60, .10);
   --header-bg: rgba(255, 255, 255, .85);
 }
@@ -846,6 +848,142 @@
 .info {
   color: var(--info);
   border-color: var(--info);
+}
+
+/* ── Rótulo de impacto ────────────────────────────────────────────────────
+   Eixo separado do score: o que há para perder na página. Escala quente
+   própria — cinza, âmbar, laranja, vermelho. Fundo tingido, e não só
+   contorno, para não ser lido como mais uma tag de severidade ao lado do
+   nível de risco. Cada nível só define --impact; o resto herda. */
+.impactShowcase { --impact: var(--impact-showcase); }
+.impactContact  { --impact: var(--warning); }
+.impactAccount  { --impact: var(--high); }
+.impactPayment  { --impact: var(--critical); }
+
+.impactTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+  color: var(--impact);
+  background: color-mix(in srgb, var(--impact) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--impact) 45%, transparent);
+}
+
+.impactPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 2px 0 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--impact) 30%, var(--border));
+  border-left: 3px solid var(--impact);
+  background: color-mix(in srgb, var(--impact) 6%, var(--surface));
+}
+
+.impactPanelHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.impactLabel {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+}
+
+.impactPhrase {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Ponto pulsante: só quando há o que perder e o detalhe está travado — é o
+   convite para abrir, não enfeite permanente. */
+.impactPulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--impact);
+  animation: impactPulse 1.8s ease-out infinite;
+}
+
+@keyframes impactPulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--impact) 60%, transparent); }
+  70%  { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .impactPulse { animation: none; }
+}
+
+.impactSources {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.impactSource {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+}
+
+button.impactSource { cursor: pointer; }
+button.impactSource:hover { border-color: var(--impact); }
+
+.impactDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  list-style: none;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.impactDetails code {
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+.impactCta {
+  align-self: flex-start;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--impact);
+  background: transparent;
+  border: 1px solid var(--impact);
+}
+
+.impactCta:hover { background: color-mix(in srgb, var(--impact) 12%, transparent); }
+
+.impactPlatform {
+  font-size: 11px;
+  color: var(--text-dim);
 }
 
 .muted {
