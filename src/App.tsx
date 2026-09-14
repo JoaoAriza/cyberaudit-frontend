@@ -8,7 +8,9 @@ import { IDIOMAS, formatarData, formatarHora, formatarDataHora, formatarMoeda } 
 import type { Lang } from "./i18n/catalog";
 import type { TwoFactorPending } from "./context/AuthContext";
 import { agruparFamilias, familiaDaUrl, separarUrl } from "./agendamento";
-import { MODULO_DA_ORIGEM, ehNivelImpacto, origensDosSinais } from "./impacto";
+import {
+  MODULO_DA_ORIGEM, NIVEIS_IMPACTO, ehNivelImpacto, impactoPorDominio, ordenarPorImpacto, origensDosSinais,
+} from "./impacto";
 import type { NivelImpacto, SinalImpacto } from "./impacto";
 
 // ── Backend Types ─────────────────────────────────────────────────────────────
@@ -3404,6 +3406,9 @@ function ChangesPage() {
   const [overviewList, setOverviewList]       = useState<HistorySummary[]>([]);
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [overviewFilter, setOverviewFilter]   = useState<"all" | "active" | "passive">("all");
+  // Filtro de prospecção: quem tem dado de cliente em jogo sobe.
+  const [overviewImpacto, setOverviewImpacto] = useState<"all" | NivelImpacto>("all");
+  const [overviewOrdem, setOverviewOrdem]     = useState<"recentes" | "impacto">("recentes");
 
   // ── Shared lazy-load state ─────────────────────────────────────────────────
   const [scanDetails, setScanDetails] = useState<Record<string, {
@@ -3459,7 +3464,9 @@ function ChangesPage() {
   const [openPathHost, setOpenPathHost] = useState<string | null>(null);
 
   useEffect(() => {
-    if (tab !== "paths" && tab !== "analysis") return;
+    // A Visão Geral também precisa da lista: o impacto do domínio é o maior
+    // entre os caminhos, e o /overview só conhece o último scan de cada domínio.
+    if (tab !== "overview" && tab !== "paths" && tab !== "analysis") return;
     setPathLoading(true);
     api.get<PathSummary[]>("/history/paths")
       .then(r => setPathList(r.data))
@@ -3474,6 +3481,8 @@ function ChangesPage() {
     for (const p of pathList) m.set(p.host, [...(m.get(p.host) ?? []), p]);
     return Array.from(m.entries());
   }, [pathList]);
+
+  const impactoDoDominio = useMemo(() => impactoPorDominio(pathList), [pathList]);
 
   // Caminhos do dominio em analise, do mais recente para o mais antigo — a
   // mesma lista da aba Caminhos. O host da lista vem sem "www." (o backend
@@ -3517,6 +3526,16 @@ function ChangesPage() {
     } catch { setDomainError(t("changes.semScans")); }
     finally { setDomainLoading(false); }
   }
+
+  const impactoDe = (s: HistorySummary) => impactoDoDominio.get(s.host.replace(/^www\./, ""));
+  // Os três filtros da Visão Geral num lugar só — antes a mesma expressão de
+  // modo era repetida para a contagem, para o vazio e para a lista.
+  const overviewFiltrada = overviewList
+    .filter(s => overviewFilter === "all" ? true : overviewFilter === "active" ? s.activeMode : !s.activeMode)
+    .filter(s => overviewImpacto === "all" || impactoDe(s) === overviewImpacto);
+  const overviewVisiveis = overviewOrdem === "impacto"
+    ? ordenarPorImpacto(overviewFiltrada, impactoDe)
+    : overviewFiltrada;
 
   const rowProps = { scanDetails, toggleScan, changeTypeBadge, sevBadge, riskBadgeStyle: riskColor };
 
@@ -3567,24 +3586,43 @@ function ChangesPage() {
                   </button>
                 ))}
                 <span className={styles.muted} style={{ fontSize: 11, marginLeft: 6 }}>
-                  {t("changes.dominiosContagem", overviewList.filter(s =>
-                    overviewFilter === "all" ? true :
-                    overviewFilter === "active" ? s.activeMode : !s.activeMode
-                  ).length)}
+                  {t("changes.dominiosContagem", overviewVisiveis.length)}
                 </span>
               </div>
-              {overviewList.filter(s =>
-                overviewFilter === "all" ? true :
-                overviewFilter === "active" ? s.activeMode : !s.activeMode
-              ).length === 0 && (
+              {/* Impacto: filtro por nível (do mais grave ao menos) e ordenação */}
+              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                <span className={styles.muted} style={{ fontSize: 11, marginRight: 2 }}>{t("changes.filtroImpacto")}</span>
+                {(["all", ...[...NIVEIS_IMPACTO].reverse()] as ("all" | NivelImpacto)[]).map(nivel => (
+                  <button
+                    key={nivel}
+                    onClick={() => setOverviewImpacto(nivel)}
+                    className={`${styles.btn} ${overviewImpacto === nivel ? styles.btnScan : styles.btnGhost}`}
+                    style={{ fontSize: 11, padding: "3px 10px" }}
+                  >
+                    {nivel === "all" ? t("changes.filtroTodos") : t(`impacto.nivel.${nivel}`)}
+                  </button>
+                ))}
+                <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                  {(["recentes", "impacto"] as const).map(ordem => (
+                    <button
+                      key={ordem}
+                      onClick={() => setOverviewOrdem(ordem)}
+                      className={`${styles.btn} ${overviewOrdem === ordem ? styles.btnScan : styles.btnGhost}`}
+                      style={{ fontSize: 11, padding: "3px 10px" }}
+                    >
+                      {ordem === "recentes" ? t("changes.ordenarRecentes") : t("changes.ordenarImpacto")}
+                    </button>
+                  ))}
+                </span>
+              </div>
+              {overviewVisiveis.length === 0 && (
                 <div className={styles.empty}>
-                  {t("changes.semDominioComScan", overviewFilter === "active" ? t("changes.modoAtivo") : t("changes.modoPassivo"))}
+                  {overviewImpacto !== "all"
+                    ? t("changes.semDominioComImpacto", t(`impacto.nivel.${overviewImpacto}`))
+                    : t("changes.semDominioComScan", overviewFilter === "active" ? t("changes.modoAtivo") : t("changes.modoPassivo"))}
                 </div>
               )}
-              {overviewList.filter(s =>
-                overviewFilter === "all" ? true :
-                overviewFilter === "active" ? s.activeMode : !s.activeMode
-              ).map(s => {
+              {overviewVisiveis.map(s => {
                 const riskCls = riskColor(s.riskLevel);
                 // Cor pelo nível de risco (mesma regra do ScoreGauge), não pelo número cru,
                 // para Scanner e Histórico mostrarem a mesma cor para o mesmo scan.
@@ -3613,6 +3651,7 @@ function ChangesPage() {
                           {s.host}
                         </code>
                         <span className={`${styles.tag} ${riskCls}`}>{s.riskLevel}</span>
+                        <span title={t("changes.impactoDominioDica")}><ImpactTag level={impactoDe(s)} /></span>
                         {s.activeMode && (
                           <span className={`${styles.tag} ${styles.info}`} style={{ fontSize: "0.65rem" }}>ACTIVE</span>
                         )}
@@ -3680,6 +3719,7 @@ function ChangesPage() {
                         <code style={{ color: "var(--accent)", fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700 }}>
                           {host}
                         </code>
+                        <span title={t("changes.impactoDominioDica")}><ImpactTag level={impactoDoDominio.get(host)} /></span>
                       </div>
                       <span className={`${styles.tag} ${styles.info}`}>
                         {t("changes.nCaminhos", caminhos.length)}
@@ -3703,6 +3743,7 @@ function ChangesPage() {
                                     {p.path === "/" ? t("changes.raiz") : p.path}
                                   </code>
                                   <span className={`${styles.tag} ${clsRisco}`}>{p.riskLevel}</span>
+                                  <ImpactTag level={p.impact} />
                                   {p.activeMode && (
                                     <span className={`${styles.tag} ${styles.info}`} style={{ fontSize: "0.65rem" }}>ACTIVE</span>
                                   )}
@@ -4471,7 +4512,8 @@ function IntradayChart({ host, path = null }: { host: string; path?: string | nu
 
 // ── Score History Chart ───────────────────────────────────────────────────────
 
-interface HistorySummary { id: string; url: string; host: string; scannedAt: string; activeMode: boolean; score: number; riskLevel: string; origin?: string; }
+/** `impact` nulo ou ausente: scan anterior ao rótulo, ou Backend sem a coluna. */
+interface HistorySummary { id: string; url: string; host: string; scannedAt: string; activeMode: boolean; score: number; riskLevel: string; origin?: string; impact?: string | null; }
 
 /** Um caminho scaneado dentro de um dominio, com o score do scan mais recente dele. */
 interface PathSummary extends HistorySummary { path: string; }

@@ -30,6 +30,43 @@ export function pesoImpacto(nivel: string | null | undefined): number {
   return ehNivelImpacto(nivel) ? NIVEIS_IMPACTO.indexOf(nivel) : -1;
 }
 
+/** O nível mais grave de uma lista; null quando nenhum tem rótulo. */
+export function maiorImpacto(niveis: Iterable<string | null | undefined>): NivelImpacto | null {
+  let maior: NivelImpacto | null = null;
+  for (const nivel of niveis) {
+    if (ehNivelImpacto(nivel) && pesoImpacto(nivel) > pesoImpacto(maior)) maior = nivel;
+  }
+  return maior;
+}
+
+/**
+ * Impacto de cada domínio: o MAIOR entre os caminhos escaneados dele.
+ *
+ * Decisão de produto: a home VITRINE e o /checkout PAGAMENTO fazem do domínio
+ * PAGAMENTO. Usar só o último scan faria uma loja cair para VITRINE sempre que a
+ * home fosse a última página escaneada — e é esse domínio que o filtro de
+ * prospecção precisa fazer subir.
+ *
+ * Chave sem "www.": o Backend grava o host assim, e a Visão Geral compara por ele.
+ */
+export function impactoPorDominio(caminhos: { host: string; impact?: string | null }[]): Map<string, NivelImpacto> {
+  const porDominio = new Map<string, NivelImpacto>();
+  for (const c of caminhos) {
+    const host = c.host.replace(/^www\./, "");
+    const maior = maiorImpacto([porDominio.get(host), c.impact]);
+    if (maior) porDominio.set(host, maior);
+  }
+  return porDominio;
+}
+
+/**
+ * Do mais grave para o menos; sem rótulo por último. Empate mantém a ordem
+ * recebida — que já vem do mais recente para o mais antigo.
+ */
+export function ordenarPorImpacto<T>(lista: T[], impactoDe: (item: T) => string | null | undefined): T[] {
+  return [...lista].sort((a, b) => pesoImpacto(impactoDe(b)) - pesoImpacto(impactoDe(a)));
+}
+
 /**
  * Origens distintas dos sinais, na ordem em que chegaram.
  *
