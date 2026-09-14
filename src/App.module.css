@@ -986,6 +986,13 @@ button.impactSource:hover { border-color: var(--impact); }
   color: var(--text-dim);
 }
 
+/* Motivo de o nível não ter sido determinado — frase, não selo. */
+.impactReason {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
 .muted {
   color: var(--text-muted);
 }

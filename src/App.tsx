@@ -89,6 +89,10 @@ interface ScanResult {
    */
   impact?: string | null;
   impactSignals?: SinalImpacto[] | null;
+  /** Sinais do domínio (cookie de sessão, JWT, API) que não sustentam o nível. */
+  impactIndicators?: SinalImpacto[] | null;
+  /** Por que não há `impact`: HTTP_STATUS, EMPTY ou JS_RENDERED. */
+  impactUndetermined?: string | null;
   /** Plataforma de loja hospedada que responde pelo checkout (Shopify, VTEX, Nuvemshop). */
   managedPlatform?: string | null;
 }
@@ -279,56 +283,85 @@ function ImpactTag({ level }: { level?: string | null }) {
 /**
  * O rótulo de impacto no card de resumo, ao lado do gauge.
  *
- * Duas versões do mesmo painel. Com o detalhe liberado, lista o que casou e leva
- * ao módulo. Travado (guest/FREE), diz EM QUAL módulo a página é sensível e para
- * aí: clicar abre os planos. É o pedido do produto — chamar atenção para o risco
- * sem entregar o porquê. O porquê nem chega ao navegador: o Backend corta o
- * `detail` antes de responder.
+ * Com o detalhe liberado, lista o que casou e leva ao módulo. Travado
+ * (guest/FREE), diz EM QUAL módulo a página é sensível e para aí: clicar abre os
+ * planos — o porquê nem chega ao navegador, o Backend corta o `detail` antes de
+ * responder. Sem nível, diz por que a página não pôde ser lida em vez de chutar
+ * um: foi o palpite pelo endereço que fez de um /checkout/login bloqueado um
+ * PAGAMENTO.
+ *
+ * Os indícios do domínio (cookie de sessão, JWT, API) têm linha própria porque não
+ * sustentam o nível — um cookie anônimo já fez uma home só com busca sair CONTA.
  */
-function ImpactPanel({ level, signals, managedPlatform, locked, onUpgrade, onOpenModule }: {
+function ImpactPanel({ level, signals, indicators, undetermined, httpStatus, managedPlatform, locked, onUpgrade, onOpenModule }: {
   level?: string | null;
   signals?: SinalImpacto[] | null;
+  indicators?: SinalImpacto[] | null;
+  undetermined?: string | null;
+  httpStatus?: number;
   managedPlatform?: string | null;
   locked: boolean;
   onUpgrade: () => void;
   onOpenModule: (modulo: string) => void;
 }) {
   const { t } = useI18n();
-  if (!ehNivelImpacto(level)) return null;
+  const nivel = ehNivelImpacto(level) ? level : null;
+  if (!nivel && !undetermined) return null;
 
-  const origens   = origensDosSinais(signals);
-  const detalhes  = (signals ?? []).filter(s => s.detail);
-  const temRisco  = level !== "SHOWCASE";
+  const origens         = origensDosSinais(signals);
+  const origensIndicios = origensDosSinais(indicators);
+  const detalhes        = [...(signals ?? []), ...(indicators ?? [])].filter(s => s.detail);
+  const temRisco        = nivel !== null && nivel !== "SHOWCASE";
+
+  const chips = (lista: string[]) => lista.map(origem => {
+    const rotulo = t(`impacto.fonte.${origem}`);
+    const modulo = MODULO_DA_ORIGEM[origem];
+    if (locked) return (
+      <button key={origem} type="button" className={styles.impactSource}
+        onClick={onUpgrade} title={t("impacto.bloqueadoDica")}>
+        {rotulo} <span aria-hidden="true">🔒</span>
+      </button>
+    );
+    if (modulo) return (
+      <button key={origem} type="button" className={styles.impactSource}
+        onClick={() => onOpenModule(modulo)} title={t("impacto.abrirModulo")}>
+        {rotulo} <span aria-hidden="true">↗</span>
+      </button>
+    );
+    return <span key={origem} className={styles.impactSource}>{rotulo}</span>;
+  });
 
   return (
-    <div className={`${styles.impactPanel} ${IMPACT_CLASS[level]}`}>
+    <div className={`${styles.impactPanel} ${nivel ? IMPACT_CLASS[nivel] : styles.impactShowcase}`}>
       <div className={styles.impactLabel}>{t("impacto.titulo")}</div>
       <div className={styles.impactPanelHead}>
         {locked && temRisco && <span className={styles.impactPulse} aria-hidden="true" />}
-        <ImpactTag level={level} />
-        <span className={styles.impactPhrase}>{t(`impacto.frase.${level}`)}</span>
+        {nivel ? (
+          <>
+            <ImpactTag level={nivel} />
+            <span className={styles.impactPhrase}>{t(`impacto.frase.${nivel}`)}</span>
+          </>
+        ) : (
+          <>
+            <span className={`${styles.impactTag} ${styles.impactShowcase}`}>{t("impacto.nivel.UNDETERMINED")}</span>
+            <span className={styles.impactReason}>
+              {t(`impacto.indeterminado.${undetermined}`, httpStatus || "—")}
+            </span>
+          </>
+        )}
       </div>
 
       {origens.length > 0 && (
         <div className={styles.impactSources}>
           <span>{t("impacto.sensivelEm")}</span>
-          {origens.map(origem => {
-            const rotulo = t(`impacto.fonte.${origem}`);
-            const modulo = MODULO_DA_ORIGEM[origem];
-            if (locked) return (
-              <button key={origem} type="button" className={styles.impactSource}
-                onClick={onUpgrade} title={t("impacto.bloqueadoDica")}>
-                {rotulo} <span aria-hidden="true">🔒</span>
-              </button>
-            );
-            if (modulo) return (
-              <button key={origem} type="button" className={styles.impactSource}
-                onClick={() => onOpenModule(modulo)} title={t("impacto.abrirModulo")}>
-                {rotulo} <span aria-hidden="true">↗</span>
-              </button>
-            );
-            return <span key={origem} className={styles.impactSource}>{rotulo}</span>;
-          })}
+          {chips(origens)}
+        </div>
+      )}
+
+      {origensIndicios.length > 0 && (
+        <div className={styles.impactSources} title={t("impacto.indiciosDica")}>
+          <span>{t("impacto.indicios")}</span>
+          {chips(origensIndicios)}
         </div>
       )}
 
@@ -343,7 +376,7 @@ function ImpactPanel({ level, signals, managedPlatform, locked, onUpgrade, onOpe
         </ul>
       )}
 
-      {locked && origens.length > 0 && (
+      {locked && origens.length + origensIndicios.length > 0 && (
         <button type="button" className={styles.impactCta} onClick={onUpgrade}>
           🔒 {t("impacto.verDetectado")}
         </button>
@@ -7516,6 +7549,9 @@ export default function App() {
                             <ImpactPanel
                               level={r.impact}
                               signals={r.impactSignals}
+                              indicators={r.impactIndicators}
+                              undetermined={r.impactUndetermined}
+                              httpStatus={r.httpStatus}
                               managedPlatform={r.managedPlatform}
                               locked={!!r.detailsLocked}
                               onUpgrade={() => setShowPlans(true)}
