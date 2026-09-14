@@ -677,11 +677,26 @@
   gap: 16px;
 }
 
+/* Terceira coluna empilhada: distribuição e, embaixo, o rótulo de impacto. O
+   rótulo morava no card do score, a coluna mais estreita, e esticava a linha
+   inteira enquanto esta sobrava vazia. */
+.rowStack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
 @media (max-width: 1100px) {
   .row {
     grid-template-columns: 300px 1fr;
   }
-  .row > *:nth-child(3) {
+  /* Sem espaço para a terceira coluna: a distribuição sai, como sempre saiu, e o
+     rótulo de impacto desce para a largura toda — ele não pode sumir junto. */
+  .row > .rowStack {
+    grid-column: 1 / -1;
+  }
+  .sevDistCard {
     display: none;
   }
 }
@@ -875,16 +890,16 @@
   border: 1px solid color-mix(in srgb, var(--impact) 45%, transparent);
 }
 
+/* Dentro do próprio card: sem borda de caixa (seria caixa dentro de caixa), só o
+   filete e o tom do nível. */
 .impactPanel {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin: 2px 0 8px;
   padding: 10px 12px;
-  border-radius: var(--radius);
-  border: 1px solid color-mix(in srgb, var(--impact) 30%, var(--border));
+  border-radius: 4px;
   border-left: 3px solid var(--impact);
-  background: color-mix(in srgb, var(--impact) 6%, var(--surface));
+  background: color-mix(in srgb, var(--impact) 7%, transparent);
 }
 
 .impactPanelHead {
@@ -892,13 +907,6 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.impactLabel {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--text-dim);
 }
 
 .impactPhrase {
@@ -951,6 +959,23 @@
 
 button.impactSource { cursor: pointer; }
 button.impactSource:hover { border-color: var(--impact); }
+
+/* Caminho sugerido: o botão mostra só o caminho, em mono, como no Histórico. */
+.impactPath {
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+/* "Escaneie também" é o próximo passo, não parte da avaliação: fica separado. */
+.impactSuggest {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--impact) 20%, var(--border));
+  font-size: 11px;
+  color: var(--text-dim);
+}
 
 .impactDetails {
   display: flex;

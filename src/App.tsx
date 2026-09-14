@@ -232,9 +232,9 @@ function Section({ title, children, defaultOpen = true }: {
     </div>
   );
 }
-function Card({ title, children }: { title?: string; children: React.ReactNode }) {
+function Card({ title, children, className }: { title?: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={styles.card}>
+    <div className={className ? `${styles.card} ${className}` : styles.card}>
       {title && <div className={styles.cardTitle}>{title}</div>}
       {children}
     </div>
@@ -283,7 +283,11 @@ function ImpactTag({ level }: { level?: string | null }) {
 }
 
 /**
- * O rótulo de impacto no card de resumo, ao lado do gauge.
+ * O rótulo de impacto, em card próprio embaixo da distribuição de severidade.
+ *
+ * Morava dentro do card do score — a coluna mais estreita da linha — e cada
+ * sinal, indício e sugestão esticava a linha inteira enquanto a coluna da
+ * distribuição sobrava vazia.
  *
  * Com o detalhe liberado, lista o que casou e leva ao módulo. Travado
  * (guest/FREE), diz EM QUAL módulo a página é sensível e para aí: clicar abre os
@@ -317,6 +321,7 @@ function ImpactPanel({ level, signals, indicators, undetermined, httpStatus, man
   const origensIndicios = origensDosSinais(indicators);
   const detalhes        = [...(signals ?? []), ...(indicators ?? [])].filter(s => s.detail);
   const temRisco        = nivel !== null && nivel !== "SHOWCASE";
+  const sugestoes       = suggestedPaths ?? [];
 
   const chips = (lista: string[]) => lista.map(origem => {
     const rotulo = t(`impacto.fonte.${origem}`);
@@ -338,7 +343,6 @@ function ImpactPanel({ level, signals, indicators, undetermined, httpStatus, man
 
   return (
     <div className={`${styles.impactPanel} ${nivel ? IMPACT_CLASS[nivel] : styles.impactShowcase}`}>
-      <div className={styles.impactLabel}>{t("impacto.titulo")}</div>
       <div className={styles.impactPanelHead}>
         {locked && temRisco && <span className={styles.impactPulse} aria-hidden="true" />}
         {nivel ? (
@@ -387,15 +391,26 @@ function ImpactPanel({ level, signals, indicators, undetermined, httpStatus, man
         </button>
       )}
 
-      {(suggestedPaths ?? []).length > 0 && (
-        <div className={styles.impactSources}>
+      {/* Agrupado por tipo, com só o caminho no botão: a frase repetida em cada
+          botão ("Área de conta em /conta/cadastro") quebrava linha e esticava o card. */}
+      {sugestoes.length > 0 && (
+        <div className={styles.impactSuggest}>
           <span>{t("impacto.sugestoes")}</span>
-          {(suggestedPaths ?? []).map(s => (
-            <button key={s.url} type="button" className={styles.impactSource}
-              onClick={() => onScan(s.url)} title={s.url}>
-              {t(`impacto.sugestao.${s.level}`, s.path)} <span aria-hidden="true">→</span>
-            </button>
-          ))}
+          {(["ACCOUNT", "PAYMENT"] as const).map(grupo => {
+            const doGrupo = sugestoes.filter(s => s.level === grupo);
+            if (doGrupo.length === 0) return null;
+            return (
+              <div key={grupo} className={styles.impactSources}>
+                <span>{t(`impacto.sugestaoGrupo.${grupo}`)}:</span>
+                {doGrupo.map(s => (
+                  <button key={s.url} type="button" className={`${styles.impactSource} ${styles.impactPath}`}
+                    onClick={() => onScan(s.url)} title={s.url}>
+                    {s.path} <span aria-hidden="true">→</span>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -7563,19 +7578,6 @@ export default function App() {
                           <ScoreGauge score={r.score?.score ?? 0} risk={risk ?? "CRITICAL"} />
                           <div className={styles.overviewMeta}>
                             <div className={`${styles.riskBadge} ${riskColor(risk)}`}>{risk}</div>
-                            <ImpactPanel
-                              level={r.impact}
-                              signals={r.impactSignals}
-                              indicators={r.impactIndicators}
-                              undetermined={r.impactUndetermined}
-                              httpStatus={r.httpStatus}
-                              managedPlatform={r.managedPlatform}
-                              suggestedPaths={r.suggestedPaths}
-                              onScan={(alvo) => void iniciarScan(alvo)}
-                              locked={!!r.detailsLocked}
-                              onUpgrade={() => setShowPlans(true)}
-                              onOpenModule={selectModule}
-                            />
                             <KV label="URL"            value={r.finalUrl ?? r.url} />
                             <KV label="HTTP"           value={r.httpStatus} />
                             <KV label="HTTPS REDIRECT" value={boolIcon(r.redirectsToHttps)} />
@@ -7598,29 +7600,51 @@ export default function App() {
                         </div>
                         )}
                       </Card>
-                      <Card title={t("resultado.distribuicao")}>
-                        <div className={styles.sevDist}>
-                          {(["CRITICAL","HIGH","MEDIUM","LOW"] as const).map(sev => {
-                            const count = (r.score?.issues ?? []).filter(i => (i.severity ?? "").toUpperCase() === sev).length;
-                            const total = r.score?.issues?.length ?? 0;
-                            const pct   = total > 0 ? Math.round((count / total) * 100) : 0;
-                            const color = sev === "CRITICAL" ? "var(--critical)" : sev === "HIGH" ? "var(--high)" : sev === "MEDIUM" ? "var(--warning)" : "var(--low)";
-                            return (
-                              <div key={sev} className={styles.sevDistRow}>
-                                <span className={styles.sevDistLabel} style={{ color }}>{sev}</span>
-                                <div className={styles.sevDistBar}>
-                                  <div className={styles.sevDistFill} style={{ width: `${pct}%`, background: color }} />
+                      {/* Terceira coluna empilhada: a distribuição é curta e sempre
+                          sobrava espaço embaixo dela — é ali que o rótulo cabe sem
+                          esticar a linha. */}
+                      <div className={styles.rowStack}>
+                        <Card title={t("resultado.distribuicao")} className={styles.sevDistCard}>
+                          <div className={styles.sevDist}>
+                            {(["CRITICAL","HIGH","MEDIUM","LOW"] as const).map(sev => {
+                              const count = (r.score?.issues ?? []).filter(i => (i.severity ?? "").toUpperCase() === sev).length;
+                              const total = r.score?.issues?.length ?? 0;
+                              const pct   = total > 0 ? Math.round((count / total) * 100) : 0;
+                              const color = sev === "CRITICAL" ? "var(--critical)" : sev === "HIGH" ? "var(--high)" : sev === "MEDIUM" ? "var(--warning)" : "var(--low)";
+                              return (
+                                <div key={sev} className={styles.sevDistRow}>
+                                  <span className={styles.sevDistLabel} style={{ color }}>{sev}</span>
+                                  <div className={styles.sevDistBar}>
+                                    <div className={styles.sevDistFill} style={{ width: `${pct}%`, background: color }} />
+                                  </div>
+                                  <span className={styles.sevDistCount} style={{ color: count > 0 ? color : "var(--text-muted)" }}>{count}</span>
                                 </div>
-                                <span className={styles.sevDistCount} style={{ color: count > 0 ? color : "var(--text-muted)" }}>{count}</span>
-                              </div>
-                            );
-                          })}
-                          <div className={styles.sevDistTotal}>
-                            <span>{t("resultado.issuesTotais", r.score?.issues?.length ?? 0)}</span>
-                            <span>{t("resultado.issuesGraves", (r.score?.issues ?? []).filter(i => ["CRITICAL","HIGH"].includes((i.severity ?? "").toUpperCase())).length)}</span>
+                              );
+                            })}
+                            <div className={styles.sevDistTotal}>
+                              <span>{t("resultado.issuesTotais", r.score?.issues?.length ?? 0)}</span>
+                              <span>{t("resultado.issuesGraves", (r.score?.issues ?? []).filter(i => ["CRITICAL","HIGH"].includes((i.severity ?? "").toUpperCase())).length)}</span>
+                            </div>
                           </div>
-                        </div>
-                      </Card>
+                        </Card>
+                        {(ehNivelImpacto(r.impact) || r.impactUndetermined) && (
+                          <Card title={t("impacto.titulo")}>
+                            <ImpactPanel
+                              level={r.impact}
+                              signals={r.impactSignals}
+                              indicators={r.impactIndicators}
+                              undetermined={r.impactUndetermined}
+                              httpStatus={r.httpStatus}
+                              managedPlatform={r.managedPlatform}
+                              suggestedPaths={r.suggestedPaths}
+                              onScan={(alvo) => void iniciarScan(alvo)}
+                              locked={!!r.detailsLocked}
+                              onUpgrade={() => setShowPlans(true)}
+                              onOpenModule={selectModule}
+                            />
+                          </Card>
+                        )}
+                      </div>
                     </div>
 
                     {badgeHost && canHistory && <ScoreHistoryChart host={badgeHost} path={badgePath} />}
