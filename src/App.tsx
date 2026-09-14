@@ -152,6 +152,20 @@ function riskColor(level?: string) {
   if (level === "WARNING")  return styles.warning;
   return styles.muted;
 }
+/**
+ * A cor do nível de risco como variável CSS — para texto, arco do gauge e barra.
+ *
+ * Par do `riskColor`, que devolve a classe. LOW sai em `--info`, e não em `--low`,
+ * de propósito: é a regra que o gauge sempre usou, e o Histórico precisa pintar o
+ * mesmo scan com a mesma cor do Scanner. Estava copiada em cinco lugares.
+ */
+function riskVar(level?: string) {
+  if (level === "SECURE") return "var(--secure)";
+  if (level === "LOW")    return "var(--info)";
+  if (level === "MEDIUM") return "var(--warning)";
+  if (level === "HIGH")   return "var(--high)";
+  return "var(--critical)";
+}
 function sevColor(sev?: string) {
   const s = (sev ?? "").toUpperCase();
   if (s === "CRITICAL") return styles.critical;
@@ -211,11 +225,7 @@ function Card({ title, children }: { title?: string; children: React.ReactNode }
 // ── Score Gauge ───────────────────────────────────────────────────────────────
 
 function ScoreGauge({ score, risk }: { score: number; risk: string }) {
-  const color = risk === "SECURE" ? "var(--secure)"
-              : risk === "LOW"    ? "var(--info)"
-              : risk === "MEDIUM" ? "var(--warning)"
-              : risk === "HIGH"   ? "var(--high)"
-              : "var(--critical)";
+  const color = riskVar(risk);
   const r = 54; const circ = 2 * Math.PI * r;
   const offset = circ - (score / 100) * circ;
   return (
@@ -3318,11 +3328,6 @@ function ChangesPage() {
     const cls = sev === "CRITICAL" ? styles.critical : sev === "HIGH" ? styles.high : sev === "MEDIUM" ? styles.warning : styles.low;
     return <span className={`${styles.tag} ${cls}`}>{sev}</span>;
   }
-  function riskBadgeStyle(risk: string) {
-    return risk === "SECURE" ? styles.secure : risk === "LOW" ? styles.low :
-           risk === "MEDIUM" ? styles.warning : risk === "HIGH" ? styles.high : styles.critical;
-  }
-
 
   useEffect(() => {
     if (tab !== "overview") return;
@@ -3402,7 +3407,7 @@ function ChangesPage() {
     finally { setDomainLoading(false); }
   }
 
-  const rowProps = { scanDetails, toggleScan, changeTypeBadge, sevBadge, riskBadgeStyle };
+  const rowProps = { scanDetails, toggleScan, changeTypeBadge, sevBadge, riskBadgeStyle: riskColor };
 
   return (
     <div className={styles.adminWrap}>
@@ -3469,18 +3474,10 @@ function ChangesPage() {
                 overviewFilter === "all" ? true :
                 overviewFilter === "active" ? s.activeMode : !s.activeMode
               ).map(s => {
-                const riskCls = s.riskLevel === "SECURE" ? styles.secure
-                  : s.riskLevel === "LOW"      ? styles.low
-                  : s.riskLevel === "MEDIUM"   ? styles.warning
-                  : s.riskLevel === "HIGH"     ? styles.high
-                  : styles.critical;
+                const riskCls = riskColor(s.riskLevel);
                 // Cor pelo nível de risco (mesma regra do ScoreGauge), não pelo número cru,
                 // para Scanner e Histórico mostrarem a mesma cor para o mesmo scan.
-                const scoreColor = s.riskLevel === "SECURE" ? "var(--secure)"
-                  : s.riskLevel === "LOW"      ? "var(--info)"
-                  : s.riskLevel === "MEDIUM"   ? "var(--warning)"
-                  : s.riskLevel === "HIGH"     ? "var(--high)"
-                  : "var(--critical)";
+                const scoreColor = riskVar(s.riskLevel);
                 const pct = Math.max(2, s.score);
                 const dt  = new Date(s.scannedAt);
                 const dateStr = formatarData(dt, { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -3581,16 +3578,8 @@ function ChangesPage() {
                     {aberto && (
                       <div style={{ borderTop: "1px solid var(--border)" }}>
                         {caminhos.map(p => {
-                          const corRisco = p.riskLevel === "SECURE" ? "var(--secure)"
-                            : p.riskLevel === "LOW"    ? "var(--info)"
-                            : p.riskLevel === "MEDIUM" ? "var(--warning)"
-                            : p.riskLevel === "HIGH"   ? "var(--high)"
-                            : "var(--critical)";
-                          const clsRisco = p.riskLevel === "SECURE" ? styles.secure
-                            : p.riskLevel === "LOW"    ? styles.low
-                            : p.riskLevel === "MEDIUM" ? styles.warning
-                            : p.riskLevel === "HIGH"   ? styles.high
-                            : styles.critical;
+                          const corRisco = riskVar(p.riskLevel);
+                          const clsRisco = riskColor(p.riskLevel);
                           return (
                             <div key={p.id} style={{
                               display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -7123,7 +7112,7 @@ export default function App() {
                     <div className={styles.sidebarTarget}>
                       <div
                         className={styles.sidebarTargetScore}
-                        style={{ color: risk === "SECURE" ? "var(--secure)" : risk === "LOW" ? "var(--info)" : risk === "MEDIUM" ? "var(--warning)" : risk === "HIGH" ? "var(--high)" : "var(--critical)" }}
+                        style={{ color: riskVar(risk) }}
                       >
                         {r.score?.score}<span className={styles.sidebarTargetScoreMax}>/100</span>
                       </div>
