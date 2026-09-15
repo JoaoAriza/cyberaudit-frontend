@@ -6896,7 +6896,9 @@ function HomePage({ url, setUrl, scanLoading, onScan, authed, onLogin }: {
             {t("home.scanBotao")}
           </button>
         </div>
-        <div className={styles.homeScanHint}>{t("home.scanDica")}</div>
+        {/* "Grátis, sem cadastro" só faz sentido para quem ainda não tem conta —
+            quem já está logado não é o público dessa mensagem. */}
+        {!authed && <div className={styles.homeScanHint}>{t("home.scanDica")}</div>}
 
         {!authed && (
           <button className={styles.homeGhostCta} onClick={onLogin}>{t("home.entrarCta")}</button>
