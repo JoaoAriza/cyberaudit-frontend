@@ -213,6 +213,7 @@ export const pt: Catalogo = {
 
   // ── Navegação e header ────────────────────────────────────────────────────
   "nav.voltarInicio": "Voltar ao início",
+  "nav.home": "Home",
   "nav.scanner": "Scanner",
   "nav.admin": "Admin",
   "nav.agendamentos": "Agendamentos",
@@ -226,6 +227,34 @@ export const pt: Catalogo = {
   "nav.scansRestantes": "Scans restantes hoje",
   "nav.sair": "Sair",
   "app.carregando": "Carregando...",
+
+  // ── Home / apresentação ───────────────────────────────────────────────────
+  // EDITE AQUI o conteúdo pessoal: home.nome, home.papel, home.bio e os três
+  // links (linkedinUrl, whatsappUrl, email). Troque também no bloco em inglês
+  // mais abaixo — a guarda de paridade exige as duas versões. O resto é copy do
+  // produto; ajuste à vontade.
+  "home.tag": "Plataforma de auditoria de segurança web",
+  "home.heroTitulo": "Veja o que o seu site expõe antes que outra pessoa veja",
+  "home.heroSub": "O CyberAudit escaneia um endereço e mostra, em linguagem clara, as falhas de configuração que deixam um site vulnerável — cabeçalhos ausentes, certificado, DNS, arquivos sensíveis expostos e o que cada página tem a perder. O propósito é simples: transformar um raio-x técnico em uma conversa que o dono do site entende e consegue agir.",
+  "home.scanBotao": "◈ Escanear",
+  "home.scanDica": "Digite um domínio e veja o resultado no Scanner. Grátis, sem cadastro.",
+  "home.entrarCta": "Entrar ou criar conta →",
+  "home.comoTitulo": "O que a ferramenta faz",
+  "home.feat1Titulo": "Varredura sem instalar nada",
+  "home.feat1Desc": "Analisa cabeçalhos de segurança, TLS, DNS, cookies, métodos HTTP e arquivos expostos a partir da URL — passivo por padrão, ativo quando autorizado.",
+  "home.feat2Titulo": "Score que mapeia consequência",
+  "home.feat2Desc": "Cada achado vem com impacto e correção objetiva, e um rótulo mostra o que a página tem em jogo: vitrine, contato, conta ou pagamento.",
+  "home.feat3Titulo": "Laudo pronto para o cliente",
+  "home.feat3Desc": "Exporta um PDF com a sua marca, acompanha a evolução por domínio e caminho, e agenda novas varreduras automáticas.",
+  "home.sobreTitulo": "Quem está por trás",
+  "home.nome": "João E. Ariza",
+  "home.papel": "Segurança da informação e desenvolvimento",
+  // Parágrafos separados por "\n\n" — a Home quebra em <p>. Para adicionar ou
+  // tirar um parágrafo, é só manter o "\n\n" entre eles.
+  "home.bio": "Minha trajetória na tecnologia começou muito ligada à resolução de problemas e à compreensão de como sistemas funcionam na prática. Na Análise de requisitos, passei a lidar diariamente com diferentes cenários, regras de negócio e necessidades de usuários, desenvolvendo uma visão cada vez mais analítica sobre software e seus processos.\n\nCom o tempo, meu interesse foi além do desenvolvimento de aplicações: comecei a me aprofundar em cibersegurança, especialmente na identificação de vulnerabilidades e na compreensão de como aplicações e infraestruturas podem ser exploradas e, principalmente, protegidas.\n\nFoi dessa paixão que nasceu o CyberAudit, um projeto criado para unir desenvolvimento de software e segurança da informação em uma aplicação real. A ideia é transformar conceitos de segurança em ferramentas práticas, capazes de analisar aplicações, identificar possíveis riscos e apresentar essas informações de forma clara.",
+  "home.linkedinUrl": "https://www.linkedin.com/in/joaoariza/",
+  "home.whatsappUrl": "https://wa.me/5544999353108",
+  "home.email": "joaoariza31@gmail.com",
 
   // ── Painel de scan ────────────────────────────────────────────────────────
   "scan.placeholder": "example.com",
@@ -1391,6 +1420,7 @@ export const en: Catalogo = {
   "convite.redirecionando": "Redirecting to sign in...",
 
   "nav.voltarInicio": "Back to start",
+  "nav.home": "Home",
   "nav.scanner": "Scanner",
   "nav.admin": "Admin",
   "nav.agendamentos": "Schedules",
@@ -1404,6 +1434,29 @@ export const en: Catalogo = {
   "nav.scansRestantes": "Scans left today",
   "nav.sair": "Sign out",
   "app.carregando": "Loading...",
+
+  // Home / presentation — EDIT the personal content here too (home.nome, papel,
+  // bio and the three links). Both languages are required by the parity guard.
+  "home.tag": "Web security audit platform",
+  "home.heroTitulo": "See what your site exposes before someone else does",
+  "home.heroSub": "CyberAudit scans an address and shows, in plain language, the misconfigurations that leave a site vulnerable — missing headers, certificate, DNS, exposed sensitive files and what each page has to lose. The goal is simple: turn a technical x-ray into a conversation the site owner can understand and act on.",
+  "home.scanBotao": "◈ Scan",
+  "home.scanDica": "Type a domain and see the result in the Scanner. Free, no sign-up.",
+  "home.entrarCta": "Sign in or create account →",
+  "home.comoTitulo": "What the tool does",
+  "home.feat1Titulo": "Scan with nothing to install",
+  "home.feat1Desc": "Analyzes security headers, TLS, DNS, cookies, HTTP methods and exposed files from the URL — passive by default, active when authorized.",
+  "home.feat2Titulo": "A score that maps consequence",
+  "home.feat2Desc": "Every finding comes with impact and an objective fix, and a label shows what the page has at stake: showcase, contact, account or payment.",
+  "home.feat3Titulo": "A report ready for the client",
+  "home.feat3Desc": "Exports a PDF with your brand, tracks the trend per domain and path, and schedules new automatic scans.",
+  "home.sobreTitulo": "Who is behind it",
+  "home.nome": "João E. Ariza",
+  "home.papel": "Information security and development",
+  "home.bio": "My path in technology started closely tied to solving problems and understanding how systems work in practice. In requirements analysis, I began dealing daily with different scenarios, business rules and user needs, building an increasingly analytical view of software and its processes.\n\nOver time, my interest went beyond building applications: I started to go deeper into cybersecurity, especially into identifying vulnerabilities and understanding how applications and infrastructure can be exploited and, above all, protected.\n\nThat passion is where CyberAudit was born, a project created to bring software development and information security together in a real application. The idea is to turn security concepts into practical tools that can analyze applications, identify possible risks and present that information clearly.",
+  "home.linkedinUrl": "https://www.linkedin.com/in/joaoariza/",
+  "home.whatsappUrl": "https://wa.me/5544999353108",
+  "home.email": "joaoariza31@gmail.com",
 
   "scan.placeholder": "example.com",
   "scan.botao": "◈ Scan",

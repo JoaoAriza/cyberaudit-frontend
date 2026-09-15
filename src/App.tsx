@@ -138,7 +138,7 @@ interface UserManagementDto { id: string; name: string; email: string; role: str
 interface InviteDto { id: string; name: string; email: string; role: string; jobTitle: string | null; invitedByName: string; accepted: boolean; expired: boolean; expiresAt: string; acceptLink: string | null; }
 interface DomainDto { id: string; host: string; verified: boolean; verifiedAt: string | null; createdAt: string; verificationToken: string; }
 
-type View = "scan" | "login" | "admin" | "schedules" | "domains" | "changes" | "settings";
+type View = "home" | "scan" | "login" | "admin" | "schedules" | "domains" | "changes" | "settings";
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -6827,10 +6827,131 @@ function BillingReturnPage() {
 /** Módulos informativos liberados p/ guest/FREE mesmo com detailsLocked (sincronizar com ScanEntitlementService no backend). */
 const FREE_MODULES = ["transport", "tech", "cert"];
 
+// ── Home / apresentação ─────────────────────────────────────────────────────
+
+const IconeLinkedIn = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+    <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.55V9h3.57v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/>
+  </svg>
+);
+
+const IconeWhatsApp = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+    <path d="M17.5 14.4c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.9-.8-1.5-1.77-1.67-2.07-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.5l-.57-.01c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.5s1.07 2.9 1.22 3.1c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.2 1.87.12.57-.08 1.77-.72 2.02-1.42.25-.7.25-1.29.17-1.42-.07-.13-.27-.2-.57-.35zM12.05 21.5h-.02a9.4 9.4 0 0 1-4.8-1.32l-.34-.2-3.57.93.96-3.48-.22-.36a9.38 9.38 0 0 1-1.44-5c0-5.18 4.22-9.4 9.42-9.4a9.36 9.36 0 0 1 9.4 9.42c0 5.18-4.22 9.4-9.4 9.4zM20.5 3.5A11.8 11.8 0 0 0 12.04 0C5.46 0 .1 5.35.1 11.92c0 2.1.55 4.15 1.6 5.96L0 24l6.3-1.65a11.9 11.9 0 0 0 5.73 1.46h.01c6.58 0 11.94-5.35 11.94-11.92a11.85 11.85 0 0 0-3.48-8.4z"/>
+  </svg>
+);
+
+const IconeEmail = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <path d="m2 6 10 7L22 6" />
+  </svg>
+);
+
+/**
+ * Página de apresentação: o que a ferramenta faz, seu propósito e quem está por
+ * trás — mais a caixa de scan que leva ao Scanner.
+ *
+ * O conteúdo pessoal (nome, bio, links) vive no catálogo como TEXTO editável, para
+ * ser trocado num lugar só e nos dois idiomas. A caixa de scan é simples de
+ * propósito: URL + botão; as opções ACTIVE/EMAIL/PDF ficam no Scanner. Ao enviar,
+ * `onScan` chama o mesmo fluxo do Scanner, que troca de aba (ver `iniciarScan`).
+ */
+function HomePage({ url, setUrl, scanLoading, onScan, authed, onLogin }: {
+  url: string;
+  setUrl: (v: string) => void;
+  scanLoading: boolean;
+  onScan: () => void;
+  authed: boolean;
+  onLogin: () => void;
+}) {
+  const { t } = useI18n();
+
+  const features = [
+    { icon: "⬡", titulo: t("home.feat1Titulo"), desc: t("home.feat1Desc") },
+    { icon: "◈", titulo: t("home.feat2Titulo"), desc: t("home.feat2Desc") },
+    { icon: "⚑", titulo: t("home.feat3Titulo"), desc: t("home.feat3Desc") },
+  ];
+
+  return (
+    <div className={styles.home}>
+      {/* ── Hero ── */}
+      <section className={styles.homeHero}>
+        <span className={styles.homeEyebrow}>{t("home.tag")}</span>
+        <h1 className={styles.homeTitle}>{t("home.heroTitulo")}</h1>
+        <p className={styles.homeLead}>{t("home.heroSub")}</p>
+
+        <div className={styles.homeScanBox}>
+          <div className={styles.inputWrap}>
+            <span className={styles.inputPrefix}>https://</span>
+            <input
+              className={styles.urlInput}
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              placeholder={t("scan.placeholder")}
+              onKeyDown={e => e.key === "Enter" && !scanLoading && onScan()}
+            />
+          </div>
+          <button className={`${styles.btn} ${styles.btnScan}`} onClick={onScan} disabled={scanLoading}>
+            {t("home.scanBotao")}
+          </button>
+        </div>
+        <div className={styles.homeScanHint}>{t("home.scanDica")}</div>
+
+        {!authed && (
+          <button className={styles.homeGhostCta} onClick={onLogin}>{t("home.entrarCta")}</button>
+        )}
+      </section>
+
+      {/* ── O que faz ── */}
+      <section className={styles.homeSection}>
+        <h2 className={styles.homeSectionTitle}>{t("home.comoTitulo")}</h2>
+        <div className={styles.homeFeatures}>
+          {features.map((f, i) => (
+            <div key={i} className={styles.homeFeatureCard}>
+              <span className={styles.homeFeatureIcon}>{f.icon}</span>
+              <h3 className={styles.homeFeatureTitle}>{f.titulo}</h3>
+              <p className={styles.homeFeatureDesc}>{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Quem está por trás ── */}
+      <section className={`${styles.homeSection} ${styles.homeAbout}`}>
+        <h2 className={styles.homeSectionTitle}>{t("home.sobreTitulo")}</h2>
+        <div className={styles.homeAboutCard}>
+          <div className={styles.homeAvatar} aria-hidden="true">{t("home.nome").slice(0, 1)}</div>
+          <div className={styles.homeAboutText}>
+            <div className={styles.homeName}>{t("home.nome")}</div>
+            <div className={styles.homeRole}>{t("home.papel")}</div>
+            <div className={styles.homeBio}>
+              {t("home.bio").split("\n\n").map((par, i) => <p key={i}>{par}</p>)}
+            </div>
+            <div className={styles.homeContacts}>
+              <a className={styles.homeContact} href={t("home.linkedinUrl")} target="_blank" rel="noopener noreferrer">
+                <IconeLinkedIn /> LinkedIn
+              </a>
+              <a className={styles.homeContact} href={t("home.whatsappUrl")} target="_blank" rel="noopener noreferrer">
+                <IconeWhatsApp /> WhatsApp
+              </a>
+              <a className={styles.homeContact} href={`mailto:${t("home.email")}`}>
+                <IconeEmail /> {t("home.email")}
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function App() {
   const { t, lang } = useI18n();
   const { user, loading, logout, isAdmin, isAuthenticated } = useAuth();
-  const [view, setView] = useState<View>("scan");
+  // Abre na Home (apresentação); a decisão final por sessão mora no efeito de
+  // landing abaixo — visitante fica na Home, logado cai no Scanner para trabalhar.
+  const [view, setView] = useState<View>("home");
   const [url, setUrl] = useState("github.com");
   const [active, setActive] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
@@ -6873,6 +6994,7 @@ export default function App() {
     }, 60);
   };
   // Volta ao topo (aba Scanner) SEM perder o scan atual — usado no clique da logo.
+  // A Home tem botão próprio na navegação; a logo leva para a área de trabalho.
   const goHome = () => {
     setView("scan");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -6892,6 +7014,16 @@ export default function App() {
 
   useEffect(() => { if (user && view === "login") setView("scan"); }, [user]);
   useEffect(() => () => { pollRef.current && clearInterval(pollRef.current); }, []);
+
+  // Decisão de abertura, uma vez por sessão: visitante fica na Home; quem já está
+  // logado abre direto no Scanner. Um ref garante que só a PRIMEIRA resolução do
+  // auth decide — depois disso o clique em HOME ou na logo continua valendo.
+  const landingDecidedRef = useRef(false);
+  useEffect(() => {
+    if (loading || landingDecidedRef.current) return;
+    landingDecidedRef.current = true;
+    if (user) setView("scan");
+  }, [loading, user]);
 
   /**
    * ACTIVE desliga sozinho quando a sessão não pode rodar scan ativo.
@@ -6938,6 +7070,9 @@ export default function App() {
    * que o usuário já tenha digitado outra coisa.
    */
   async function iniciarScan(alvo: string) {
+    // Um scan sempre pertence ao Scanner: disparar da Home (ou de um caminho
+    // sugerido) troca de aba para o resultado aparecer no lugar certo.
+    setView("scan");
     setUrl(alvo);
     abortRef.current?.abort(); stopPoll();
     setResult(null); setResultLang(null); setError(null); setOwnership(null);
@@ -7246,6 +7381,7 @@ export default function App() {
       <header className={styles.header}>
         <div className={styles.logo} onClick={goHome} title={t("nav.voltarInicio")} role="button" style={{ cursor: "pointer" }}><span className={styles.logoIcon}>◈</span><span className={styles.logoText}>CyberAudit</span></div>
         <nav className={styles.headerNav}>
+          <button className={`${styles.navBtn} ${view === "home" ? styles.navBtnActive : ""}`} onClick={() => { setView("home"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>{t("nav.home")}</button>
           <button className={`${styles.navBtn} ${view === "scan" ? styles.navBtnActive : ""}`} onClick={() => setView("scan")}>{t("nav.scanner")}</button>
           {canViewAdmin && (<button className={`${styles.navBtn} ${view === "admin" ? styles.navBtnActive : ""}`} onClick={() => setView("admin")}>{t("nav.admin")}</button>)}
           {isAuthenticated() && (<button className={`${styles.navBtn} ${view === "schedules" ? styles.navBtnActive : ""}`} onClick={() => setView("schedules")}>{t("nav.agendamentos")}</button>)}
@@ -7293,6 +7429,16 @@ export default function App() {
       </header>
 
       <main className={styles.main}>
+        {view === "home" && (
+          <HomePage
+            url={url}
+            setUrl={setUrl}
+            scanLoading={scanLoading}
+            onScan={handleScan}
+            authed={isAuthenticated()}
+            onLogin={() => setView("login")}
+          />
+        )}
         {!isAuthenticated() && view === "scan" && <GuestBanner onLogin={() => setView("login")} refreshKey={guestRefreshKey} />}
         {isAuthenticated() && view === "scan" && <AvisoRespostasFeedback />}
         {view === "admin" && canViewAdmin && <AdminPanel onUpgrade={() => setShowPlans(true)} />}

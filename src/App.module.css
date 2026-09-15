@@ -125,6 +125,218 @@
   box-sizing: border-box;
 }
 
+/* ── Home / apresentação ───────────────────────────────────────────────────── */
+.home {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
+
+.homeHero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  padding: 40px 0 8px;
+}
+
+.homeEyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.homeTitle {
+  font-size: clamp(26px, 4vw, 42px);
+  line-height: 1.12;
+  font-weight: 800;
+  max-width: 18ch;
+  color: var(--text);
+  margin: 0;
+}
+
+.homeLead {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  max-width: 62ch;
+  margin: 0;
+}
+
+.homeScanBox {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 620px;
+  margin-top: 12px;
+}
+
+.homeScanBox .inputWrap {
+  min-width: 0;   /* deixa a caixa encolher no celular em vez de estourar a largura */
+}
+
+.homeScanHint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.homeGhostCta {
+  margin-top: 4px;
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 4px;
+}
+.homeGhostCta:hover { text-decoration: underline; }
+
+.homeSection {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.homeSectionTitle {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-align: center;
+  margin: 0;
+}
+
+.homeFeatures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 760px) {
+  .homeFeatures { grid-template-columns: 1fr; }
+  .homeScanBox { flex-direction: column; }
+}
+
+.homeFeatureCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color .2s, transform .2s;
+}
+.homeFeatureCard:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+.homeFeatureIcon {
+  font-size: 22px;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.homeFeatureTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.homeFeatureDesc {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.homeAbout .homeAboutCard {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+@media (max-width: 560px) {
+  .homeAbout .homeAboutCard { flex-direction: column; align-items: center; text-align: center; }
+  .homeContacts { justify-content: center; }
+}
+
+.homeAvatar {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 800;
+  color: #07090d;
+  background: var(--accent);
+  text-transform: uppercase;
+}
+
+.homeAboutText { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.homeName {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.homeRole {
+  font-size: 12px;
+  font-family: var(--mono);
+  letter-spacing: .5px;
+  color: var(--accent);
+}
+
+.homeBio {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin: 6px 0 4px;
+}
+.homeBio p { margin: 0; }
+
+.homeContacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.homeContact {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color .15s, color .15s;
+}
+.homeContact:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ── Scan panel ────────────────────────────────────────────────────────── */
 .scanPanel {
   background: var(--surface);

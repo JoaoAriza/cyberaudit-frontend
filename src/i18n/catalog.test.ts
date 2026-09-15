@@ -54,6 +54,12 @@ const IGUAL_DE_PROPOSITO = new Set<string>([
 
   // Nome de produto de terceiro.
   "config.totpApp",
+
+  // Nome próprio do dono do site: é o mesmo nos dois idiomas de propósito — uma
+  // pessoa não traduz o próprio nome. O placeholder "Seu Nome"/"Your Name" difere,
+  // mas o nome real que vai substituí-lo será idêntico, e sem esta linha a guarda
+  // acusaria "cópia do português" no dia da edição.
+  "home.nome",
 ]);
 
 describe("paridade entre pt e en", () => {
@@ -74,7 +80,12 @@ describe("o inglês é mesmo inglês", () => {
   it("nenhum texto em inglês carrega acento do português", () => {
     // Vazamento silencioso: a chave existe nos dois lados, a paridade passa, e o
     // cliente estrangeiro lê "Configurações" no meio da tela.
+    //
+    // O que é IGUAL_DE_PROPOSITO fica de fora: é o mesmo texto nos dois idiomas por
+    // declaração, e um nome próprio (ex.: "João E. Ariza") carrega acento nos dois
+    // sem ser vazamento.
     const comAcento = chavesEn
+      .filter((k) => !IGUAL_DE_PROPOSITO.has(k))
       .filter((k) => ACENTO.test(en[k]))
       .map((k) => `${k} = ${en[k]}`);
 
