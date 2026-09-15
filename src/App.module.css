@@ -1223,6 +1223,19 @@ button.impactSource:hover { border-color: var(--impact); }
   color: var(--text-dim);
 }
 
+/* Nota informativa (azul): parte da config é da plataforma, não do dono do site.
+   Cor distinta do vermelho/âmbar das severidades — é contexto, não achado. */
+.platformNote {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--info) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--info) 30%, var(--border));
+  border-left: 3px solid var(--info);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+}
+
 /* Motivo de o nível não ter sido determinado — frase, não selo. */
 .impactReason {
   font-size: 12px;

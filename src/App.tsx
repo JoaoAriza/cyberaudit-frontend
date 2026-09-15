@@ -2407,7 +2407,7 @@ function ScheduleScanDetailModal({ id, onClose }: { id: string; onClose: () => v
               {sec === "transport" && <TransportCardsPanel r={r} />}
 
               {/* ── Headers ── */}
-              {sec === "headers" && <HeaderCardsPanel headers={r.headers ?? {}} host={r.analyzedHost ?? (r.finalUrl ?? r.url ?? "").replace(/^https?:\/\//, "").split("/")[0]} related={r.relatedHostHeaders} />}
+              {sec === "headers" && <HeaderCardsPanel headers={r.headers ?? {}} host={r.analyzedHost ?? (r.finalUrl ?? r.url ?? "").replace(/^https?:\/\//, "").split("/")[0]} related={r.relatedHostHeaders} managedPlatform={r.managedPlatform} />}
 
               {/* ── DNS ── */}
               {sec === "dns" && <DnsCardsPanel r={r} />}
@@ -4607,7 +4607,7 @@ const HEADER_META: Record<string, { short: string; descKey: string; riskKey: str
   "Cache-Control":             { short: "Cache",      descKey: "hdr.cache.desc",    riskKey: "hdr.cache.risk",    example: "no-store, no-cache",                          tipKey: "hdr.cache.tip" },
 };
 
-function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, string>; host?: string | null; related?: RelatedHostHeaders[] }) {
+function HeaderCardsPanel({ headers, host, related, managedPlatform }: { headers: Record<string, string>; host?: string | null; related?: RelatedHostHeaders[]; managedPlatform?: string | null }) {
   const { t } = useI18n();
   const [openSet, setOpenSet] = useState<Set<string>>(new Set());
 
@@ -4625,6 +4625,11 @@ function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, 
       <RelatedHostsPanel related={related} />
     </div>
   );
+
+  // Loja em plataforma gerida (VTEX, Shopify, Nuvemshop…) não controla parte dos
+  // cabeçalhos: quem serve a resposta é a plataforma. Só nota quando há header
+  // pendente — se está tudo OK, não há de quem "dividir a responsabilidade".
+  const temPendencia = entries.some(([, v]) => !v.startsWith("OK"));
 
   // 3 colunas flex independentes — expandir um card não afeta as outras colunas
   const cols: [string, string][][] = [[], [], []];
@@ -4724,6 +4729,9 @@ function HeaderCardsPanel({ headers, host, related }: { headers: Record<string, 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {managedPlatform && temPendencia && (
+        <div className={styles.platformNote}>ⓘ {t("card.header.plataforma", managedPlatform)}</div>
+      )}
       {host && (
         <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>
           {t("card.header.doHost")}{" "}
@@ -7832,7 +7840,7 @@ export default function App() {
                         
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("headers")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
-                        <HeaderCardsPanel headers={r.headers ?? {}} host={r.analyzedHost ?? (r.finalUrl ?? r.url ?? "").replace(/^https?:\/\//, "").split("/")[0]} related={r.relatedHostHeaders} />
+                        <HeaderCardsPanel headers={r.headers ?? {}} host={r.analyzedHost ?? (r.finalUrl ?? r.url ?? "").replace(/^https?:\/\//, "").split("/")[0]} related={r.relatedHostHeaders} managedPlatform={r.managedPlatform} />
                       </>
                     )}
 

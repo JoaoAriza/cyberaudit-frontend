@@ -1133,6 +1133,7 @@ export const pt: Catalogo = {
   "card.header.hostsRelacionados": "Hosts relacionados",
   "card.header.ausentes": "{0} ausente(s)",
   "card.header.foraDoScore": "— informativo, não entra no score",
+  "card.header.plataforma": "Este site roda na plataforma {0}. Parte destes cabeçalhos é servida pela própria plataforma e pode estar fora do controle de quem administra a loja.",
 
   "card.tls.pfsNota":
     " Cifras com ECDHE oferecem Perfect Forward Secrecy — sessões passadas permanecem seguras mesmo se a chave privada vazar.",
@@ -2292,6 +2293,7 @@ export const en: Catalogo = {
   "card.header.hostsRelacionados": "Related hosts",
   "card.header.ausentes": "{0} missing",
   "card.header.foraDoScore": "— informational, it does not count towards the score",
+  "card.header.plataforma": "This site runs on the {0} platform. Some of these headers are served by the platform itself and may be outside the control of whoever manages the store.",
 
   "card.tls.pfsNota":
     " ECDHE ciphers provide Perfect Forward Secrecy — past sessions stay safe even if the private key leaks.",
