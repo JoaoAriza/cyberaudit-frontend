@@ -47,7 +47,7 @@ interface ScanResult {
   sslInfo: SSLInfo; tlsDetails: TlsDetails; headers: Record<string, string>;
   serverVersionExposed: boolean; activeMode: boolean; inputSurfaceDetected: boolean;
   dbErrorLeakageSuspected: boolean; xssProbePerformed: boolean; reflectedXssSuspected: boolean;
-  openPorts: PortFinding[]; corsResult: CorsResult; cookieIssues: CookieFinding[];
+  openPorts: PortFinding[]; sharedHostingPorts?: boolean; corsResult: CorsResult; cookieIssues: CookieFinding[];
   sensitiveRobotsPaths: string[]; robotsTxtPresent?: boolean | null; sensitiveFiles: SensitiveFileFinding[];
   dangerousHttpMethods: HttpMethodFinding[]; securityTxtPresent: boolean | null;
   securityTxtContact: string | null; openRedirectFindings: OpenRedirectFinding[];
@@ -5640,6 +5640,9 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
 
       {/* Port Scan */}
       <SecLabel label={`PORT SCAN [${r.openPorts?.length ?? 0}]`} />
+      {r.sharedHostingPorts && r.openPorts?.length ? (
+        <div className={styles.platformNote} style={{ marginBottom: 10 }}>ⓘ {t("card.ports.hospedagem")}</div>
+      ) : null}
       {r.openPorts?.length ? (
         <table className={styles.table}>
           <thead><tr><th>Port</th><th>Service</th><th>Sev</th><th>ms</th></tr></thead>
