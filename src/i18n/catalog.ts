@@ -378,6 +378,16 @@ export const pt: Catalogo = {
   "col.subdominio": "SUBDOMÍNIO",
   "col.servico": "SERVIÇO",
   "col.endpointGraphql": "Endpoint GraphQL exposto",
+  // Rótulos dos detalhes dentro dos cards de achado. PATH, PAYLOAD, HEADER,
+  // ENDPOINT, ALG/EXP/ISS/AUD e afins ficam literais no App: são termo de arte,
+  // já em inglês na tela em português. Estes não eram — saíam em português na
+  // tela em inglês, no meio de um card cujo resto estava traduzido.
+  "col.destino": "DESTINO",
+  "col.tipo": "TIPO",
+  "col.tipos": "TIPOS",
+  "col.alvo": "ALVO",
+  "col.indicador": "INDICADOR",
+  "col.vulnerabilidade": "VULNERAB.",
 
   // ── Certificate Transparency ──────────────────────────────────────────────
   "ct.certificados": "Certificados",
@@ -501,6 +511,8 @@ export const pt: Catalogo = {
   "card.header.verDetalhes": "ver detalhes",
   "card.header.verComoCorrigir": "ver como corrigir",
   "card.header.valorRecomendado": "VALOR RECOMENDADO",
+  // Cabeçalho sem verbete no HEADER_META: o card cai no valor bruto do backend.
+  "card.header.valorBruto": "Valor:",
 
   // ── Achado, bloqueio por plano e visitante ────────────────────────────────
   "achado.impactoCorrecao": "Impacto e correção",
@@ -816,6 +828,7 @@ export const pt: Catalogo = {
   "auditoria.registrado": "registrado",
   "auditoria.usuario": "Usuário",
   "auditoria.acao": "Ação",
+  "auditoria.detalhes": "Detalhes",
   "auditoria.anterior": "← Anterior",
   "auditoria.proxima": "Próxima →",
 
@@ -872,6 +885,7 @@ export const pt: Catalogo = {
   "admin.ativando": "Ativando...",
   "admin.ativarStatus": "Ativar página de status",
   "admin.abaAuditoria": "Auditoria",
+  "convite.revogar": "Revogar",
   "convite.linkAceite": "LINK DE ACEITE",
   "convite.linkIndisponivel": "Link não disponível — recrie o convite.",
   "convite.convidadoPor": "Convidado por:",
@@ -899,6 +913,10 @@ export const pt: Catalogo = {
   "changes.semMudancas": "sem mudanças",
   "changes.carregandoDetalhes": "Carregando detalhes...",
   "changes.severidade": "Severidade",
+  "changes.colTipo": "Tipo",
+  "changes.colCategoria": "Categoria",
+  "changes.colAntes": "Antes",
+  "changes.colDepois": "Depois",
 
   // ── Gráficos ──────────────────────────────────────────────────────────────
   "grafico.intraday": "SCORE INTRADAY",
@@ -940,6 +958,7 @@ export const pt: Catalogo = {
   "feedback.equipeEncerrou": "A equipe encerrou esta contestação:",
   "feedback.respostaEquipe": "Resposta da equipe:",
   "feedback.phResposta": "Resposta ao cliente...",
+  "feedback.respostaPrefixo": "Resposta:",
   "feedback.aberto": "Aberto",
   "feedback.encerrada": "ENCERRADA",
   "feedback.emAnalise": "Em análise",
@@ -1573,6 +1592,12 @@ export const en: Catalogo = {
   "col.subdominio": "SUBDOMAIN",
   "col.servico": "SERVICE",
   "col.endpointGraphql": "Exposed GraphQL endpoint",
+  "col.destino": "DESTINATION",
+  "col.tipo": "TYPE",
+  "col.tipos": "TYPES",
+  "col.alvo": "TARGET",
+  "col.indicador": "INDICATOR",
+  "col.vulnerabilidade": "VULN.",
 
   "ct.certificados": "Certificates",
   "ct.subdominiosHistoricos": "Historical subdomains",
@@ -1689,6 +1714,7 @@ export const en: Catalogo = {
   "card.header.verDetalhes": "see details",
   "card.header.verComoCorrigir": "see how to fix",
   "card.header.valorRecomendado": "RECOMMENDED VALUE",
+  "card.header.valorBruto": "Value:",
 
   "achado.impactoCorrecao": "Impact and fix",
   "achado.correcao": "FIX",
@@ -1990,6 +2016,7 @@ export const en: Catalogo = {
   "auditoria.registrado": "recorded",
   "auditoria.usuario": "User",
   "auditoria.acao": "Action",
+  "auditoria.detalhes": "Details",
   "auditoria.anterior": "← Previous",
   "auditoria.proxima": "Next →",
 
@@ -2045,6 +2072,7 @@ export const en: Catalogo = {
   "admin.ativando": "Enabling...",
   "admin.ativarStatus": "Enable the status page",
   "admin.abaAuditoria": "Audit",
+  "convite.revogar": "Revoke",
   "convite.linkAceite": "ACCEPTANCE LINK",
   "convite.linkIndisponivel": "Link not available — create the invitation again.",
   "convite.convidadoPor": "Invited by:",
@@ -2071,6 +2099,10 @@ export const en: Catalogo = {
   "changes.semMudancas": "no changes",
   "changes.carregandoDetalhes": "Loading details...",
   "changes.severidade": "Severity",
+  "changes.colTipo": "Type",
+  "changes.colCategoria": "Category",
+  "changes.colAntes": "Before",
+  "changes.colDepois": "After",
 
   "grafico.intraday": "INTRADAY SCORE",
   "grafico.historico": "SCORE HISTORY",
@@ -2109,6 +2141,7 @@ export const en: Catalogo = {
   "feedback.equipeEncerrou": "The team closed this dispute:",
   "feedback.respostaEquipe": "Team answer:",
   "feedback.phResposta": "Answer to the customer...",
+  "feedback.respostaPrefixo": "Reply:",
   "feedback.aberto": "Open",
   "feedback.encerrada": "CLOSED",
   "feedback.emAnalise": "Under review",

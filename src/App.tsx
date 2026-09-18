@@ -797,7 +797,7 @@ function FeedbackModal({ target, onClose }: { target: FeedbackTarget; onClose: (
                   <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3, whiteSpace: "pre-wrap" }}>{f.message}</div>
                   {f.adminResponse && (
                     <div style={{ fontSize: 11, color: "var(--text)", marginTop: 6, paddingLeft: 8, borderLeft: "2px solid var(--secure)" }}>
-                      <strong>Resposta:</strong> {f.adminResponse}
+                      <strong>{t("feedback.respostaPrefixo")}</strong> {f.adminResponse}
                     </div>
                   )}
                   {f.deletionReason && (
@@ -855,9 +855,9 @@ function FeedbackAdminRow({ f, onReply, onDelete }: {
       />
       <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
         <select className={styles.roleSelect} value={status} onChange={e => setStatus(e.target.value as FeedbackStatus)}>
-          <option value="OPEN">Aberto</option>
+          <option value="OPEN">{t("feedback.aberto")}</option>
           <option value="REVIEWING">{t("feedback.emAnalise")}</option>
-          <option value="RESOLVED">Resolvido</option>
+          <option value="RESOLVED">{t("feedback.resolvido")}</option>
         </select>
         <button
           className={`${styles.btn} ${styles.btnScan} ${styles.btnSm}`}
@@ -1213,7 +1213,7 @@ function OwnershipCard({ state, onDismiss }: { state: OwnershipState; onDismiss:
       <p className={styles.ownershipText}>{t("posse.riscoDetectado")} <strong>{state.host}</strong>{t("posse.proveDono")}</p>
       <div className={styles.ownershipSteps}>
         <div className={styles.ownershipStep}><span className={styles.stepNum}>1</span><div><div className={styles.stepTitle}>{t("posse.crieArquivo")}</div><code className={styles.stepCode}>https://{state.host}/.well-known/cyberaudit.txt</code></div></div>
-        <div className={styles.ownershipStep}><span className={styles.stepNum}>2</span><div><div className={styles.stepTitle}>{t("posse.conteudoArquivo")}</div><div className={styles.tokenRow}><code className={styles.stepCode}>{state.token ?? "—"}</code><button className={styles.copyBtn} onClick={copy}>{copied ? t("posse.copiado") : "Copiar"}</button></div></div></div>
+        <div className={styles.ownershipStep}><span className={styles.stepNum}>2</span><div><div className={styles.stepTitle}>{t("posse.conteudoArquivo")}</div><div className={styles.tokenRow}><code className={styles.stepCode}>{state.token ?? "—"}</code><button className={styles.copyBtn} onClick={copy}>{copied ? t("posse.copiado") : t("comum.copiar")}</button></div></div></div>
         <div className={styles.ownershipStep}><span className={styles.stepNum}>3</span><div><div className={styles.stepTitle}>{t("posse.confirme")}</div><div className={styles.tokenRow}><button className={styles.verifyBtn} onClick={check} disabled={checking}>{checking ? t("posse.verificando") : t("posse.checarAgora")}</button>{verified ? <span className={styles.ok}>{t("posse.verificado")}</span> : <span className={styles.bad}>{t("posse.naoEncontrado")}</span>}</div></div></div>
       </div>
       <button className={styles.dismissBtn} onClick={onDismiss}>{t("comum.fechar")}</button>
@@ -2291,7 +2291,7 @@ function InviteItemRow({ inv, onRevoke, roleBadge }: { inv: InviteDto; onRevoke:
         </div>
         <div className={styles.actionBtns} onClick={e => e.stopPropagation()}>
           <span className={`${styles.chevron} ${expanded ? styles.chevronOpen : ""}`} style={{ fontSize: 20, color: "var(--text-dim)", cursor: "pointer", padding: "0 6px" }} onClick={() => setExpanded(o => !o)}>›</span>
-          <button className={`${styles.btn} ${styles.btnDanger}`} onClick={onRevoke}>Revogar</button>
+          <button className={`${styles.btn} ${styles.btnDanger}`} onClick={onRevoke}>{t("convite.revogar")}</button>
         </div>
       </div>
       {expanded && (
@@ -2973,7 +2973,7 @@ function AuditLogsTab() {
                     <th>{t("auditoria.colDataHora")}</th>
                     <th>{t("auditoria.usuario")}</th>
                     <th>{t("auditoria.acao")}</th>
-                    <th>Detalhes</th>
+                    <th>{t("auditoria.detalhes")}</th>
                     <th>IP</th>
                   </tr>
                 </thead>
@@ -3428,12 +3428,12 @@ function ScanTimelineRow({
             <table className={styles.changesTable}>
               <thead>
                 <tr>
-                  <th>Tipo</th>
-                  <th>Categoria</th>
+                  <th>{t("changes.colTipo")}</th>
+                  <th>{t("changes.colCategoria")}</th>
                   <th>{t("changes.colCampo")}</th>
                   <th>{t("changes.severidade")}</th>
-                  <th>Antes</th>
-                  <th>Depois</th>
+                  <th>{t("changes.colAntes")}</th>
+                  <th>{t("changes.colDepois")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -4720,7 +4720,7 @@ function HeaderCardsPanel({ headers, host, related, managedPlatform }: { headers
             )}
             {isOpen && !meta && (
               <div style={{ marginTop: 8, borderTop: "1px solid var(--border2)", paddingTop: 8, fontSize: 11, color: "var(--text-dim)" }}>
-                Valor: <code style={{ fontFamily: "var(--mono)", color: "var(--text)" }}>{val}</code>
+                {t("card.header.valorBruto")} <code style={{ fontFamily: "var(--mono)", color: "var(--text)" }}>{val}</code>
               </div>
             )}
           </div>
@@ -7961,7 +7961,7 @@ export default function App() {
                           items={redirectVuln.map((f: any, i: number) => ({
                             id: `redirect-${i}`, title: `?${f.parameter}=`, severity: "HIGH",
                             summary: t("achado.redirecionaPara", f.redirectedTo),
-                            details: [{ label: t("col.parametro"), value: `?${f.parameter}=` }, { label: "DESTINO", value: f.redirectedTo }],
+                            details: [{ label: t("col.parametro"), value: `?${f.parameter}=` }, { label: t("col.destino"), value: f.redirectedTo }],
                           }))}
                         />
                       </>
@@ -8022,7 +8022,7 @@ export default function App() {
                             id: `apidoc-${i}`, title: f.path, severity: f.severity,
                             extraTags: [{ label: f.type, color: "var(--info)" }],
                             summary: f.description,
-                            details: [{ label: "PATH", value: f.path }, { label: "TIPO", value: f.type }, ...(f.evidence ? [{ label: t("col.evidencia"), value: f.evidence }] : [])],
+                            details: [{ label: "PATH", value: f.path }, { label: t("col.tipo"), value: f.type }, ...(f.evidence ? [{ label: t("col.evidencia"), value: f.evidence }] : [])],
                           }))}
                         />
                       </>
@@ -8046,7 +8046,7 @@ export default function App() {
                             summary: f.typeCount > 0 ? t("achado.tiposExpostos", f.typeCount) : t("col.endpointGraphql"),
                             details: [
                               { label: "ENDPOINT", value: f.endpoint },
-                              ...(f.typeCount > 0 ? [{ label: "TIPOS", value: `${f.typeCount}` }] : []),
+                              ...(f.typeCount > 0 ? [{ label: t("col.tipos"), value: `${f.typeCount}` }] : []),
                               ...(f.evidence ? [{ label: t("col.evidencia"), value: f.evidence }] : []),
                             ],
                           }))}
@@ -8069,8 +8069,8 @@ export default function App() {
                             details: [
                               { label: "ALG", value: jwt.algorithm },
                               { label: "EXP", value: !jwt.hasExpiry ? "MISSING" : jwt.expired ? "EXPIRED" : t("selo.presente") },
-                              { label: "ISS", value: jwt.hasIssuer ? "✓" : "Ausente" },
-                              { label: "AUD", value: jwt.hasAudience ? "✓" : "Ausente" },
+                              { label: "ISS", value: jwt.hasIssuer ? "✓" : t("selo.ausente") },
+                              { label: "AUD", value: jwt.hasAudience ? "✓" : t("selo.ausente") },
                               ...(jwt.evidence ? [{ label: t("col.evidencia"), value: jwt.evidence }] : []),
                             ],
                           }))}
@@ -8092,7 +8092,7 @@ export default function App() {
                             summary: t("achado.arquivoAlvo", pt.target),
                             details: [
                               { label: t("col.parametro"), value: `?${pt.parameter}=` },
-                              { label: "ALVO", value: pt.target },
+                              { label: t("col.alvo"), value: pt.target },
                               { label: "PAYLOAD", value: pt.payload },
                               ...(pt.evidence ? [{ label: t("col.evidencia"), value: pt.evidence }] : []),
                             ],
@@ -8115,7 +8115,7 @@ export default function App() {
                             summary: t("achado.indicador", f.indicator),
                             details: [
                               { label: t("col.parametro"), value: f.parameter },
-                              { label: "INDICADOR", value: f.indicator },
+                              { label: t("col.indicador"), value: f.indicator },
                               { label: "PAYLOAD", value: f.payload },
                               ...(f.evidence ? [{ label: t("col.evidencia"), value: f.evidence }] : []),
                             ],
@@ -8137,7 +8137,7 @@ export default function App() {
                             subtitle: t("achado.tipo", f.injectionType),
                             details: [
                               { label: t("col.parametro"), value: f.parameter },
-                              { label: "TIPO", value: f.injectionType },
+                              { label: t("col.tipo"), value: f.injectionType },
                               { label: "PAYLOAD", value: f.payload },
                               ...(f.evidence ? [{ label: t("col.evidencia"), value: f.evidence }] : []),
                             ],
@@ -8158,7 +8158,7 @@ export default function App() {
                           id: `sm-${i}`, title: `[${f.type}]`, severity: f.severity,
                           summary: f.url,
                           details: [
-                            { label: "TIPO", value: f.type },
+                            { label: t("col.tipo"), value: f.type },
                             { label: "URL", value: f.url },
                             ...(f.evidence ? [{ label: t("col.evidencia"), value: f.evidence }] : []),
                           ],
@@ -8277,7 +8277,7 @@ export default function App() {
                               { label: "STATUS", value: tk.status },
                               { label: t("col.servico"), value: tk.service },
                               { label: "CNAME →", value: tk.cnameTarget },
-                              { label: "VULNERAB.", value: tk.vulnerability },
+                              { label: t("col.vulnerabilidade"), value: tk.vulnerability },
                               ...(tk.evidence ? [{ label: t("col.evidencia"), value: tk.evidence }] : []),
                             ],
                           }))}
