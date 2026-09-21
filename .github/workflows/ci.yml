@@ -14,6 +14,12 @@ jobs:
   build:
     name: Type-check, test & build (Node 22)
     runs-on: ubuntu-latest
+    # O vite.config (assertApiUrl) exige VITE_API_URL no build de produção. Local
+    # vem do .env.production, que é gitignored — então o CI não o tem. É valor
+    # PÚBLICO (toda VITE_* vai para o bundle do cliente), por isso fica direto aqui;
+    # o build real do Cloudflare Pages usa a env var dele.
+    env:
+      VITE_API_URL: https://api.cyberauditapp.com
     steps:
       - uses: actions/checkout@v4
 
