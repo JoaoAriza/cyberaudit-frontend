@@ -12,14 +12,17 @@ permissions:
 
 jobs:
   build:
-    name: Type-check, test & build (Node 20)
+    name: Type-check, test & build (Node 22)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      # Node 22: o Vite 7 exige ^20.19 || >=22.12. O "20" genérico resolvia um
+      # 20.x abaixo de 20.19 no runner e o `vite build` morria na hora. 22 é a
+      # versão de desenvolvimento local e satisfaz o Vite com folga.
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - run: npm ci
