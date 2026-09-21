@@ -1,0 +1,31 @@
+name: CI
+
+# Type-check, testes e build a cada push na main e em todo PR. O `build` roda o
+# `tsc -b` antes do Vite, então um erro de tipo derruba o CI mesmo sem teste.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Type-check, test & build (Node 20)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      # vitest run — a suíte de unidade (catálogo i18n, impacto, agendamento).
+      - run: npm test
+
+      # tsc -b && vite build — type-check + bundle de produção.
+      - run: npm run build
