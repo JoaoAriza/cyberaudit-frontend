@@ -373,14 +373,37 @@
   color: var(--text-dim);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  /* Gruda no mesmo offset da nav de módulos (top: 72px, logo abaixo do header). Quem
+     rola até um módulo lá embaixo continua vendo o aviso e o botão de refazer, em vez
+     de perdê-lo no topo. z-index abaixo do header (100) e acima dos cards que passam
+     por baixo; --surface é opaco, então nada vaza. */
+  position: sticky;
+  top: 72px;
+  z-index: 50;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
 }
 
-/* Mesma faixa dentro de modal, que já tem o próprio padding. */
+/* Mesma faixa dentro de modal, que já tem o próprio padding e o próprio scroll:
+   ali ela fica no fluxo, sem grudar. */
 .langMismatchCompacto {
   padding: 8px 10px;
   margin-bottom: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  position: static;
+  top: auto;
+  z-index: auto;
+  box-shadow: none;
+}
+
+/* No mobile a nav de módulos vira estática (empilha); a faixa acompanha, porque o
+   header pode ganhar altura ao quebrar linha e o top: 72px deixaria de bater. */
+@media (max-width: 768px) {
+  .langMismatch {
+    position: static;
+    top: auto;
+    box-shadow: none;
+  }
 }
 
 .scanForm {
