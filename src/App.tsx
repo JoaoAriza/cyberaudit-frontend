@@ -115,7 +115,12 @@ interface ScanProgressStep {
   /** NAO_EXECUTADA: sonda ativa num scan passivo — não rodou, e o feed diz isso. */
   state: "PENDENTE" | "RODANDO" | "OK" | "FALHOU" | "PULADO" | "NAO_EXECUTADA";
 }
-interface AsyncStatus { state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null; progress?: ScanProgressStep[]; }
+interface AsyncStatus {
+  state: "PENDING" | "RUNNING" | "DONE" | "ERROR"; result: ScanResult | null; errorMessage: string | null;
+  /** Código estruturado do erro (ex.: "OWNERSHIP_REQUIRED") — ausente na maioria dos erros. */
+  errorCode?: string | null; errorHost?: string | null;
+  progress?: ScanProgressStep[];
+}
 interface ScheduledScanDto {
   id: string;
   host: string;
@@ -132,7 +137,16 @@ interface ScheduledScanDto {
   /** Fuso em que preferredHour deve ser lido; ausente nos agendamentos antigos (UTC). */
   timezone: string | null;
 }
-interface OwnershipState { message: string; host: string; token: string | null; passiveResult: ScanResult | null; }
+interface OwnershipState {
+  message: string; host: string; token: string | null; passiveResult: ScanResult | null;
+  /**
+   * true  = bloqueado por PlanLimitService.checkActiveScan (ACCOUNT_DOMAIN_NOT_VERIFIED):
+   *         remédio é cadastrar+verificar o domínio na conta (POST /domains + /verify).
+   * false = bloqueado pela checagem ao vivo do ScanOrchestrator (OWNERSHIP_REQUIRED):
+   *         remédio é só reconferir o arquivo (GET /scan/verify-check).
+   */
+  accountFlow: boolean;
+}
 interface GuestStatus { used: number; remaining: number; dailyLimit: number; resetsAt: string; }
 interface UserManagementDto { id: string; name: string; email: string; role: string; jobTitle: string | null; active: boolean; createdAt: string; invitedByName: string; }
 interface InviteDto { id: string; name: string; email: string; role: string; jobTitle: string | null; invitedByName: string; accepted: boolean; expired: boolean; expiresAt: string; acceptLink: string | null; }
@@ -1197,24 +1211,66 @@ function OwnershipCard({ state, onDismiss }: { state: OwnershipState; onDismiss:
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [verified, setVerified] = useState(false);
+  const [verified, setVerified] = useState<boolean | null>(null);
+  const [token, setToken] = useState(state.token);
+
+  // O erro que abre este card nunca traz o token embutido (só um link para buscá-lo,
+  // ou nenhum): sem isto o passo 2 mostrava "—" para sempre, e o card virava
+  // instrução incompleta em vez de utilizável.
+  useEffect(() => {
+    if (token) return;
+    api.get("/scan/verify-token", { params: { host: state.host } })
+      .then(r => setToken(r.data.token))
+      .catch(() => {});
+  }, [state.host]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function check() {
     setChecking(true);
-    try { const r = await api.get("/scan/verify-check", { params: { host: state.host } }); setVerified(r.data.verified); }
-    catch { setVerified(false); }
+    try {
+      if (state.accountFlow) {
+        // O gate aqui é o cadastro na conta (PlanLimitService.checkActiveScan), não
+        // só o arquivo — reconferir ao vivo sem cadastrar deixaria "✓ verificado"
+        // na tela e o próximo scan ativo continuaria bloqueado do mesmo jeito.
+        let domainId: string | undefined;
+        try {
+          domainId = (await api.post("/domains", { host: state.host })).data.id;
+        } catch (e: any) {
+          if (e?.response?.status === 409) {
+            const existing = (await api.get<{ id: string; host: string }[]>("/domains"))
+              .data.find(d => d.host === state.host);
+            domainId = existing?.id;
+          }
+        }
+        if (!domainId) { setVerified(false); setChecking(false); return; }
+        await api.post(`/domains/${domainId}/verify`);
+        setVerified(true);
+      } else {
+        const r = await api.get("/scan/verify-check", { params: { host: state.host } });
+        setVerified(r.data.verified);
+      }
+    } catch { setVerified(false); }
     setChecking(false);
   }
   function copy() {
-    if (state.token) { navigator.clipboard.writeText(state.token); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    if (token) { navigator.clipboard.writeText(token); setCopied(true); setTimeout(() => setCopied(false), 2000); }
   }
   return (
     <div className={styles.ownershipCard}>
       <div className={styles.ownershipHeader}><span>⚠</span><span>{t("posse.titulo")}</span></div>
-      <p className={styles.ownershipText}>{t("posse.riscoDetectado")} <strong>{state.host}</strong>{t("posse.proveDono")}</p>
+      <p className={styles.ownershipText}>
+        {state.accountFlow ? t("posse.exigeVerificacaoPre") : t("posse.riscoDetectado")} <strong>{state.host}</strong>
+        {state.accountFlow ? t("posse.exigeVerificacaoPos") : t("posse.proveDono")}
+      </p>
       <div className={styles.ownershipSteps}>
         <div className={styles.ownershipStep}><span className={styles.stepNum}>1</span><div><div className={styles.stepTitle}>{t("posse.crieArquivo")}</div><code className={styles.stepCode}>https://{state.host}/.well-known/cyberaudit.txt</code></div></div>
-        <div className={styles.ownershipStep}><span className={styles.stepNum}>2</span><div><div className={styles.stepTitle}>{t("posse.conteudoArquivo")}</div><div className={styles.tokenRow}><code className={styles.stepCode}>{state.token ?? "—"}</code><button className={styles.copyBtn} onClick={copy}>{copied ? t("posse.copiado") : t("comum.copiar")}</button></div></div></div>
-        <div className={styles.ownershipStep}><span className={styles.stepNum}>3</span><div><div className={styles.stepTitle}>{t("posse.confirme")}</div><div className={styles.tokenRow}><button className={styles.verifyBtn} onClick={check} disabled={checking}>{checking ? t("posse.verificando") : t("posse.checarAgora")}</button>{verified ? <span className={styles.ok}>{t("posse.verificado")}</span> : <span className={styles.bad}>{t("posse.naoEncontrado")}</span>}</div></div></div>
+        <div className={styles.ownershipStep}><span className={styles.stepNum}>2</span><div><div className={styles.stepTitle}>{t("posse.conteudoArquivo")}</div><div className={styles.tokenRow}><code className={styles.stepCode}>{token ?? "—"}</code><button className={styles.copyBtn} onClick={copy} disabled={!token}>{copied ? t("posse.copiado") : t("comum.copiar")}</button></div></div></div>
+        <div className={styles.ownershipStep}><span className={styles.stepNum}>3</span><div><div className={styles.stepTitle}>{t("posse.confirme")}</div><div className={styles.tokenRow}>
+          <button className={styles.verifyBtn} onClick={check} disabled={checking}>
+            {checking ? t("posse.verificando") : state.accountFlow ? t("posse.cadastrarEVerificar") : t("posse.checarAgora")}
+          </button>
+          {verified === true && <span className={styles.ok}>{t("posse.verificado")}</span>}
+          {verified === false && <span className={styles.bad}>{t("posse.naoEncontrado")}</span>}
+        </div></div></div>
       </div>
       <button className={styles.dismissBtn} onClick={onDismiss}>{t("comum.fechar")}</button>
     </div>
@@ -5373,7 +5429,9 @@ function FindingCardsPanel({ items, emptyMsg, cols = 2 }: { items: FindingItem[]
 
 // ── Active Checks Panel ────────────────────────────────────────────────────────
 
-function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void }) {
+function ActiveChecksPanel({ r, onShowPlans, canActiveScan, onVerifyOwnership }: {
+  r: any; onShowPlans: () => void; canActiveScan: boolean; onVerifyOwnership: () => void;
+}) {
   const { t } = useI18n();
   const { openSet, toggle } = useCardSet();
 
@@ -5420,9 +5478,12 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
           <div style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 8, letterSpacing: ".5px" }}>
             {t("ativo.moduloTitulo")}
           </div>
-          <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 20, maxWidth: 400, lineHeight: 1.75 }}>
+          <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 8, maxWidth: 400, lineHeight: 1.75 }}>
             {t("ativo.moduloDesc")}{" "}
             <strong style={{ color: "var(--accent)" }}>{t("ativo.scanAtivo")}</strong>.
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 20, maxWidth: 400, lineHeight: 1.75 }}>
+            ⚠ {t("ativo.exigeDono")}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "7px 32px", marginBottom: 24, textAlign: "left" }}>
             {[t("ativo.wafDetection"), t("ativo.corsAnalysis"), t("ativo.sensitiveFiles"), t("ativo.xssSqli"), t("ativo.portScan"), t("ativo.dbErrorLeak")].map(f => (
@@ -5431,13 +5492,16 @@ function ActiveChecksPanel({ r, onShowPlans }: { r: any; onShowPlans: () => void
               </div>
             ))}
           </div>
-          <button onClick={onShowPlans} style={{
+          {/* Quem já tem o plano não precisa de "ver planos" — o que falta é provar
+              posse do domínio, e o botão certo abre o mesmo card usado no resto do
+              produto para isso, direto com o host deste scan. */}
+          <button onClick={canActiveScan ? onVerifyOwnership : onShowPlans} style={{
             background: "var(--accent)", color: "var(--bg)", border: "none",
             borderRadius: "var(--radius)", padding: "10px 26px",
             fontFamily: "var(--mono)", fontSize: 12, fontWeight: 700,
             cursor: "pointer", letterSpacing: ".5px",
           }}>
-            {t("bloqueio.verPlanosMaiusculo")}
+            {canActiveScan ? t("ativo.verificarPropriedade") : t("bloqueio.verPlanosMaiusculo")}
           </button>
         </div>
       </div>
@@ -7117,6 +7181,13 @@ export default function App() {
           }
           else if (status.state === "ERROR") {
             stopPoll(); setScanLoading(false);
+            if (status.errorCode === "OWNERSHIP_REQUIRED" && status.errorHost) {
+              // Checagem AO VIVO do .well-known feita durante o scan (ScanOrchestrator) —
+              // diferente do bloqueio de cadastro (ver handleError): aqui reconferir o
+              // arquivo já basta, não precisa registrar o domínio em Domínios.
+              setOwnership({ message: status.errorMessage ?? "", host: status.errorHost, token: null, passiveResult: null, accountFlow: false });
+              return;
+            }
             const msg = status.errorMessage ?? "";
             const isUnreachable = msg.includes("UnknownHostException") || msg.includes("Name or service not known") || msg.includes("nodename nor servname provided") || msg.includes("No address associated");
             setError(isUnreachable ? t("scan.erroInacessivel", alvo) : t("scan.erroProcessar", msg));
@@ -7134,11 +7205,17 @@ export default function App() {
     if (aborted) { setError(t("scan.cancelado")); return; }
     if (err?.response?.status === 401) { setError(t("scan.requerAuth")); setView("login"); return; }
     const data = err?.response?.data;
-    const isOwnership = err?.response?.status === 403 && (data?.error === "OWNERSHIP_REQUIRED" || data?.message?.includes("proprietário verificado") || data?.message?.includes("OWNERSHIP"));
-    if (isOwnership) {
-      const host = url.replace(/^https?:\/\//, "").split("/")[0];
-      const tokenMatch = data?.message?.match(/cyberaudit-verify=[^\s"]+/);
-      setOwnership({ message: data?.message ?? "", host, token: tokenMatch?.[0] ?? null, passiveResult: data?.passiveResult ?? null });
+    // ACCOUNT_DOMAIN_NOT_VERIFIED: PlanLimitService.checkActiveScan recusou ANTES de
+    // qualquer scan rodar — a conta (PRO/EMPRESA) não tem este host cadastrado e
+    // verificado em Domínios. Remédio é cadastrar+verificar lá, não só reconferir o
+    // arquivo (por isso accountFlow: true — ver OwnershipCard).
+    const isAccountOwnership = err?.response?.status === 403 && data?.error === "ACCOUNT_DOMAIN_NOT_VERIFIED";
+    // OWNERSHIP_REQUIRED: checagem ao vivo do ScanOrchestrator. Normalmente chega pelo
+    // polling (ver runAsync), mas alguma resposta síncrona ainda pode cair aqui.
+    const isGuestOwnership = err?.response?.status === 403 && (data?.error === "OWNERSHIP_REQUIRED" || data?.message?.includes("proprietário verificado") || data?.message?.includes("OWNERSHIP"));
+    if (isAccountOwnership || isGuestOwnership) {
+      const host = data?.host ?? url.replace(/^https?:\/\//, "").split("/")[0];
+      setOwnership({ message: data?.message ?? "", host, token: null, passiveResult: data?.passiveResult ?? null, accountFlow: isAccountOwnership });
       return;
     }
     const message = data?.message ?? err?.message ?? "";
@@ -8299,7 +8376,10 @@ export default function App() {
                           <span className={styles.sidebarContentTitleText}>Active Checks</span>
                           <button className={styles.moduleInfoTrigger} onClick={() => setOpenModuleInfo("active")} title={t("resultado.saibaMaisTitulo")}>{t("resultado.saibaMais")}</button>
                         </div>
-                        <ActiveChecksPanel r={r} onShowPlans={() => setShowPlans(true)} />
+                        <ActiveChecksPanel r={r} onShowPlans={() => setShowPlans(true)}
+                          canActiveScan={canActiveScan}
+                          onVerifyOwnership={() => setOwnership({ message: "", host: badgeHost, token: null, passiveResult: null, accountFlow: true })}
+                        />
                       </>
                     )}
                     </>

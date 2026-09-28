@@ -532,10 +532,13 @@ export const pt: Catalogo = {
   // ── Verificação de propriedade do domínio ─────────────────────────────────
   "posse.titulo": "VERIFICAÇÃO DE PROPRIEDADE",
   "posse.riscoDetectado": "Scan ativo detectou riscos em",
+  "posse.exigeVerificacaoPre": "Scan ativo requer que você seja o proprietário verificado de",
+  "posse.exigeVerificacaoPos": ". Cadastre e verifique o domínio para continuar.",
   "posse.crieArquivo": "Crie o arquivo",
   "posse.conteudoArquivo": "Conteúdo do arquivo",
   "posse.verificando": "Verificando...",
   "posse.checarAgora": "Checar agora",
+  "posse.cadastrarEVerificar": "Cadastrar e verificar",
   "posse.confirme": "Confirme a verificação",
   "posse.verificado": "✓ Verificado! Refaça o scan ativo.",
   "posse.naoEncontrado": "Arquivo não encontrado ainda.",
@@ -1167,6 +1170,9 @@ export const pt: Catalogo = {
   "ativo.moduloTitulo": "MÓDULO ACTIVE CHECKS",
   "ativo.moduloDesc":
     "Análise invasiva com simulação real de ataques — WAF bypass, CORS injection, port scan, XSS/SQLi probes e exposição de arquivos sensíveis. Disponível apenas em",
+  "ativo.exigeDono":
+    "Além de exigir um plano com scan ativo, essa análise só roda em domínios que você comprovou possuir — não em qualquer site que você escaneie.",
+  "ativo.verificarPropriedade": "VERIFICAR PROPRIEDADE DO DOMÍNIO",
 
   "scan.erroInacessivel":
     "⚠ Domínio não encontrado ou inacessível: \"{0}\". Verifique o endereço e tente novamente.",
@@ -1732,10 +1738,13 @@ export const en: Catalogo = {
 
   "posse.titulo": "OWNERSHIP VERIFICATION",
   "posse.riscoDetectado": "Active scan found risks on",
+  "posse.exigeVerificacaoPre": "Active scan requires you to be the verified owner of",
+  "posse.exigeVerificacaoPos": ". Register and verify the domain to continue.",
   "posse.crieArquivo": "Create the file",
   "posse.conteudoArquivo": "File content",
   "posse.verificando": "Checking...",
   "posse.checarAgora": "Check now",
+  "posse.cadastrarEVerificar": "Register and verify",
   "posse.confirme": "Confirm the verification",
   "posse.verificado": "✓ Verified! Run the active scan again.",
   "posse.naoEncontrado": "File not found yet.",
@@ -2340,6 +2349,9 @@ export const en: Catalogo = {
     "The server could not query DNS for this domain. The record may well exist — run the scan again in a few minutes.",
 
   "ativo.moduloTitulo": "ACTIVE CHECKS MODULE",
+  "ativo.exigeDono":
+    "Besides requiring a plan with active scan, this analysis only runs on domains you've proven you own — not on any site you scan.",
+  "ativo.verificarPropriedade": "VERIFY DOMAIN OWNERSHIP",
   "ativo.moduloDesc":
     "Invasive analysis with real attack simulation — WAF bypass, CORS injection, port scan, XSS/SQLi probes and sensitive file exposure. Available only on an",
 
