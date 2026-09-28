@@ -6961,7 +6961,7 @@ function HomePage({ url, setUrl, scanLoading, onScan, authed, onLogin }: {
 
 export default function App() {
   const { t, lang } = useI18n();
-  const { user, loading, logout, isAdmin, isAuthenticated } = useAuth();
+  const { user, loading, logout, isAdmin, isAuthenticated, refreshUser } = useAuth();
   // Abre na Home (apresentação); a decisão final por sessão mora no efeito de
   // landing abaixo — visitante fica na Home, logado cai no Scanner para trabalhar.
   const [view, setView] = useState<View>("home");
@@ -7107,7 +7107,14 @@ export default function App() {
           const status: AsyncStatus = (await api.get(`/scan/async/${scanId}`)).data;
           // Backend antigo não manda `progress`; o feed só não aparece.
           if (status.progress) setScanProgress(status.progress);
-          if (status.state === "DONE") { stopPoll(); setResult(status.result); setResultLang(lang); setLastScanId(scanId); setOpenModule("issues"); setScanLoading(false); setGuestRefreshKey(k => k + 1); }
+          if (status.state === "DONE") {
+            stopPoll(); setResult(status.result); setResultLang(lang); setLastScanId(scanId);
+            setOpenModule("issues"); setScanLoading(false); setGuestRefreshKey(k => k + 1);
+            // Sem isto, remainingScans no header ficava parado no valor do login/boot:
+            // cada scan concluído consome a cota no backend, mas ninguém pedia o /auth/me
+            // de novo para a UI saber disso — o badge "10/10" nunca se movia.
+            void refreshUser();
+          }
           else if (status.state === "ERROR") {
             stopPoll(); setScanLoading(false);
             const msg = status.errorMessage ?? "";
