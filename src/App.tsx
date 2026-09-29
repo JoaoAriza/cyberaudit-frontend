@@ -1934,9 +1934,11 @@ function PlansModal({ onClose }: { onClose: () => void }) {
   const currentPlan: PlanKey = user?.account?.plan ?? "FREE";
 
   const loggedIn = !!user;
-  const [subscribing, setSubscribing] = useState<string | null>(null);
   const [subError, setSubError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  // Plano + preço já formatado do card em que o cliente clicou "Assinar" — abre o
+  // CheckoutModal (tela própria, Pix/cartão) em vez de redirecionar pro MP.
+  const [checkout, setCheckout] = useState<{ plan: PlanKey; priceLabel: string } | null>(null);
 
   /**
    * O endpoint existia desde sempre e nenhuma tela chamava: quem assinava não
@@ -1957,22 +1959,6 @@ function PlansModal({ onClose }: { onClose: () => void }) {
       setSubError(e?.response?.data?.message ?? t("planos.erroCancelar"));
     } finally {
       setCancelling(false);
-    }
-  }
-
-  async function subscribe(plano: PlanKey) {
-    if (!ehPago(plano)) return;
-    setSubscribing(plano); setSubError(null);
-    try {
-      const res = await api.post<{ initPoint: string }>("/billing/subscribe", { plan: plano });
-      if (res.data?.initPoint) {
-        window.location.href = res.data.initPoint; // → checkout do Mercado Pago
-      } else {
-        setSubError(t("planos.erroCheckout")); setSubscribing(null);
-      }
-    } catch (e: any) {
-      setSubError(e?.response?.data?.message ?? e?.response?.data?.error ?? t("planos.erroAssinar"));
-      setSubscribing(null);
     }
   }
 
@@ -2041,10 +2027,9 @@ function PlansModal({ onClose }: { onClose: () => void }) {
                         // não faz sentido (mesmo plano, ou downgrade sem cancelar).
                         <button
                           className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`}
-                          disabled={subscribing !== null}
-                          onClick={() => subscribe(p.plan)}
+                          onClick={() => setCheckout({ plan: p.plan, priceLabel: preco })}
                         >
-                          {subscribing === p.plan ? t("planos.redirecionando") : t("planos.assinar", preco)}
+                          {t("planos.assinar", preco)}
                         </button>
                       ) : (
                         <div className={styles.planCta}>{t("planos.loginParaAssinar")}</div>
@@ -2059,6 +2044,279 @@ function PlansModal({ onClose }: { onClose: () => void }) {
           </div>
         )}
         {subError && <div className={styles.errorBox} style={{ margin: "0 16px 16px" }}>{subError}</div>}
+      </div>
+      {checkout && (
+        <CheckoutModal
+          plan={checkout.plan}
+          priceLabel={checkout.priceLabel}
+          onClose={() => setCheckout(null)}
+          onSuccess={async () => { setCheckout(null); await refreshUser(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Checkout transparente (Pix + Cartão) ────────────────────────────────────
+//
+// "Transparente" quer dizer sem redirecionamento, não "sem SDK": o número do
+// cartão e o CVV são montados pelo SDK do Mercado Pago dentro de um iframe
+// deles mesmos (Secure Fields) — o React só estiliza o container ao redor.
+// Isto nunca passa pelo nosso backend nem toca o DOM do CyberAudit; só o token
+// de uso único que o SDK devolve é que chega no POST /billing/checkout/card.
+
+declare global {
+  interface Window { MercadoPago?: any }
+}
+
+let mpSdkPromise: Promise<void> | null = null;
+
+/** Carrega o script do MP uma única vez, mesmo se várias abas do checkout montarem. */
+function loadMercadoPagoSdk(): Promise<void> {
+  if (window.MercadoPago) return Promise.resolve();
+  if (mpSdkPromise) return mpSdkPromise;
+  mpSdkPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://sdk.mercadopago.com/js/v2";
+    script.onload = () => resolve();
+    script.onerror = () => { mpSdkPromise = null; reject(new Error("sdk mp falhou")); };
+    document.head.appendChild(script);
+  });
+  return mpSdkPromise;
+}
+
+interface PixCheckoutData {
+  subscriptionId: string;
+  paymentId: string;
+  status: string;
+  qrCode: string | null;
+  qrCodeBase64: string | null;
+  ticketUrl: string | null;
+}
+
+function PixCheckoutPanel({ plan, onSuccess }: { plan: PlanKey; onSuccess: () => void }) {
+  const { t } = useI18n();
+  const [cpf, setCpf]         = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [pix, setPix]         = useState<PixCheckoutData | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const [copied, setCopied]   = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Some com o intervalo se o cliente fechar o modal no meio da espera — sem isto o
+  // polling continuava batendo /billing/subscription indefinidamente em segundo plano.
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  async function gerar() {
+    const digits = cpf.replace(/\D/g, "");
+    if (digits.length !== 11) { setError(t("checkout.cpfInvalido")); return; }
+    setLoading(true); setError(null);
+    try {
+      const res = await api.post<PixCheckoutData>("/billing/checkout/pix", { plan, cpf: digits });
+      setPix(res.data);
+      pollRef.current = setInterval(async () => {
+        try {
+          const sub = await api.get("/billing/subscription");
+          if (sub.status === 200 && sub.data?.status === "AUTHORIZED") {
+            if (pollRef.current) clearInterval(pollRef.current);
+            setConfirmed(true);
+            onSuccess();
+          }
+        } catch { /* falha de rede pontual — o próximo tick tenta de novo */ }
+      }, 4000);
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? t("checkout.erroGenerico"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function copiar() {
+    if (pix?.qrCode) {
+      navigator.clipboard.writeText(pix.qrCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  if (confirmed) {
+    return <div className={styles.checkoutSuccess}>✓ {t("checkout.pixConfirmado")}</div>;
+  }
+
+  if (pix) {
+    return (
+      <div>
+        {pix.qrCodeBase64 && (
+          <img
+            src={`data:image/png;base64,${pix.qrCodeBase64}`}
+            alt="QR code Pix"
+            className={styles.pixQrImage}
+          />
+        )}
+        {pix.qrCode && (
+          <div className={styles.tokenRow} style={{ marginBottom: 16 }}>
+            <code className={styles.stepCode} style={{ flex: 1 }}>{pix.qrCode}</code>
+            <button className={styles.copyBtn} onClick={copiar}>
+              {copied ? t("posse.copiado") : t("comum.copiar")}
+            </button>
+          </div>
+        )}
+        <div className={styles.checkoutWaiting}>{t("checkout.aguardandoPagamento")}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.formGroup}>
+      <label className={styles.formLabel}>{t("checkout.cpfLabel")}</label>
+      <input
+        className={styles.formInput}
+        value={cpf}
+        onChange={e => setCpf(e.target.value)}
+        placeholder="000.000.000-00"
+        maxLength={14}
+      />
+      {error && <div className={styles.errorBox}>{error}</div>}
+      <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`} disabled={loading} onClick={gerar}>
+        {loading ? t("checkout.gerando") : t("checkout.gerarPix")}
+      </button>
+    </div>
+  );
+}
+
+function CardCheckoutPanel({ plan, onSuccess }: { plan: PlanKey; onSuccess: () => void }) {
+  const { t } = useI18n();
+  const publicKey = import.meta.env.VITE_MP_PUBLIC_KEY as string | undefined;
+
+  const [ready, setReady]         = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [name, setName]           = useState("");
+  const [cpf, setCpf]             = useState("");
+  const [status, setStatus]       = useState<string | null>(null);
+  const mpRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!publicKey) { setError(t("checkout.cartaoNaoConfigurado")); return; }
+    let cancelado = false;
+    loadMercadoPagoSdk()
+      .then(() => {
+        if (cancelado) return;
+        // locale: "pt-BR" só afeta textos internos do SDK (validação, placeholder
+        // default) — o layout visual continua sendo o nosso, via className abaixo.
+        mpRef.current = new window.MercadoPago(publicKey, { locale: "pt-BR" });
+        mpRef.current.fields.create("cardNumber", { placeholder: "0000 0000 0000 0000" }).mount("cko-card-number");
+        mpRef.current.fields.create("expirationDate", { placeholder: "MM/AA" }).mount("cko-expiration-date");
+        mpRef.current.fields.create("securityCode", { placeholder: "CVV" }).mount("cko-security-code");
+        setReady(true);
+      })
+      .catch(() => { if (!cancelado) setError(t("checkout.erroCarregarSdk")); });
+    return () => { cancelado = true; };
+  }, [publicKey, t]);
+
+  async function pagar() {
+    if (!mpRef.current) return;
+    const digits = cpf.replace(/\D/g, "");
+    if (!name.trim())       { setError(t("checkout.nomeObrigatorio")); return; }
+    if (digits.length !== 11) { setError(t("checkout.cpfInvalido")); return; }
+
+    setSubmitting(true); setError(null);
+    try {
+      // O número/CVV nunca passam por aqui — vêm direto dos Secure Fields pro SDK.
+      const tokenResp = await mpRef.current.createCardToken({
+        cardholderName: name.trim(),
+        identificationType: "CPF",
+        identificationNumber: digits,
+      });
+      const cardTokenId = tokenResp?.id;
+      if (!cardTokenId) throw new Error("token ausente");
+
+      const res = await api.post("/billing/checkout/card", { plan, cardTokenId });
+      setStatus(res.data.status);
+      if (res.data.status === "AUTHORIZED") onSuccess();
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? t("checkout.erroCartaoRecusado"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (status === "AUTHORIZED") {
+    return <div className={styles.checkoutSuccess}>✓ {t("checkout.cartaoConfirmado")}</div>;
+  }
+  if (status === "PENDING") {
+    return <div className={styles.checkoutWaiting}>{t("checkout.aguardandoPagamento")}</div>;
+  }
+
+  return (
+    <div className={styles.formGroup}>
+      {error && <div className={styles.errorBox}>{error}</div>}
+
+      <label className={styles.formLabel}>{t("checkout.nomeCartao")}</label>
+      <input className={styles.formInput} value={name} onChange={e => setName(e.target.value)}
+        placeholder={t("checkout.nomeCartaoPlaceholder")} />
+
+      <label className={styles.formLabel}>{t("checkout.cpfLabel")}</label>
+      <input className={styles.formInput} value={cpf} onChange={e => setCpf(e.target.value)}
+        placeholder="000.000.000-00" maxLength={14} />
+
+      <label className={styles.formLabel}>{t("checkout.numeroCartao")}</label>
+      {/* Estes três divs ficam vazios até o SDK montar o iframe dentro — ver useEffect acima. */}
+      <div id="cko-card-number" className={styles.secureField} />
+
+      <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <label className={styles.formLabel}>{t("checkout.validade")}</label>
+          <div id="cko-expiration-date" className={styles.secureField} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className={styles.formLabel}>CVV</label>
+          <div id="cko-security-code" className={styles.secureField} />
+        </div>
+      </div>
+
+      <button className={`${styles.btn} ${styles.btnScan} ${styles.btnFull}`}
+        disabled={!ready || submitting} onClick={pagar}>
+        {submitting ? t("checkout.processando") : t("checkout.pagar")}
+      </button>
+    </div>
+  );
+}
+
+function CheckoutModal({ plan, priceLabel, onClose, onSuccess }: {
+  plan: PlanKey; priceLabel: string; onClose: () => void; onSuccess: () => void;
+}) {
+  const { t } = useI18n();
+  const [tab, setTab] = useState<"pix" | "card">("pix");
+  const nomePlano = t(plan === "ENTERPRISE" ? "planos.card.ENTERPRISE.nome" : "planos.card.PRO.nome");
+
+  return (
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={styles.modal} style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+        <div className={styles.plansModalHeader}>
+          <span className={styles.plansModalTitle}>{t("checkout.titulo", nomePlano, priceLabel)}</span>
+          <button className={styles.modalClose} onClick={onClose}>✕</button>
+        </div>
+        <div className={styles.checkoutTabs}>
+          <button
+            className={`${styles.checkoutTab} ${tab === "pix" ? styles.checkoutTabActive : ""}`}
+            onClick={() => setTab("pix")}
+          >
+            Pix
+          </button>
+          <button
+            className={`${styles.checkoutTab} ${tab === "card" ? styles.checkoutTabActive : ""}`}
+            onClick={() => setTab("card")}
+          >
+            {t("checkout.cartao")}
+          </button>
+        </div>
+        <div style={{ padding: 24 }}>
+          {tab === "pix"
+            ? <PixCheckoutPanel plan={plan} onSuccess={onSuccess} />
+            : <CardCheckoutPanel plan={plan} onSuccess={onSuccess} />}
+        </div>
       </div>
     </div>
   );

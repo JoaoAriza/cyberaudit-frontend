@@ -19,14 +19,22 @@ import { resolve } from 'node:path'
 function cspPlugin(apiOrigin: string): Plugin {
   const csp = [
     "default-src 'self'",
-    "script-src 'self'",
+    // sdk.mercadopago.com: SDK v2 do checkout transparente (CheckoutModal). Carrega
+    // scripts adicionais de http2.mlstatic.com (CDN da MercadoLibre) — visto nos
+    // devtools ao integrar o Secure Fields; ajustar aqui se o console acusar bloqueio
+    // de um domínio novo deles ao testar com uma public key de sandbox de verdade.
+    "script-src 'self' https://sdk.mercadopago.com https://http2.mlstatic.com",
     // CSS Modules + <link> do Google Fonts. 'unsafe-inline' cobre o <style> que o
     // Vite embute em builds pequenos; o style={{}} do React passa por CSSOM e não
     // é alcançado por style-src.
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     `img-src 'self' data: blob: ${apiOrigin}`.trim(),
-    `connect-src 'self' ${apiOrigin}`.trim(),
+    // Secure Fields (número do cartão/CVV) montam um iframe do próprio domínio do MP —
+    // é o que mantém o dado do cartão fora do nosso DOM (SAQ A). connect-src cobre a
+    // chamada do SDK para tokenizar.
+    `connect-src 'self' ${apiOrigin} https://api.mercadopago.com`.trim(),
+    "frame-src https://www.mercadopago.com https://api.mercadopago.com",
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'self'",
