@@ -2085,6 +2085,22 @@ function loadMercadoPagoSdk(): Promise<void> {
   return mpSdkPromise;
 }
 
+/**
+ * Cor do texto/placeholder pros Secure Fields (iframe de outra origem, não lê
+ * as CSS variables da página). Valores copiados de `--text`/`--text-muted` do
+ * App.module.css pra cada tema — se aquelas variáveis mudarem, atualizar aqui
+ * também.
+ */
+function secureFieldStyle(): { color: string; placeholderColor: string; fontFamily: string; fontSize: string } {
+  const light = document.documentElement.getAttribute("data-theme") === "light";
+  return {
+    color: light ? "#14212e" : "#b8ccde",
+    placeholderColor: light ? "#8095a8" : "#344d62",
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: "13px",
+  };
+}
+
 interface PixCheckoutData {
   subscriptionId: string;
   paymentId: string;
@@ -2206,9 +2222,22 @@ function CardCheckoutPanel({ plan, onSuccess }: { plan: PlanKey; onSuccess: () =
         // locale: "pt-BR" só afeta textos internos do SDK (validação, placeholder
         // default) — o layout visual continua sendo o nosso, via className abaixo.
         mpRef.current = new window.MercadoPago(publicKey, { locale: "pt-BR" });
-        mpRef.current.fields.create("cardNumber", { placeholder: "0000 0000 0000 0000" }).mount("cko-card-number");
-        mpRef.current.fields.create("expirationDate", { placeholder: "MM/AA" }).mount("cko-expiration-date");
-        mpRef.current.fields.create("securityCode", { placeholder: "CVV" }).mount("cko-security-code");
+        // Secure Fields são iframe de outra origem — não enxergam as CSS variables
+        // da página, então sem isto o texto digitado sai na cor padrão do MP (escura
+        // demais no tema escuro, quase ilegível contra o fundo). `style` só existe em
+        // Field.update(), não nas opções de fields.create().
+        const style = secureFieldStyle();
+        for (const [field, container] of [
+          ["cardNumber", "cko-card-number"],
+          ["expirationDate", "cko-expiration-date"],
+          ["securityCode", "cko-security-code"],
+        ] as const) {
+          const instance = mpRef.current.fields.create(field, {
+            placeholder: field === "cardNumber" ? "0000 0000 0000 0000" : field === "expirationDate" ? "MM/AA" : "CVV",
+          });
+          instance.mount(container);
+          instance.update({ style });
+        }
         setReady(true);
       })
       .catch(() => { if (!cancelado) setError(t("checkout.erroCarregarSdk")); });
