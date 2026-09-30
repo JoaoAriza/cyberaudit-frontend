@@ -20,20 +20,27 @@ function cspPlugin(apiOrigin: string): Plugin {
   const csp = [
     "default-src 'self'",
     // sdk.mercadopago.com: SDK v2 do checkout transparente (CheckoutModal). Carrega
-    // scripts adicionais de http2.mlstatic.com (CDN da MercadoLibre) — visto nos
-    // devtools ao integrar o Secure Fields; ajustar aqui se o console acusar bloqueio
-    // de um domínio novo deles ao testar com uma public key de sandbox de verdade.
-    "script-src 'self' https://sdk.mercadopago.com https://http2.mlstatic.com",
+    // scripts adicionais de http2.mlstatic.com (CDN da MercadoLibre). O hash cobre
+    // um <script> inline que o próprio SDK injeta pro handshake do Secure Fields —
+    // confirmado com uma public key de PRODUÇÃO de verdade em 2026-09-30: sem ele
+    // o DevTools acusa "Executing inline script violates..." e o campo de número do
+    // cartão fica com o iframe montado mas sem aceitar digitação nenhuma. Se a Ionic/MP
+    // atualizar o bundle do SDK e o hash não bater mais, o console mostra o hash novo
+    // certinho na mensagem de bloqueio — só copiar e trocar aqui.
+    "script-src 'self' https://sdk.mercadopago.com https://http2.mlstatic.com 'sha256-YrbqwkkBIN/ldKH2ZnPl8wvIxqXnaTqKwsOijQhOkUU='",
     // CSS Modules + <link> do Google Fonts. 'unsafe-inline' cobre o <style> que o
     // Vite embute em builds pequenos; o style={{}} do React passa por CSSOM e não
     // é alcançado por style-src.
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     `img-src 'self' data: blob: ${apiOrigin}`.trim(),
-    // Secure Fields (número do cartão/CVV) montam um iframe do próprio domínio do MP —
-    // é o que mantém o dado do cartão fora do nosso DOM (SAQ A). connect-src cobre a
-    // chamada do SDK para tokenizar.
-    `connect-src 'self' ${apiOrigin} https://api.mercadopago.com`.trim(),
+    // Secure Fields (número do cartão/validade/CVV) monta um iframe do domínio do MP —
+    // é o que mantém o dado do cartão fora do nosso DOM (SAQ A). Mas antes de montar o
+    // iframe, o SDK faz fetch/XHR DIRETO da página (não do iframe, que teria CSP própria)
+    // pro handshake em secure-fields.mercadopago.com e pro config em
+    // api-static.mercadopago.com/secure-fields — confirmado em produção: sem os dois,
+    // o campo de número do cartão renderiza a caixa mas não aceita nenhum caractere.
+    `connect-src 'self' ${apiOrigin} https://api.mercadopago.com https://secure-fields.mercadopago.com https://api-static.mercadopago.com`.trim(),
     "frame-src https://www.mercadopago.com https://api.mercadopago.com",
     "object-src 'none'",
     "base-uri 'none'",
