@@ -20,14 +20,18 @@ function cspPlugin(apiOrigin: string): Plugin {
   const csp = [
     "default-src 'self'",
     // sdk.mercadopago.com: SDK v2 do checkout transparente (CheckoutModal). Carrega
-    // scripts adicionais de http2.mlstatic.com (CDN da MercadoLibre). O hash cobre
-    // um <script> inline que o próprio SDK injeta pro handshake do Secure Fields —
-    // confirmado com uma public key de PRODUÇÃO de verdade em 2026-09-30: sem ele
-    // o DevTools acusa "Executing inline script violates..." e o campo de número do
-    // cartão fica com o iframe montado mas sem aceitar digitação nenhuma. Se a Ionic/MP
-    // atualizar o bundle do SDK e o hash não bater mais, o console mostra o hash novo
-    // certinho na mensagem de bloqueio — só copiar e trocar aqui.
-    "script-src 'self' https://sdk.mercadopago.com https://http2.mlstatic.com 'sha256-YrbqwkkBIN/ldKH2ZnPl8wvIxqXnaTqKwsOijQhOkUU='",
+    // scripts adicionais de http2.mlstatic.com (CDN da MercadoLibre). Os dois hashes
+    // cobrem <script>s inline que o próprio SDK injeta pro handshake do Secure Fields —
+    // confirmado com uma public key de PRODUÇÃO de verdade em 2026-09-30: sem eles o
+    // DevTools acusa "Executing inline script violates..." e o campo de número do
+    // cartão fica com o iframe montado mas sem aceitar digitação nenhuma. Apareceram DOIS
+    // hashes diferentes em sequência (cada um só aparece no console depois que o anterior
+    // já não bloqueia mais) — se a Ionic/MP atualizar o bundle e algum hash não bater mais,
+    // o DevTools mostra o hash novo certinho na mensagem de bloqueio, é só trocar aqui. Se
+    // isso continuar aparecendo a cada ajuste (sinal de script gerado dinamicamente, não
+    // hash estável), considerar 'unsafe-inline' em vez de perseguir hash — mas só depois
+    // de confirmar que não tem outra saída, porque isso relaxa a CSP do app inteiro.
+    "script-src 'self' https://sdk.mercadopago.com https://http2.mlstatic.com 'sha256-YrbqwkkBIN/ldKH2ZnPl8wvIxqXnaTqKwsOijQhOkUU=' 'sha256-p5HjIQRfHCR1Ff6Itca6Y/9IaQHQUlJdZsIhOrvtm1o='",
     // CSS Modules + <link> do Google Fonts. 'unsafe-inline' cobre o <style> que o
     // Vite embute em builds pequenos; o style={{}} do React passa por CSSOM e não
     // é alcançado por style-src.
@@ -41,7 +45,10 @@ function cspPlugin(apiOrigin: string): Plugin {
     // api-static.mercadopago.com/secure-fields — confirmado em produção: sem os dois,
     // o campo de número do cartão renderiza a caixa mas não aceita nenhum caractere.
     `connect-src 'self' ${apiOrigin} https://api.mercadopago.com https://secure-fields.mercadopago.com https://api-static.mercadopago.com`.trim(),
-    "frame-src https://www.mercadopago.com https://api.mercadopago.com",
+    // secure-fields.mercadopago.com: origem real do iframe que hospeda número/validade/CVV
+    // (confirmado em produção — o console acusava "Framing ... violates" sem ele, e o
+    // iframe simplesmente não montava).
+    "frame-src https://www.mercadopago.com https://api.mercadopago.com https://secure-fields.mercadopago.com",
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'self'",
