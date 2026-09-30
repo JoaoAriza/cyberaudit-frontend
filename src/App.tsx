@@ -2224,19 +2224,21 @@ function CardCheckoutPanel({ plan, onSuccess }: { plan: PlanKey; onSuccess: () =
         mpRef.current = new window.MercadoPago(publicKey, { locale: "pt-BR" });
         // Secure Fields são iframe de outra origem — não enxergam as CSS variables
         // da página, então sem isto o texto digitado sai na cor padrão do MP (escura
-        // demais no tema escuro, quase ilegível contra o fundo). `style` só existe em
-        // Field.update(), não nas opções de fields.create().
+        // demais no tema escuro, quase ilegível contra o fundo). `style` tem que ir
+        // aqui, nas opções de fields.create() — os @types da comunidade (e a doc)
+        // dizem que "style" só existe em Field.update(), mas testado ao vivo (SDK
+        // real, injetando um campo de teste via console): update() depois do evento
+        // "ready" NÃO aplica nada, e passar style direto em create() funciona.
         const style = secureFieldStyle();
         for (const [field, container] of [
           ["cardNumber", "cko-card-number"],
           ["expirationDate", "cko-expiration-date"],
           ["securityCode", "cko-security-code"],
         ] as const) {
-          const instance = mpRef.current.fields.create(field, {
+          mpRef.current.fields.create(field, {
             placeholder: field === "cardNumber" ? "0000 0000 0000 0000" : field === "expirationDate" ? "MM/AA" : "CVV",
-          });
-          instance.mount(container);
-          instance.update({ style });
+            style,
+          }).mount(container);
         }
         setReady(true);
       })
