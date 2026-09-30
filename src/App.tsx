@@ -2250,15 +2250,17 @@ function CardCheckoutPanel({ plan, onSuccess }: { plan: PlanKey; onSuccess: () =
     if (!mpRef.current) return;
     const digits = cpf.replace(/\D/g, "");
     if (!name.trim())       { setError(t("checkout.nomeObrigatorio")); return; }
-    if (digits.length !== 11) { setError(t("checkout.cpfInvalido")); return; }
+    // CPF é opcional aqui — confirmado ao vivo que o MP tokeniza sem identification
+    // nenhuma (cliente de fora, sem CPF, também consegue pagar de cartão). Só valida
+    // o tamanho se a pessoa digitou alguma coisa; vazio passa direto.
+    if (digits.length > 0 && digits.length !== 11) { setError(t("checkout.cpfInvalido")); return; }
 
     setSubmitting(true); setError(null);
     try {
       // O número/CVV nunca passam por aqui — vêm direto dos Secure Fields pro SDK.
       const tokenResp = await mpRef.current.createCardToken({
         cardholderName: name.trim(),
-        identificationType: "CPF",
-        identificationNumber: digits,
+        ...(digits.length === 11 ? { identificationType: "CPF", identificationNumber: digits } : {}),
       });
       const cardTokenId = tokenResp?.id;
       if (!cardTokenId) throw new Error("token ausente");
@@ -2288,7 +2290,7 @@ function CardCheckoutPanel({ plan, onSuccess }: { plan: PlanKey; onSuccess: () =
       <input className={styles.formInput} value={name} onChange={e => setName(e.target.value)}
         placeholder={t("checkout.nomeCartaoPlaceholder")} />
 
-      <label className={styles.formLabel}>{t("checkout.cpfLabel")}</label>
+      <label className={styles.formLabel}>{t("checkout.cpfLabelCartao")}</label>
       <input className={styles.formInput} value={cpf} onChange={e => setCpf(e.target.value)}
         placeholder="000.000.000-00" maxLength={14} />
 
