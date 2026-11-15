@@ -8,6 +8,7 @@ import { IDIOMAS, formatarData, formatarHora, formatarDataHora, formatarMoeda } 
 import type { Lang } from "./i18n/catalog";
 import type { TwoFactorPending } from "./context/AuthContext";
 import { agruparFamilias, familiaDaUrl, separarUrl } from "./agendamento";
+import { politicaDmarc } from "./dmarc";
 import {
   MODULO_DA_ORIGEM, NIVEIS_IMPACTO, ehNivelImpacto, impactoPorDominio, ordenarPorImpacto, origensDosSinais,
 } from "./impacto";
@@ -5358,7 +5359,11 @@ function DnsCardsPanel({ r }: { r: any }) {
     },
     {
       key: "dmarc", title: "DMARC", present: dns?.dmarcPresent, warn: false, dependeDeDns: true,
-      value: semDns(dns?.dmarcPresent ? `p=${dns.dmarcPolicy?.toLowerCase()}` : t("selo.ausente")),
+      // A política vem do registro: dmarcPolicy é o NÍVEL (STRONG/MEDIUM/WEAK) e virava
+      // "p=medium". Registro duplicado (INVALID) mostra o nível, como o card do SPF.
+      value: semDns(dns?.dmarcPresent
+        ? (dns.dmarcPolicy !== "INVALID" && politicaDmarc(dns.dmarcRecord)) || dns.dmarcPolicy
+        : t("selo.ausente")),
       desc: t("card.dns.dmarcDesc"),
       record: dns?.dmarcRecord,
       tip: t("card.dns.dmarcDica"),
