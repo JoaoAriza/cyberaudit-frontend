@@ -9,6 +9,7 @@ import type { Lang } from "./i18n/catalog";
 import type { TwoFactorPending } from "./context/AuthContext";
 import { agruparFamilias, familiaDaUrl, separarUrl } from "./agendamento";
 import { politicaDmarc } from "./dmarc";
+import { painelApiKey, podeCriarApiKey } from "./apiKeys";
 import {
   MODULO_DA_ORIGEM, NIVEIS_IMPACTO, ehNivelImpacto, impactoPorDominio, ordenarPorImpacto, origensDosSinais,
 } from "./impacto";
@@ -6555,7 +6556,7 @@ interface ApiKeyDto {
 
 function ApiKeysSection() {
   const { t } = useI18n();
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const [keys, setKeys]         = useState<ApiKeyDto[]>([]);
   const [loading, setLoading]   = useState(true);
   const [newName, setNewName]   = useState("");
@@ -6564,10 +6565,10 @@ function ApiKeysSection() {
   const [copied, setCopied]     = useState(false);
   const [error, setError]       = useState<string | null>(null);
 
-  const canApiKeys = isAdmin()
-      || user?.account?.type === "COMPANY"
-      || user?.account?.plan === "PRO"
-      || user?.account?.plan === "ENTERPRISE";
+  // Criar é de plano pago; a lista carrega para todos, porque chave criada quando o
+  // plano permitia continua valendo e precisa poder ser revogada (ver apiKeys.ts).
+  const podeCriar = podeCriarApiKey(user);
+  const painel = painelApiKey(podeCriar, keys, loading);
 
   async function load() {
     try { setKeys((await api.get<ApiKeyDto[]>("/api-keys")).data); }
@@ -6575,7 +6576,7 @@ function ApiKeysSection() {
     finally { setLoading(false); }
   }
 
-  useEffect(() => { if (canApiKeys) load(); else setLoading(false); }, []);
+  useEffect(() => { load(); }, []);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -6602,7 +6603,7 @@ function ApiKeysSection() {
     setTimeout(() => setCopied(false), 2500);
   }
 
-  if (!canApiKeys) {
+  if (painel === "travado") {
     return (
       <div className={styles.settingsCard}>
         <div className={styles.settingsCardHeader}>
@@ -6659,17 +6660,24 @@ function ApiKeysSection() {
 
       {error && <div className={styles.errorBox} style={{ marginBottom: 8 }}>{error}</div>}
 
-      {/* Form nova key */}
-      <form onSubmit={create} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <input className={styles.urlInput} value={newName}
-          onChange={e => setNewName(e.target.value)}
-          placeholder={t("apikey.phNome", t("apikey.githubCi"))}
-          disabled={creating} style={{ flex: 1 }} />
-        <button className={`${styles.btn} ${styles.btnScan}`} type="submit"
-          disabled={creating || !newName.trim()}>
-          {creating ? "..." : t("apikey.gerar")}
-        </button>
-      </form>
+      {/* Form nova key — só com plano que permite criar */}
+      {painel === "completo" ? (
+        <form onSubmit={create} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <input className={styles.urlInput} value={newName}
+            onChange={e => setNewName(e.target.value)}
+            placeholder={t("apikey.phNome", t("apikey.githubCi"))}
+            disabled={creating} style={{ flex: 1 }} />
+          <button className={`${styles.btn} ${styles.btnScan}`} type="submit"
+            disabled={creating || !newName.trim()}>
+            {creating ? "..." : t("apikey.gerar")}
+          </button>
+        </form>
+      ) : (
+        <div className={styles.settingsCardSub} style={{ color: "var(--text-muted)", marginBottom: 12 }}>
+          {t("apikey.disponivelPro")}{" "}
+          <span style={{ color: "var(--accent)", cursor: "pointer" }}>{t("bloqueio.verPlanos")}</span>
+        </div>
+      )}
 
       {/* Lista de keys */}
       {loading ? (
