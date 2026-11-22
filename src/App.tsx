@@ -10,6 +10,7 @@ import type { TwoFactorPending } from "./context/AuthContext";
 import { agruparFamilias, familiaDaUrl, separarUrl } from "./agendamento";
 import { politicaDmarc } from "./dmarc";
 import { painelApiKey, podeCriarApiKey } from "./apiKeys";
+import { alvoInacessivel, avisoAlvoInacessivel } from "./alvoInacessivel";
 import {
   MODULO_DA_ORIGEM, NIVEIS_IMPACTO, ehNivelImpacto, impactoPorDominio, ordenarPorImpacto, origensDosSinais,
 } from "./impacto";
@@ -7492,6 +7493,12 @@ export default function App() {
               setOwnership({ message: status.errorMessage ?? "", host: status.errorHost, token: null, passiveResult: null, accountFlow: false });
               return;
             }
+            // Nada aceitou conexão (ou o domínio deixou de resolver) já dentro do scan:
+            // o Backend não dá nota e manda o código (BUG-16).
+            if (alvoInacessivel(status.errorCode)) {
+              setError(avisoAlvoInacessivel(status.errorMessage, t("scan.erroInacessivel", status.errorHost ?? alvo)));
+              return;
+            }
             const msg = status.errorMessage ?? "";
             const isUnreachable = msg.includes("UnknownHostException") || msg.includes("Name or service not known") || msg.includes("nodename nor servname provided") || msg.includes("No address associated");
             setError(isUnreachable ? t("scan.erroInacessivel", alvo) : t("scan.erroProcessar", msg));
@@ -7520,6 +7527,12 @@ export default function App() {
     if (isAccountOwnership || isGuestOwnership) {
       const host = data?.host ?? url.replace(/^https?:\/\//, "").split("/")[0];
       setOwnership({ message: data?.message ?? "", host, token: null, passiveResult: data?.passiveResult ?? null, accountFlow: isAccountOwnership });
+      return;
+    }
+    // 422 do alvo que não existe ou não respondeu (BUG-16): no POST do async, é o
+    // domínio que não resolve no DNS.
+    if (alvoInacessivel(data?.error)) {
+      setError(avisoAlvoInacessivel(data?.message, t("scan.erroInacessivel", data?.host ?? url)));
       return;
     }
     const message = data?.message ?? err?.message ?? "";
