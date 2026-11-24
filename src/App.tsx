@@ -11,6 +11,7 @@ import { agruparFamilias, familiaDaUrl, separarUrl } from "./agendamento";
 import { politicaDmarc } from "./dmarc";
 import { painelApiKey, podeCriarApiKey } from "./apiKeys";
 import { alvoInacessivel, avisoAlvoInacessivel } from "./alvoInacessivel";
+import { avisosDoCookie } from "./cookieAvisos";
 import {
   MODULO_DA_ORIGEM, NIVEIS_IMPACTO, ehNivelImpacto, impactoPorDominio, ordenarPorImpacto, origensDosSinais,
 } from "./impacto";
@@ -21,7 +22,7 @@ import type { NivelImpacto, SinalImpacto } from "./impacto";
 interface SSLInfo { https: boolean; valid: boolean; expirationDate: string | null; daysRemaining: number; message: string; totalValidityDays?: number; }
 interface TlsDetails { negotiatedProtocol: string; cipherSuite: string; weakProtocol: boolean; message: string; }
 interface CorsResult { tested: boolean; allowOriginValue: string; wildcardOrigin: boolean; reflectsOrigin: boolean; credentialsAllowed: boolean; nullOriginAccepted: boolean; message: string; }
-interface CookieFinding { name: string; httpOnly: boolean; secure: boolean; sameSite: string; risk: string; issues: string; }
+interface CookieFinding { name: string; httpOnly: boolean; secure: boolean; sameSite: string; risk: string; issues: string; problems?: string[] | null; }
 interface PortFinding { port: number; service: string; state: string; severity: string; latencyMs: number; evidence: string; impact: string; recommendation: string; }
 interface SecurityIssue { id: string; title: string; severity: string; impact: string; recommendation: string; }
 interface ScoreResult { score: number; riskLevel: string; notes: string[]; issues: SecurityIssue[]; }
@@ -5529,6 +5530,7 @@ function CookieCardsPanel({ cookies }: { cookies: any[] }) {
       {cookies.map((c, idx) => {
         const key = `${c.name}-${idx}`;
         const color = c.risk === "CRITICAL" ? "var(--critical)" : c.risk === "HIGH" ? "var(--high)" : c.risk === "MEDIUM" ? "var(--warning)" : "var(--low)";
+        const avisos = avisosDoCookie(c);
         return (
           <ModCard key={key} id={key} color={color} isOpen={openSet.has(key)} onToggle={() => toggle(key)} minH={90}
             top={
@@ -5547,9 +5549,9 @@ function CookieCardsPanel({ cookies }: { cookies: any[] }) {
             mid={<p style={{ fontSize: 10, color: "var(--text-dim)", margin: "6px 0 0", lineHeight: 1.5 }}>{c.issues}</p>}
             bottom={
               <>
-                {!c.httpOnly && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "0 0 5px", lineHeight: 1.5 }}>• <strong>{t("card.cookie.httpOnlyAusente")}</strong>: {t("card.cookie.httpOnlyTexto")}</p>}
-                {!c.secure  && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "0 0 5px", lineHeight: 1.5 }}>• <strong>{t("card.cookie.secureAusente")}</strong>: {t("card.cookie.secureTexto")}</p>}
-                {(!c.sameSite || c.sameSite === "None") && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>• <strong>{t("card.cookie.sameSiteAusente")}</strong>: {t("card.cookie.sameSiteTexto")}</p>}
+                {avisos.includes("httpOnly") && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "0 0 5px", lineHeight: 1.5 }}>• <strong>{t("card.cookie.httpOnlyAusente")}</strong>: {t("card.cookie.httpOnlyTexto")}</p>}
+                {avisos.includes("secure")   && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "0 0 5px", lineHeight: 1.5 }}>• <strong>{t("card.cookie.secureAusente")}</strong>: {t("card.cookie.secureTexto")}</p>}
+                {avisos.includes("sameSite") && <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>• <strong>{t("card.cookie.sameSiteAusente")}</strong>: {t("card.cookie.sameSiteTexto")}</p>}
               </>
             }
           />
